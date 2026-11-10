@@ -4,6 +4,10 @@ dist/
 *.tsbuildinfo
 coverage/
 
+# Résultats des tests navigateur (Playwright)
+apps/web/test-results/
+apps/web/playwright-report/
+
 # Client Prisma généré
 apps/api/src/generated/
 

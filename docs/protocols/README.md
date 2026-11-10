@@ -1,6 +1,10 @@
 # Protocoles et modèles physiques
 
-Aucun protocole ni modèle physique n'est implémenté à ce jour (phase 0).
+Aucun échange réseau n'est simulé à ce jour (le moteur arrive en phase 2). Seule la configuration est modélisée et validée.
+
+| Fiche | Niveau |
+|---|---|
+| [Adressage IPv4 (configuration)](ipv4-adressage.md) | Pédagogique simplifié — configuration et validation |
 
 Chaque protocole ou modèle ajouté reçoit un fichier `docs/protocols/<nom>.md` selon ce gabarit :
 

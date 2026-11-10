@@ -27,5 +27,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Les parcours navigateur (e2e/) relèvent de Playwright.
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

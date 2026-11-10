@@ -1,0 +1,284 @@
+import { CATALOG_VERSION, findPort, getModel, type DeviceModelId } from "./catalog.js";
+import { error, type Issue } from "./issues.js";
+import { isIpv4Address, parseIpv4, parsePrefixOrMask, type Ipv4Interface } from "./ipv4.js";
+import {
+  CURRENT_SCHEMA_VERSION,
+  DEVICE_NAME_PATTERN,
+  LIMITS,
+  NFG_FORMAT,
+  type Device,
+  type LinkEndpoint,
+  type NfgDocument,
+  type Position,
+} from "./schema.js";
+import { validateDocument } from "./validation.js";
+
+/**
+ * Commandes d'édition : fonctions pures, partagées par les formulaires et la
+ * future CLI. Chaque commande renvoie un nouveau document (l'ancien n'est
+ * jamais modifié) ou des erreurs, ainsi que les nouveaux avertissements.
+ */
+export type CommandResult =
+  | { ok: true; document: NfgDocument; warnings: Issue[] }
+  | { ok: false; errors: Issue[] };
+
+function fail(...errors: Issue[]): CommandResult {
+  return { ok: false, errors };
+}
+
+const issueKey = (issue: Issue): string => `${issue.code}|${JSON.stringify(issue.params)}`;
+
+/**
+ * Valide le document produit. Seuls les problèmes absents du document de
+ * départ sont attribués à la commande : une erreur nouvelle la refuse.
+ */
+function commit(before: NfgDocument, after: NfgDocument): CommandResult {
+  const previous = new Set(validateDocument(before).map(issueKey));
+  const introduced = validateDocument(after).filter((issue) => !previous.has(issueKey(issue)));
+  const errors = introduced.filter((issue) => issue.severity === "error");
+  if (errors.length > 0) return fail(...errors);
+  return { ok: true, document: after, warnings: introduced };
+}
+
+function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
+  return doc.topology.devices.find((device) => device.id === deviceId);
+}
+
+function deviceNotFound(deviceId: string): CommandResult {
+  return fail(error("device.not-found", { deviceId }));
+}
+
+function normalizeProjectName(name: string): string | null {
+  const trimmed = name.trim();
+  return trimmed.length > 0 && trimmed.length <= LIMITS.maxProjectNameLength ? trimmed : null;
+}
+
+// ---------------------------------------------------------------- Projet
+
+export function createProject(params: { id: string; name: string; now: string }): CommandResult {
+  const name = normalizeProjectName(params.name);
+  if (name === null) return fail(error("project.invalid-name", { max: LIMITS.maxProjectNameLength }));
+  return {
+    ok: true,
+    warnings: [],
+    document: {
+      format: NFG_FORMAT,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      models: { catalog: CATALOG_VERSION },
+      metadata: { id: params.id, name, description: "", createdAt: params.now, updatedAt: params.now },
+      topology: { devices: [], links: [] },
+      configurations: {},
+      layout: { devices: {} },
+    },
+  };
+}
+
+export function renameProject(doc: NfgDocument, params: { name: string }): CommandResult {
+  const name = normalizeProjectName(params.name);
+  if (name === null) return fail(error("project.invalid-name", { max: LIMITS.maxProjectNameLength }));
+  return commit(doc, { ...doc, metadata: { ...doc.metadata, name } });
+}
+
+// ---------------------------------------------------------------- Équipements
+
+/** Plus petit nom libre de la forme préfixe + numéro (PC1, PC2…), insensible à la casse. */
+export function nextDeviceName(doc: NfgDocument, prefix: string): string {
+  const used = new Set(doc.topology.devices.map((device) => device.name.toLowerCase()));
+  let index = 1;
+  while (used.has(`${prefix}${String(index)}`.toLowerCase())) index += 1;
+  return `${prefix}${String(index)}`;
+}
+
+function clampPosition(position: Position): Position {
+  const clamp = (value: number) =>
+    Math.round(Math.min(LIMITS.maxCoordinate, Math.max(-LIMITS.maxCoordinate, Number.isFinite(value) ? value : 0)));
+  return { x: clamp(position.x), y: clamp(position.y) };
+}
+
+export function addDevice(
+  doc: NfgDocument,
+  params: { id: string; model: DeviceModelId; position: Position; name?: string },
+): CommandResult {
+  if (doc.topology.devices.length >= LIMITS.maxDevices) {
+    return fail(error("project.too-many-devices", { max: LIMITS.maxDevices }));
+  }
+  const name = params.name ?? nextDeviceName(doc, getModel(params.model).namePrefix);
+  if (!DEVICE_NAME_PATTERN.test(name)) return fail(error("device.invalid-name", { name }));
+  const device: Device = { id: params.id, model: params.model, name };
+  return commit(doc, {
+    ...doc,
+    topology: { ...doc.topology, devices: [...doc.topology.devices, device] },
+    configurations: { ...doc.configurations, [device.id]: { interfaces: {}, defaultGateway: null } },
+    layout: { devices: { ...doc.layout.devices, [device.id]: clampPosition(params.position) } },
+  });
+}
+
+export function renameDevice(doc: NfgDocument, params: { deviceId: string; name: string }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  const name = params.name.trim();
+  if (!DEVICE_NAME_PATTERN.test(name)) return fail(error("device.invalid-name", { name }));
+  return commit(doc, {
+    ...doc,
+    topology: {
+      ...doc.topology,
+      devices: doc.topology.devices.map((item) => (item.id === device.id ? { ...item, name } : item)),
+    },
+  });
+}
+
+/** Déplacement : modifie la disposition uniquement, jamais le réseau. */
+export function moveDevice(doc: NfgDocument, params: { deviceId: string; position: Position }): CommandResult {
+  if (!findDevice(doc, params.deviceId)) return deviceNotFound(params.deviceId);
+  return commit(doc, {
+    ...doc,
+    layout: { devices: { ...doc.layout.devices, [params.deviceId]: clampPosition(params.position) } },
+  });
+}
+
+/** Supprime l'équipement, ses liens, sa configuration et sa position. */
+export function removeDevice(doc: NfgDocument, params: { deviceId: string }): CommandResult {
+  if (!findDevice(doc, params.deviceId)) return deviceNotFound(params.deviceId);
+  const { [params.deviceId]: _removedConfig, ...configurations } = doc.configurations;
+  const { [params.deviceId]: _removedPosition, ...positions } = doc.layout.devices;
+  return commit(doc, {
+    ...doc,
+    topology: {
+      devices: doc.topology.devices.filter((device) => device.id !== params.deviceId),
+      links: doc.topology.links.filter((link) => link.endpoints.every((end) => end.deviceId !== params.deviceId)),
+    },
+    configurations,
+    layout: { devices: positions },
+  });
+}
+
+// ---------------------------------------------------------------- Liens
+
+/** Ports d'un équipement non encore reliés, dans l'ordre du modèle. */
+export function freePorts(doc: NfgDocument, deviceId: string): string[] {
+  const device = findDevice(doc, deviceId);
+  if (!device) return [];
+  const used = new Set(
+    doc.topology.links.flatMap((link) =>
+      link.endpoints.filter((end) => end.deviceId === deviceId).map((end) => end.portId),
+    ),
+  );
+  return getModel(device.model)
+    .ports.filter((port) => !used.has(port.id))
+    .map((port) => port.id);
+}
+
+export function connectPorts(
+  doc: NfgDocument,
+  params: { linkId: string; a: LinkEndpoint; b: LinkEndpoint },
+): CommandResult {
+  if (doc.topology.links.length >= LIMITS.maxLinks) {
+    return fail(error("project.too-many-links", { max: LIMITS.maxLinks }));
+  }
+  for (const end of [params.a, params.b]) {
+    if (!findDevice(doc, end.deviceId)) return deviceNotFound(end.deviceId);
+  }
+  return commit(doc, {
+    ...doc,
+    topology: {
+      ...doc.topology,
+      links: [...doc.topology.links, { id: params.linkId, endpoints: [params.a, params.b] }],
+    },
+  });
+}
+
+/**
+ * Relie deux équipements par leurs premiers ports libres.
+ * Le choix est visible ensuite dans les propriétés et modifiable.
+ */
+export function connectDevices(
+  doc: NfgDocument,
+  params: { linkId: string; aDeviceId: string; bDeviceId: string },
+): CommandResult {
+  const deviceA = findDevice(doc, params.aDeviceId);
+  const deviceB = findDevice(doc, params.bDeviceId);
+  if (!deviceA) return deviceNotFound(params.aDeviceId);
+  if (!deviceB) return deviceNotFound(params.bDeviceId);
+  if (deviceA.id === deviceB.id) return fail(error("link.same-device", { deviceId: deviceA.id, deviceName: deviceA.name }));
+
+  const portA = freePorts(doc, deviceA.id)[0];
+  const portB = freePorts(doc, deviceB.id)[0];
+  if (portA === undefined || portB === undefined) {
+    const saturated = portA === undefined ? deviceA : deviceB;
+    return fail(error("link.no-free-port", { deviceId: saturated.id, deviceName: saturated.name }));
+  }
+  return connectPorts(doc, {
+    linkId: params.linkId,
+    a: { deviceId: deviceA.id, portId: portA },
+    b: { deviceId: deviceB.id, portId: portB },
+  });
+}
+
+export function disconnect(doc: NfgDocument, params: { linkId: string }): CommandResult {
+  if (!doc.topology.links.some((link) => link.id === params.linkId)) {
+    return fail(error("link.not-found", { linkId: params.linkId }));
+  }
+  return commit(doc, {
+    ...doc,
+    topology: { ...doc.topology, links: doc.topology.links.filter((link) => link.id !== params.linkId) },
+  });
+}
+
+// ---------------------------------------------------------------- IPv4
+
+/**
+ * Analyse une saisie adresse + masque (préfixe « 24 », « /24 » ou masque
+ * « 255.255.255.0 »). Partagée par les formulaires et la future CLI.
+ */
+export function parseIpv4Input(
+  addressText: string,
+  maskText: string,
+): { ok: true; ipv4: Ipv4Interface } | { ok: false; errors: Issue[] } {
+  const errors: Issue[] = [];
+  const address = addressText.trim();
+  if (parseIpv4(address) === null) errors.push(error("ipv4.invalid-address", { value: address }));
+  const prefixLength = parsePrefixOrMask(maskText);
+  if (prefixLength === null) errors.push(error("ipv4.invalid-mask", { value: maskText.trim() }));
+  if (errors.length > 0 || prefixLength === null) return { ok: false, errors };
+  return { ok: true, ipv4: { address, prefixLength } };
+}
+
+export function setInterfaceIpv4(
+  doc: NfgDocument,
+  params: { deviceId: string; portId: string; ipv4: Ipv4Interface | null },
+): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (!findPort(device.model, params.portId)) {
+    return fail(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: params.portId }));
+  }
+  if (!getModel(device.model).ipCapable) {
+    return fail(error("config.not-ip-capable", { deviceId: device.id, deviceName: device.name }));
+  }
+  if (params.ipv4 && !isIpv4Address(params.ipv4.address)) {
+    return fail(error("ipv4.invalid-address", { value: params.ipv4.address }));
+  }
+  const config = doc.configurations[device.id] ?? { interfaces: {}, defaultGateway: null };
+  const { [params.portId]: _previous, ...otherInterfaces } = config.interfaces;
+  const interfaces = params.ipv4 ? { ...otherInterfaces, [params.portId]: { ipv4: params.ipv4 } } : otherInterfaces;
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, interfaces } } });
+}
+
+export function setDefaultGateway(
+  doc: NfgDocument,
+  params: { deviceId: string; gateway: string | null },
+): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "pc") {
+    return fail(error("config.gateway-not-supported", { deviceId: device.id, deviceName: device.name }));
+  }
+  // Chaîne vide ou null : la passerelle est retirée.
+  const gateway = params.gateway?.trim() || null;
+  if (gateway !== null && !isIpv4Address(gateway)) return fail(error("ipv4.invalid-address", { value: gateway }));
+  const config = doc.configurations[device.id] ?? { interfaces: {}, defaultGateway: null };
+  return commit(doc, {
+    ...doc,
+    configurations: { ...doc.configurations, [device.id]: { ...config, defaultGateway: gateway } },
+  });
+}

@@ -36,7 +36,7 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | S-02 | CI minimale (vérifications + migrations sur PostgreSQL) | 0 | disponible avec limites | S-01 | Workflow présent ; exécution sur GitHub après le push de fin de projet |
 | S-03 | API `/api/health` (vivacité) et `/api/health/ready` (préparation) | 0 | disponible | S-01 | 200 / 503 selon la base, tests e2e |
 | S-04 | PostgreSQL local (Docker Compose ou embarqué) + première migration utile | 0 | disponible avec limites | S-03 | `pnpm db:migrate` puis `db:status` à jour ; Docker non testé sur le poste de référence |
-| S-05 | Interface lancée sans API ni base | 0 | disponible | S-01 | `pnpm dev:web` seul, page fonctionnelle |
+| S-05 | Interface lancée sans API ni base | 0 | disponible | S-01 | `pnpm dev:web` seul ; le laboratoire invité n'appelle pas l'API |
 | S-06 | Jetons de design, composants de base, `docs/DESIGN.md` | 0 | disponible | — | Contrastes mesurés, rendu vérifié à 1440/768/360 px |
 | S-07 | Faisabilité documentaire Vercel/NestJS/PostgreSQL | 0 | disponible | — | `docs/DECISIONS.md` D-012 |
 | S-08 | Temps simulé : unité unique documentée | 0 | disponible | — | Tests de conversion et de bornes |
@@ -45,16 +45,19 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 
 | ID | Exigence | Phase | Statut | Dépend | Critère vérifiable |
 |---|---|---|---|---|---|
-| E-01 | Placer PC, switch, routeur (R-200, S-24…) avec ports explicites | 1 | prévu | S-06 | Équipements créés avec ports typés |
-| E-02 | Liens compatibles uniquement | 1 | prévu | E-01 | Lien incompatible refusé avec explication |
-| E-03 | Configuration IPv4 validée (formulaires) | 1 | prévu | E-01 | Adresse/masque invalides refusés |
-| E-04 | Déplacer, supprimer, zoomer, annuler/rétablir d'édition | 1 | prévu | E-01 | Historique d'édition distinct de la simulation |
-| E-05 | Sauvegarde automatique IndexedDB, états visibles, récupération | 1 | prévu | E-01 | Rechargement sans perte ; erreur de quota signalée |
-| E-06 | Export/import `.nfg.json` versionné, validé, atomique, migrations | 1 | prévu | S-01 | Import invalide sans perte du projet courant ; version future refusée |
-| E-07 | Détection d'édition concurrente entre onglets | 1 | prévu | E-05 | Aucune version perdue silencieusement |
-| E-08 | Navigation principale, onglets de projets, vues Topologie/Simulation/Configuration | 1 | prévu | S-06 | État conservé entre vues ; fermeture sûre |
-| E-09 | Liste structurée des équipements/liens et alternative clavier du canevas | 1 | prévu | E-01 | Opérations essentielles au clavier |
-| E-10 | Tests Playwright des parcours front essentiels | 1 | prévu | E-05 | Parcours placer–relier–exporter–réimporter |
+| E-01 | Placer PC, switch, routeur (PC, S-24, R-200) avec ports explicites | 1 | disponible | S-06 | Ports issus du catalogue (eth0 ; ge1–ge24 ; ge0–ge3) |
+| E-02 | Liens valides uniquement (port existant, libre, deux équipements distincts) | 1 | disponible avec limites | E-01 | Refus expliqué ; compatibilité de connectique reportée (E-13) |
+| E-03 | Configuration IPv4 validée (adresse, masque, passerelle) | 1 | disponible | E-01 | Erreurs bloquantes et avertissements pédagogiques (docs/protocols/ipv4-adressage.md) |
+| E-04 | Déplacer, supprimer, zoomer, annuler/rétablir d'édition | 1 | disponible | E-01 | Historique d'édition distinct, 100 étapes |
+| E-05 | Sauvegarde automatique IndexedDB, états visibles, récupération | 1 | disponible | E-01 | Rechargement sans perte ; quota et stockage indisponible signalés |
+| E-06 | Export/import `.nfg.json` versionné, validé, atomique, migrations | 1 | disponible | S-01 | Import invalide sans perte ; version future refusée ; aller-retour identique |
+| E-07 | Édition concurrente entre onglets | 1 | disponible | E-05 | Un onglet éditeur (Web Locks) + contrôle de révision ; conflit explicite |
+| E-08 | Navigation principale, onglets de projets, vues Topologie/Configuration | 1 | disponible avec limites | S-06 | État conservé entre vues ; fermeture sûre. Vue Simulation ajoutée avec le moteur (phase 2) |
+| E-09 | Liste structurée des équipements/liens et alternative clavier du canevas | 1 | disponible | E-01 | Ajout, sélection, liaison, configuration, suppression et déplacement sans souris |
+| E-10 | Tests Playwright des parcours front essentiels | 1 | disponible avec limites | E-05 | 8 parcours ; exécution CI après le push de fin de projet |
+| E-11 | Annotations libres sur le canevas | 3 | prévu | E-01 | Texte affiché comme texte, exporté, sans effet sur le réseau |
+| E-12 | Mini-carte et glisser-déposer depuis la palette | 2 | prévu | M-11 | Utile au scénario de 100 équipements |
+| E-13 | Compatibilité des connectiques (cuivre/fibre, modules) | 4 | prévu | F-01 | Lien entre connectiques incompatibles refusé avec explication |
 
 ### Moteur (phase 2)
 

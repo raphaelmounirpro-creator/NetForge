@@ -68,3 +68,31 @@ Le bleu nuit est l'identité ; le thème clair est proposé par un bouton et mé
 ## D-014 — Table `projects` préparée sans exposition
 
 La première migration crée `projects` (UUID, nom, version de schéma, contenu JSONB, révision, horodatages). Aucune route ne l'expose avant les comptes et contrôles d'accès (phase 5), qui ajouteront le propriétaire par migration.
+
+## D-015 — Paquet `@netforge/project` : modèle et commandes partagés (phase 1)
+
+Le format `.nfg.json` (schéma Zod, limites, intégrité, migrations), le catalogue d'équipements, l'IPv4 et les commandes d'édition vivent dans un paquet sans React ni stockage. Les formulaires l'utilisent dès maintenant ; la CLI (phase 3), le moteur (phase 2) et le serveur (validation des imports, phase 5) l'utiliseront. Chaque commande est pure, renvoie un nouveau document ou des erreurs, et valide le document produit : une erreur nouvelle refuse la commande, ce qui garantit qu'un document en mémoire n'a jamais d'erreur d'intégrité. Les problèmes sont des codes stables avec paramètres ; le texte français est produit par l'interface (i18n).
+
+## D-016 — Format `.nfg.json` v1
+
+Sections séparées : `metadata`, `topology` (équipements, liens), `configurations` (par équipement et par port), `layout` (positions). Les ports ne sont pas stockés : ils découlent du modèle (`models.catalog` versionne le catalogue). Objets stricts (champ inconnu refusé), identifiants restreints à `[A-Za-z0-9_-]`, clés `__proto__`/`constructor`/`prototype` refusées partout, 5 Mo, profondeur 16, 200 000 nœuds, 500 équipements, 1 000 liens. Version future refusée explicitement ; les migrations sont une table explicite (vide tant que seule la v1 existe ; la graine de simulation de la phase 2 en sera la première). Exclus : état d'exécution, sélection, zoom, historique d'édition.
+
+## D-017 — Persistance locale : révisions, verrou d'onglet, enregistrement différé
+
+IndexedDB (bibliothèque `idb`) ; chaque enregistrement porte une révision vérifiée dans la même transaction que l'écriture : une version enregistrée ailleurs n'est jamais écrasée (conflit explicite : copie, export ou rechargement). Un verrou Web Locks par projet donne un seul onglet éditeur ; les autres sont en lecture seule avec « Prendre la main ». Enregistrement automatique 400 ms après la dernière modification, immédiat quand l'onglet est masqué ; avertissement du navigateur avant de quitter avec des modifications en attente. Les données relues depuis IndexedDB repassent par la validation (donnée externe). Les onglets ouverts sont mémorisés dans `localStorage` (confort) pour la récupération après fermeture.
+
+## D-018 — Annuler/rétablir par instantanés
+
+Historique d'édition par projet : pile des documents précédents (100 au plus), en mémoire de session. Les documents sont immuables, donc le coût mémoire est partagé entre instantanés. Distinct de l'historique de simulation (phase 2+).
+
+## D-019 — Navigation sans bibliothèque de routage
+
+Deux pages (`/laboratoire`, `/projets`) : un routeur de 40 lignes sur l'API History suffit (liens natifs conservés). `/` ouvre directement le laboratoire (accès invité). À reconsidérer si les pages se multiplient (comptes, parcours).
+
+## D-020 — Compatibilité des connectiques reportée
+
+Avec une seule connectique (RJ45), la règle « même connectique » était toujours vraie (signalé par le lint). Elle est retirée plutôt que conservée comme abstraction anticipée ; les règles de liaison actuelles sont : ports existants, libres, sur deux équipements distincts. La compatibilité reviendra avec la fibre (phase 4, F-01).
+
+## D-021 — Tests navigateur Playwright
+
+Playwright 1.64 (`apps/web/e2e`). En CI : Chromium installé par Playwright. En local, `PLAYWRIGHT_CHANNEL=msedge` (ou `chrome`) réutilise un navigateur déjà installé, sans téléchargement.

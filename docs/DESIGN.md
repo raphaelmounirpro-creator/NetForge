@@ -40,31 +40,42 @@ Tous les couples texte/fond utilisés dépassent 4,5:1. Règles : l'ambre sert �
 - Grille 4/8 px (échelle d'espacement Tailwind). Rayons : 8 (`sm`), 10 (`md`), 12 px (`lg`).
 - Icônes : famille unique Lucide (licence ISC), trait 2 px, 18–20 px, `aria-hidden` avec texte visible associé.
 
-## Composants communs (phase 0)
+## Composants communs
 
 | Composant | Fichier | Règles |
 |---|---|---|
-| `Button` | `components/ui/Button.tsx` | Variantes `primary` (ambre), `secondary`, `ghost` ; hauteur ≥ 40 px ; `busy` désactive et pose `aria-busy` (pas de double soumission) ; transition couleur/bordure 150 ms sans déplacement. |
-| `Panel` | `components/ui/Panel.tsx` | Section opaque nommée par son titre (`aria-labelledby`), sans carte imbriquée. |
-| `StatusBadge` | `components/ui/StatusBadge.tsx` | Symbole + libellé ; tonalités succès, danger, neutre, en cours. |
-| `LogoMark` | `components/brand/Logo.tsx` | Signe original : deux nœuds reliés par une liaison courbe ambre, point de signal cyan. Décoratif, nom toujours écrit à côté. Favicon équivalent. |
-| `ThemeToggle` | `features/theme/ThemeToggle.tsx` | Bouton nommé selon l'action (« Passer au thème clair »). |
+| `Button` | `components/ui/Button.tsx` | Variantes `primary` (ambre), `secondary`, `ghost`, `danger` ; tailles `md` (≥ 40 px) et `sm` ; `busy` désactive et pose `aria-busy` ; transition couleur/bordure 150 ms sans déplacement. |
+| `IconButton` | `components/ui/Button.tsx` | Nom accessible obligatoire (`aria-label` + infobulle) ; état `aria-pressed` pour les outils et bascules. |
+| `TextField` | `components/ui/TextField.tsx` | Libellé persistant, police à chasse fixe pour les valeurs techniques, bordure `border-strong` ; aide et erreur reliées (`aria-describedby`, `aria-invalid`). Pas d’exemple grisé pouvant passer pour une valeur. |
+| `Tabs` | `components/ui/Tabs.tsx` | Onglets WAI-ARIA (tablist/tab/tabpanel), focus itinérant, flèches, Début/Fin ; zone d’outils facultative à droite. Indicateur ambre. |
+| `Dialog` | `components/ui/Dialog.tsx` | `<dialog>` natif modal : piège du focus, Échap, restitution du focus. |
+| `Notice` | `components/ui/Notice.tsx` | Message persistant : symbole + texte + filet coloré ; tonalités info, succès, avertissement, danger. |
+| `LogoMark` | `components/brand/Logo.tsx` | Signe original : deux nœuds reliés par une liaison courbe ambre, point de signal cyan. Décoratif, nom toujours écrit à côté. |
+| `ThemeToggle` | `features/theme/ThemeToggle.tsx` | Bouton nommé selon l’action (« Passer au thème clair »). |
 
-À venir avec leur phase : champs (libellés persistants, bordure `border-strong`, erreurs reliées), onglets (rôles ARIA, flèches clavier), menus, messages, confirmations.
+Menus et confirmations complexes : à créer avec leur besoin.
+
+## Laboratoire (phase 1)
+
+- En-tête : signe, navigation principale (Projets, Laboratoire ; lien courant souligné en ambre et `aria-current`), bascule de thème. Parcours et Ressources apparaîtront avec leur contenu.
+- Barre des projets ouverts (liste de boutons + fermeture), puis onglets de vue (Topologie, Configuration) avec la barre d’outils à droite : palette, sélection/liaison, annuler/rétablir, zoom, état d’enregistrement, export, raccourcis, propriétés.
+- Colonnes : palette (240 px, ajout + liste structurée des équipements), centre (canevas ou tableaux), propriétés (352 px). Sous 1 024 px, palette et propriétés sont repliées par défaut et un message signale que l’édition est prévue pour un écran plus large.
+- Canevas Konva : fond `canvas` avec grille de points suivant le zoom ; équipements 56 px (cadre `surface`, pictogramme original au trait, nom et première adresse en dessous) ; liens `border-strong`, sélection ambre (épaisseur et couleur), source du mode liaison en pointillés ambre ; noms de ports à 56 px du centre. Couleurs lues depuis les jetons (y compris `light-dark()`) via une sonde CSS.
+- Pas de barre de simulation tant que le moteur n’existe pas (phase 2).
 
 ## Mouvement
 
 | Jeton | Valeur | Usage |
 |---|---|---|
-| `--duration-fast` | 150 ms | Survol, activation, confirmation de sauvegarde |
-| `--duration-base` | 200 ms | Onglets connexion/inscription, changement de vue |
-| `--duration-panel` | 220 ms | Ouverture d'un panneau de propriétés |
+| `--duration-fast` | 150 ms | Survol, activation, état d’enregistrement |
+| `--duration-base` | 200 ms | Indicateur d’onglet, changement de vue |
+| `--duration-panel` | 220 ms | Ouverture des panneaux latéraux (`animate-panel-in-left/right`) |
+| `view-in` | 180 ms | Apparition du contenu d’une vue (`animate-view-in`, opacité seule) |
 | `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | Courbe commune |
 
-CSS uniquement, aucune bibliothèque d'animation. `prefers-reduced-motion: reduce` neutralise transitions et animations (l'indicateur de vérification ne tourne qu'en `motion-safe`). Les paquets animés (phase 3) refléteront uniquement des événements du moteur et s'arrêteront en pause.
+CSS uniquement, aucune bibliothèque d’animation. `prefers-reduced-motion: reduce` neutralise transitions et animations (l’indicateur « Enregistrement… » ne tourne qu’en `motion-safe`). Les animations ne retardent ni l’enregistrement ni les commandes. Les paquets animés (phase 3) refléteront uniquement des événements du moteur et s’arrêteront en pause.
 
 ## Mise en page
 
-- Laboratoire (phase 1) : navigation latérale, palette d'équipements, canevas central, propriétés à droite, barre de simulation en bas ; panneaux repliables sur largeur limitée.
 - Connexion (phase 5) : 58 % visuel / 42 % formulaire sur ordinateur ; formulaire prioritaire sur mobile.
-- Largeurs vérifiées en phase 0 : 1440, 768 et 360 px, sans défilement horizontal.
+- Vérifications réelles : phase 0 à 1440, 768 et 360 px ; phase 1 (laboratoire) à 1440 et 1024 px en thèmes sombre et clair, sans défilement horizontal. L’éditeur complet sur smartphone n’est pas promis.

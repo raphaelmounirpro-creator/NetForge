@@ -17,18 +17,19 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 - Ne jamais inventer une installation, une source, un test réussi, une sauvegarde distante ou un déploiement.
 - Aucun secret dans le code, Git, les exports ou les journaux. `.env` réels ignorés ; `.env.example` sans secret.
 - Interface et documentation en français ; textes de l'interface regroupés dans `apps/web/src/i18n/`.
-- Pas de bibliothèque d'une phase lointaine (Konva, Zustand, xterm.js, Recharts, Playwright arrivent avec leur phase).
+- Pas de bibliothèque d'une phase lointaine (xterm.js en phase 3 ; Recharts seulement quand un graphique est nécessaire).
 
 ## Architecture
 
 | Paquet | Rôle | Règles |
 |---|---|---|
 | `packages/engine` | Moteur à événements discrets | Aucune dépendance à React, NestJS, DOM, IndexedDB. Pas de `Date.now()` ni `Math.random()` dans la logique simulée. Temps en nanosecondes entières (`SimTime`). |
-| `packages/contracts` | Schémas Zod partagés | Source unique des contrats validés à l'exécution (API, imports, messages Worker). |
-| `apps/web` | Client React/Vite | Exprime des intentions et affiche les résultats du moteur ; ne décide jamais d'un résultat réseau. |
+| `packages/project` | Format `.nfg.json`, catalogue, IPv4, validation, commandes d'édition | Fonctions pures. Toute modification d'un projet passe par une commande (formulaires, future CLI). Problèmes = codes stables + paramètres ; texte dans `apps/web/src/i18n`. Nouvelle version du format = migration explicite testée. |
+| `packages/contracts` | Schémas Zod des contrats d'API | Source unique des contrats HTTP validés à l'exécution. |
+| `apps/web` | Client React/Vite | Exprime des intentions et affiche les résultats du moteur ; ne décide jamais d'un résultat réseau. Zustand (`features/lab/store.ts`) : document du projet + état de session (sélection, vue, zoom, historique). Stockage : `features/storage` (IndexedDB, révisions, verrou d'onglet). |
 | `apps/api` | NestJS + Prisma | Logique métier dans les services, jamais dans les contrôleurs. Configuration validée au démarrage (`loadConfig`). |
 
-- Les paquets exposent `src` sous la condition d'export `source` (Vite, Vitest, TypeScript de l'interface) et `dist` par défaut (exécution Node de l'API). L'API compile donc contre `dist` : `pnpm typecheck` et `pnpm dev` construisent les paquets d'abord.
+- Les paquets exposent `src` sous la condition d'export `source` (Vite, Vitest, typage et lint) et `dist` par défaut (exécution Node). Seuls le build de l'API (`tsconfig.build.json`) et `pnpm dev` utilisent `dist` : ils construisent les paquets d'abord.
 - API en ESM (NestJS 12) : imports relatifs suffixés `.js`.
 - Prisma 7 : client généré dans `apps/api/src/generated/prisma` (ignoré par Git), URL fournie par `prisma.config.ts`.
 - `/api/health` = vivacité du processus ; `/api/health/ready` = préparation (base comprise, 503 sinon).
@@ -42,11 +43,13 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 | `pnpm db:local` / `pnpm db:up` | PostgreSQL local sans Docker / via Docker Compose |
 | `pnpm db:migrate` | Applique les migrations |
 | `pnpm check` | lint + typecheck + test + build |
+| `pnpm test:e2e` | Parcours Playwright (`PLAYWRIGHT_CHANNEL=msedge` en local, sans téléchargement de navigateur) |
 
 ## Conventions
 
 - TypeScript strict (`tsconfig.base.json`) ; ESLint `strictTypeChecked` + règles React Hooks.
-- Tests Vitest à côté du code (`*.test.ts`) : comportements observables, cas limites, références calculées indépendamment. Pas de test qui recopie l'implémentation.
+- Tests Vitest à côté du code (`*.test.ts`) : comportements observables, cas limites, références calculées indépendamment. Pas de test qui recopie l'implémentation. Parcours navigateur : `apps/web/e2e` (sélecteurs par rôle et nom accessible exact).
+- Textes d'interface uniquement dans `apps/web/src/i18n/fr.ts` ; aucun `dangerouslySetInnerHTML`.
 - Commentaires en français, uniquement pour expliquer une décision utile.
 - Toute simplification pédagogique est documentée dans `docs/protocols/`.
 - Décisions structurantes : `docs/DECISIONS.md`. Identité visuelle : `docs/DESIGN.md` (jetons uniquement, palette Tailwind par défaut désactivée).

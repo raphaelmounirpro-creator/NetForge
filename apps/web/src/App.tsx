@@ -1,63 +1,64 @@
-import { ENGINE_VERSION } from "@netforge/engine";
+import { useEffect } from "react";
+import { Link, navigate, usePathname } from "./app/router";
 import { LogoMark } from "./components/brand/Logo";
-import { Panel } from "./components/ui/Panel";
-import { ServiceStatusPanel } from "./features/service-status/ServiceStatusPanel";
 import { ThemeToggle } from "./features/theme/ThemeToggle";
 import { messages } from "./i18n";
+import { LabPage } from "./pages/LabPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
+import { ProjectsPage } from "./pages/ProjectsPage";
 
-const { app, home, roadmap, footer } = messages;
+const { app, nav } = messages;
+
+const NAV_ITEMS = [
+  { to: "/projets", label: nav.projects },
+  { to: "/laboratoire", label: nav.lab },
+] as const;
+
+function CurrentPage({ pathname }: { pathname: string }) {
+  if (pathname === "/laboratoire") return <LabPage />;
+  if (pathname === "/projets") return <ProjectsPage />;
+  if (pathname === "/") return null;
+  return <NotFoundPage />;
+}
 
 export function App() {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    // L'accès invité ouvre directement le laboratoire.
+    if (pathname === "/") navigate("/laboratoire", { replace: true });
+  }, [pathname]);
+
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-border bg-canvas">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4 sm:px-6">
-          <a href="/" aria-label={app.homeLabel} className="flex items-center gap-2.5 rounded-sm">
-            <LogoMark size={28} />
+    <div className="flex h-dvh flex-col">
+      <header className="shrink-0 border-b border-border bg-canvas">
+        <div className="flex h-12 items-center gap-6 px-4">
+          <Link to="/laboratoire" aria-label={app.homeLabel} className="flex items-center gap-2 rounded-sm">
+            <LogoMark size={26} />
             <span className="text-base font-semibold tracking-wide text-text">{app.name}</span>
-          </a>
-          <ThemeToggle />
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
-        <div className="max-w-2xl">
-          <p className="text-xs font-semibold tracking-[0.16em] text-accent-text uppercase">{app.tagline}</p>
-          <h1 className="mt-3 text-3xl font-semibold text-balance text-text sm:text-4xl">{home.title}</h1>
-          <p className="mt-4 text-base leading-relaxed text-text-muted">{home.intro}</p>
-          <p className="mt-3 text-base leading-relaxed text-text-muted">{home.honesty}</p>
-        </div>
-
-        <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          <ServiceStatusPanel />
-
-          <Panel title={roadmap.title}>
-            <ol className="space-y-3">
-              {roadmap.steps.map((step) => (
-                <li key={step.phase} className="flex gap-3">
-                  <span
-                    className={`mt-0.5 w-16 shrink-0 self-start rounded-sm border py-0.5 text-center text-xs font-semibold ${
-                      step.current ? "border-accent-text text-accent-text" : "border-border text-text-muted"
-                    }`}
+          </Link>
+          <nav aria-label={app.mainNav}>
+            <ul className="flex gap-1">
+              {NAV_ITEMS.map((item) => (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    className="inline-flex min-h-9 items-center rounded-sm px-3 text-sm text-text-muted underline-offset-4 transition-colors duration-(--duration-fast) hover:text-text aria-[current=page]:font-semibold aria-[current=page]:text-text aria-[current=page]:underline aria-[current=page]:decoration-accent aria-[current=page]:decoration-2"
                   >
-                    {step.phase}
-                  </span>
-                  <span className="text-sm text-text">
-                    {step.label}
-                    <span className="block text-xs text-text-muted">{step.current ? roadmap.current : roadmap.planned}</span>
-                  </span>
+                    {item.label}
+                  </Link>
                 </li>
               ))}
-            </ol>
-          </Panel>
+            </ul>
+          </nav>
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
         </div>
+      </header>
+      <main className="min-h-0 flex-1 overflow-y-auto">
+        <CurrentPage pathname={pathname} />
       </main>
-
-      <footer className="border-t border-border">
-        <p className="mx-auto w-full max-w-5xl px-4 py-4 text-xs text-text-muted sm:px-6">
-          {app.name} · {footer.engine} {ENGINE_VERSION}
-        </p>
-      </footer>
     </div>
   );
 }

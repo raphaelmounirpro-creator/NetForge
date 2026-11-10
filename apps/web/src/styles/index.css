@@ -49,6 +49,29 @@
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --duration-panel: 220ms;
+
+  /* Ouverture d'un panneau depuis son bord et changement de vue (voir docs/DESIGN.md). */
+  --animate-panel-in-left: panel-in-left var(--duration-panel) var(--ease-standard);
+  --animate-panel-in-right: panel-in-right var(--duration-panel) var(--ease-standard);
+  --animate-view-in: view-in 180ms var(--ease-standard);
+
+  @keyframes panel-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+  }
+  @keyframes panel-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(8px);
+    }
+  }
+  @keyframes view-in {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 @layer base {

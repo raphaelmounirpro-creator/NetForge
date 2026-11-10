@@ -29,6 +29,8 @@ export default defineConfig(
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: false }],
       // Classes NestJS : modules vides décorés et méthodes statiques forRoot.
       "@typescript-eslint/no-extraneous-class": ["error", { allowWithDecorator: true }],
+      // « const { a: _retiré, ...reste } = objet » : idiome d'omission d'une clé.
+      "@typescript-eslint/no-unused-vars": ["error", { ignoreRestSiblings: true }],
     },
   },
 
