@@ -17,7 +17,7 @@
 | `.env.example` sans secret, lockfile | atteint | `apps/api/.env.example`, `pnpm-lock.yaml` |
 | lint / typecheck / test / build | atteint | `pnpm check` : 18 tests réussis |
 | CI minimale | atteint avec limite | `.github/workflows/ci.yml` écrit ; **non exécuté** (pas encore poussé) |
-| Démarrage depuis un clone propre | à vérifier | voir ci-dessous |
+| Démarrage depuis un clone propre | atteint avec limite | `install --frozen-lockfile`, `check`, `db:migrate` (base neuve), `dev` réussis depuis un clone ; `db:local` exige un chemin court sous Windows (voir limites) |
 | Front sans base ni API | atteint | `pnpm dev:web` seul : page fonctionnelle, API « Indisponible », base « Non vérifiable » |
 | Faisabilité documentaire Vercel/NestJS/PostgreSQL | atteint | `docs/DECISIONS.md` D-012 (rien provisionné ni déployé) |
 | Direction visuelle et variables communes | atteint avec limite | `docs/DESIGN.md` ; maquette et photo de référence non disponibles |
@@ -29,10 +29,12 @@
 - API compilée lancée : `/api/health` 200 (`Cache-Control: no-store`, sans `X-Powered-By`), `/api/health/ready` 200 avec base, 503 en 94 ms après arrêt de la base ; journal sans URL de connexion.
 - Navigateur (playwright-core + Edge, hors projet) : trois scénarios (sans API, API sans base, tout disponible), aucun débordement horizontal, ordre de focus logique, bouton désactivé pendant la vérification, aucune animation avec mouvement réduit.
 - Bundle web : 313 kB (97 kB gzip), aucune variable serveur.
+- Clone propre du commit : `pnpm install --frozen-lockfile`, copie de `.env.example`, `pnpm check` réussi ; `pnpm db:migrate` sur une base neuve (créée puis supprimée après test) ; `pnpm dev` : interface et API démarrées, `/api/health` et `/api/health/ready` 200 via le proxy Vite. Ce contrôle a révélé deux défauts, corrigés : lint impossible avant génération du client Prisma, et échec de PostgreSQL embarqué dans un chemin Windows trop long (désormais signalé).
 
 ### Blocages et limites
 
 - Docker absent : Docker Compose non testé localement (la CI utilise un service PostgreSQL équivalent).
+- `pnpm db:local` sous Windows : les binaires PostgreSQL échouent si le chemin du dépôt dépasse environ 80 caractères (limite de 260 caractères atteinte). Le script avertit ; cloner dans un chemin court.
 - Maquette et photo de référence inaccessibles (liens ChatGPT) : à déposer dans le dépôt avant la page de connexion (phase 5).
 - Le dépôt GitHub prévu existe et est **public** : tout contenu poussé sera visible. Aucune licence choisie.
 
