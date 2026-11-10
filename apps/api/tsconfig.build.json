@@ -1,6 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    // Build de production : les paquets internes sont résolus vers leur dist
+    // (exécutable par Node), pas vers leurs sources TypeScript.
+    "customConditions": [],
     "noEmit": false,
     "rootDir": "src",
     "outDir": "dist",

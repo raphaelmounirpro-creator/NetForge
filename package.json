@@ -16,8 +16,8 @@
     "db:down": "docker compose down",
     "db:local": "pnpm --filter @netforge/api db:local",
     "db:migrate": "pnpm --filter @netforge/api db:migrate",
-    "lint": "eslint .",
-    "typecheck": "pnpm build:packages && pnpm -r typecheck",
+    "lint": "pnpm --filter @netforge/api prisma:generate && eslint .",
+    "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"

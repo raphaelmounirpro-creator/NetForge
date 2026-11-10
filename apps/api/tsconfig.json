@@ -3,6 +3,7 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "customConditions": ["source"],
     "types": ["node"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
