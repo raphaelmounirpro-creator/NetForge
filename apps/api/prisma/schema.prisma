@@ -1,0 +1,33 @@
+// Schéma de la base NetForge.
+// L'URL de connexion est fournie par prisma.config.ts (variable DATABASE_URL).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Projet NetForge enregistré côté serveur (format d'échange .nfg.json).
+///
+/// Préparé en phase 0 pour la sauvegarde distante de la phase 5 : aucune route
+/// ne l'expose avant l'arrivée des comptes et des contrôles d'accès. Le
+/// propriétaire (compte) sera ajouté par une migration de la phase 5.
+model Project {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(120)
+  /// Version du schéma .nfg.json du contenu, pour les migrations explicites.
+  schemaVersion Int      @map("schema_version")
+  /// Contenu validé du projet (topologie, configurations, disposition).
+  content       Json
+  /// Révision incrémentée à chaque sauvegarde : détection des conflits.
+  revision      Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("projects")
+}

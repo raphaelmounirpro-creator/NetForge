@@ -1,0 +1,33 @@
+{
+  "name": "netforge",
+  "private": true,
+  "description": "NetForge — laboratoire pédagogique de simulation de réseaux (cuivre, Ethernet/IP, fibre, FTTH).",
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=26.0.0 <27",
+    "pnpm": ">=12.18.0 <13"
+  },
+  "scripts": {
+    "build:packages": "pnpm --filter \"./packages/*\" build",
+    "dev": "pnpm build:packages && pnpm --parallel --filter @netforge/web --filter @netforge/api dev",
+    "dev:web": "pnpm --filter @netforge/web dev",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:local": "pnpm --filter @netforge/api db:local",
+    "db:migrate": "pnpm --filter @netforge/api db:migrate",
+    "lint": "eslint .",
+    "typecheck": "pnpm build:packages && pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
+    "typescript": "catalog:",
+    "typescript-eslint": "8.72.2"
+  }
+}

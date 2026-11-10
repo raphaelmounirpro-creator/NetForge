@@ -1,0 +1,21 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Scripts d'installation des dépendances (pnpm les bloque par défaut).
+# Seul le moteur de migration Prisma est autorisé : il télécharge le binaire
+# officiel nécessaire à « prisma migrate ». Les autres scripts sont des
+# vérifications facultatives ou sans effet sous Windows (revus le 2026-11-10).
+allowBuilds:
+  '@embedded-postgres/windows-x64': false
+  '@prisma/engines': true
+  '@swc/core': false
+  prisma: false
+
+# Versions partagées entre paquets (référencées par "catalog:").
+catalog:
+  "@types/node": 26.6.6
+  typescript: 6.0.3
+  vite: 8.3.7
+  vitest: 5.1.0
+  zod: 4.6.7

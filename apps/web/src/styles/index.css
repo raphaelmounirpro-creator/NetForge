@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/*
+ * Jetons de design NetForge (voir docs/DESIGN.md).
+ * Chaque couleur est définie une seule fois avec light-dark(clair, sombre) :
+ * le thème actif dépend de la propriété color-scheme de :root.
+ * La palette par défaut de Tailwind est retirée pour imposer les jetons sémantiques.
+ */
+@theme {
+  --color-*: initial;
+
+  /* Surfaces */
+  --color-canvas: light-dark(#f4f1ea, #101923);
+  --color-surface: light-dark(#ffffff, #172330);
+  --color-surface-raised: light-dark(#fbf9f4, #1d2b3a);
+  --color-border: light-dark(#cfc8ba, #2c3b4b);
+  --color-border-strong: light-dark(#8a8172, #6b7d90);
+
+  /* Textes */
+  --color-text: light-dark(#15212c, #f5f2ea);
+  --color-text-muted: light-dark(#4a5868, #aab6c2);
+
+  /* Action principale et sélection (ambre) */
+  --color-accent: #ffb34d;
+  --color-accent-hover: #ffc372;
+  --color-on-accent: #101923;
+  --color-accent-text: light-dark(#9a5300, #ffb34d);
+
+  /* Trafic réseau et indications techniques (cyan) */
+  --color-signal: light-dark(#16716c, #48c9c1);
+
+  /* États : toujours accompagnés d'un texte ou d'un symbole */
+  --color-success: light-dark(#1e7a46, #6cd49a);
+  --color-warning: light-dark(#7d5a00, #f2d06b);
+  --color-danger: light-dark(#b3261e, #ff8a80);
+  --color-focus: light-dark(#1b5fd1, #8ec5ff);
+
+  /* Typographie : pile système, sans téléchargement */
+  --font-sans: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+
+  /* Rayons discrets */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+
+  /* Mouvements */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-panel: 220ms;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

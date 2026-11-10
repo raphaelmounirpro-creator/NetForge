@@ -1,0 +1,22 @@
+# Dépendances et sorties de build
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+
+# Client Prisma généré
+apps/api/src/generated/
+
+# Base PostgreSQL locale embarquée (pnpm db:local)
+apps/api/.local-db/
+
+# Environnements réels : ne jamais versionner de secrets
+.env
+.env.*
+!.env.example
+
+# Outils et systèmes
+.vercel/
+.DS_Store
+Thumbs.db
+*.log
