@@ -42,6 +42,8 @@ Deux options équivalentes, toutes deux sur le port 5432 avec les identifiants d
 
 N'utiliser qu'une option à la fois (même port). Pour changer de port, modifier `DATABASE_URL` dans `apps/api/.env`.
 
+> **Windows** : les binaires PostgreSQL ne gèrent pas les chemins de plus de 260 caractères. Avec `pnpm db:local`, cloner le dépôt dans un chemin court (moins de 80 caractères, par exemple `C:\dev\NetForge`) ; le script avertit sinon.
+
 ### Migrations
 
 ```bash

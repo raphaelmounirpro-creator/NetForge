@@ -12,6 +12,19 @@ import { fileURLToPath } from "node:url";
 import EmbeddedPostgres from "embedded-postgres";
 
 const apiRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = join(apiRoot, "..", "..");
+
+// Les binaires PostgreSQL Windows ne gèrent pas les chemins de plus de 260
+// caractères ; les fichiers embarqués ajoutent environ 170 caractères au
+// chemin du dépôt (constaté le 2026-11-10 : échec « plpgsql is not available »).
+const MAX_SAFE_WINDOWS_ROOT_LENGTH = 80;
+const pathTooLong = process.platform === "win32" && repoRoot.length > MAX_SAFE_WINDOWS_ROOT_LENGTH;
+if (pathTooLong) {
+  console.warn(
+    `Attention : chemin du dépôt long (${String(repoRoot.length)} caractères). Sous Windows, PostgreSQL embarqué ` +
+      `peut échouer au-delà de ${String(MAX_SAFE_WINDOWS_ROOT_LENGTH)} : clonez dans un chemin court (ex. C:\\dev\\NetForge).`,
+  );
+}
 const envFile = join(apiRoot, ".env");
 if (existsSync(envFile)) {
   process.loadEnvFile(envFile);
@@ -84,7 +97,11 @@ try {
   process.on("SIGTERM", () => void shutdown());
 } catch (error) {
   console.error(`Échec du démarrage de PostgreSQL local : ${error instanceof Error ? error.message : String(error)}`);
-  console.error(`Si le port ${String(settings.port)} est occupé, changez-le dans DATABASE_URL (apps/api/.env).`);
+  console.error(
+    pathTooLong
+      ? "Cause probable : chemin du dépôt trop long pour PostgreSQL sous Windows (voir l'avertissement ci-dessus)."
+      : `Si le port ${String(settings.port)} est occupé, changez-le dans DATABASE_URL (apps/api/.env).`,
+  );
   await server.stop().catch(() => {});
   process.exit(1);
 }
