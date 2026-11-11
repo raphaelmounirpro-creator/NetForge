@@ -33,6 +33,8 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 - API en ESM (NestJS 12) : imports relatifs suffixés `.js`.
 - Prisma 7 : client généré dans `apps/api/src/generated/prisma` (ignoré par Git), URL fournie par `prisma.config.ts`.
 - `/api/health` = vivacité du processus ; `/api/health/ready` = préparation (base comprise, 503 sinon).
+- Sécurité (phase 5, [docs/securite.md](docs/securite.md)) : toute route modifiant l'état passe la garde CSRF globale ; données privées derrière `AccountGuard` ; limites anti-abus dans PostgreSQL (`RateLimitService`), jamais en mémoire ; horloge injectable (`Clock`) pour les expirations ; aucun secret, jeton ni adresse complète dans les journaux. Tests d'API sur PostgreSQL embarqué réel (`src/test-support`).
+- Client : secret de session jamais lisible (cookie `HttpOnly`), jeton CSRF en mémoire seulement ; projets du compte par `RemoteProjectRepository` (même contrat que le stockage local), jamais mis en cache dans le navigateur.
 
 ## Commandes
 
@@ -42,8 +44,10 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 | `pnpm dev` | Construit les paquets puis lance interface + API |
 | `pnpm db:local` / `pnpm db:up` | PostgreSQL local sans Docker / via Docker Compose |
 | `pnpm db:migrate` | Applique les migrations |
+| `pnpm mail:local` | Boîte de courrier de développement (SMTP 1025, lecture http://localhost:8025) |
 | `pnpm check` | lint + typecheck + test + build |
 | `pnpm test:e2e` | Parcours Playwright (`PLAYWRIGHT_CHANNEL=msedge` en local, sans téléchargement de navigateur) |
+| `pnpm test:e2e:accounts` | Parcours de compte sur pile isolée (PostgreSQL 54330, courrier 1026/8026, API 3100, interface 4174) |
 | `pnpm test:perf` / `pnpm perf:engine` | Mesures de performance (navigateur / moteur seul), hors CI |
 
 ## Conventions

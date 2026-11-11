@@ -26,7 +26,11 @@ export type LoadOutcome =
 
 export type SaveOutcome = { ok: true; revision: number } | { ok: false; reason: "conflict"; storedRevision: number | null };
 
-export type StorageErrorKind = "quota" | "unavailable" | "unknown";
+/** quota, unavailable : stockage du navigateur ; unauthorized, offline : compte (session expirée, serveur injoignable). */
+export type StorageErrorKind = "quota" | "unavailable" | "unknown" | "unauthorized" | "offline";
+
+/** Emplacement d'un projet : cet appareil (IndexedDB) ou le compte (API, base PostgreSQL). */
+export type ProjectLocation = "local" | "account";
 
 /** Échec du stockage du navigateur (quota, stockage bloqué…). */
 export class StorageError extends Error {
@@ -34,7 +38,7 @@ export class StorageError extends Error {
     readonly kind: StorageErrorKind,
     options?: { cause?: unknown },
   ) {
-    super(`Stockage local : ${kind}`, options);
+    super(`Stockage : ${kind}`, options);
     this.name = "StorageError";
   }
 }

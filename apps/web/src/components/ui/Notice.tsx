@@ -19,10 +19,10 @@ const ICON_COLORS: Record<NoticeTone, string> = {
 
 interface NoticeProps {
   tone: NoticeTone;
-  title?: string;
+  title?: string | undefined;
   children?: ReactNode;
   actions?: ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 /** Message persistant : symbole + texte, la couleur n'est jamais seule porteuse d'information. */

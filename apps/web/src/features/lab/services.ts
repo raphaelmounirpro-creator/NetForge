@@ -1,3 +1,4 @@
+import { RemoteProjectRepository } from "../account/remoteRepository";
 import { acquireEditLock } from "../storage/editLock";
 import { IndexedDbProjectRepository } from "../storage/indexedDbRepository";
 import { createProjectService } from "./projectService";
@@ -11,9 +12,10 @@ function safeLocalStorage(): Storage | null {
   }
 }
 
-/** Service unique de l'application : projets invités dans IndexedDB. */
+/** Service unique de l'application : projets invités dans IndexedDB, projets du compte par l'API. */
 export const projectService = createProjectService({
   repository: new IndexedDbProjectRepository(),
+  accountRepository: new RemoteProjectRepository(),
   acquireLock: acquireEditLock,
   now: () => new Date().toISOString(),
   newId: () => crypto.randomUUID(),

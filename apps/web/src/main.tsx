@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { useAccountStore } from "./features/account/store";
 import { installUnloadProtection, projectService } from "./features/lab/services";
 import { installSimulationLifecycle } from "./features/simulation/services";
 import "./styles/index.css";
@@ -12,8 +13,12 @@ if (!rootElement) {
 
 installUnloadProtection();
 installSimulationLifecycle();
-// Rouvre les projets qui étaient ouverts lors de la dernière visite (récupération locale).
-void projectService.restoreSession();
+// Session du compte (si l'API répond), puis réouverture des projets de la dernière visite :
+// ceux du compte ne sont relus que si la session est valide.
+void useAccountStore
+  .getState()
+  .refresh()
+  .then(() => projectService.restoreSession());
 
 createRoot(rootElement).render(
   <StrictMode>

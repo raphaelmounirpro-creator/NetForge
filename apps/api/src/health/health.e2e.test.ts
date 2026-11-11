@@ -5,6 +5,7 @@ import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { configureApp } from "../app-setup.js";
 import { AppModule } from "../app.module.js";
+import { loadConfig } from "../config/app-config.js";
 import { DatabaseProbe } from "./database-probe.js";
 
 // Port 9 (discard) : aucune base ne répond, la connexion échoue rapidement.
@@ -12,16 +13,18 @@ const UNREACHABLE_DATABASE_URL = "postgresql://netforge:netforge@127.0.0.1:9/net
 
 let app: NestExpressApplication | undefined;
 
+const config = loadConfig({ NODE_ENV: "test", DATABASE_URL: UNREACHABLE_DATABASE_URL, CSRF_SECRET: "s".repeat(48) });
+
 async function startApp(databaseProbe?: Pick<DatabaseProbe, "isUp">): Promise<NestExpressApplication> {
   const builder = Test.createTestingModule({
-    imports: [AppModule.forRoot({ nodeEnv: "test", port: 0, databaseUrl: UNREACHABLE_DATABASE_URL })],
+    imports: [AppModule.forRoot(config)],
   });
   if (databaseProbe) {
     builder.overrideProvider(DatabaseProbe).useValue(databaseProbe);
   }
   const moduleRef = await builder.compile();
-  app = moduleRef.createNestApplication<NestExpressApplication>({ logger: false });
-  configureApp(app);
+  app = moduleRef.createNestApplication<NestExpressApplication>({ logger: false, bodyParser: false });
+  configureApp(app, config);
   await app.init();
   return app;
 }

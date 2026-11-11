@@ -10,9 +10,45 @@ Détail des preuves : commits `6b49de3` à `aff43fc`. Limites restantes : Docker
 
 Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests unitaires seulement ; éditeur prévu pour ≥ 1 024 px.
 
-## Phase active : 4 — Premier laboratoire FTTH
+## Phase active : 5 — Comptes, projets privés et déploiement
 
-**État : terminée localement le 2026-11-11, en attente de validation du propriétaire.**
+**État : en cours.** Partie locale terminée et vérifiée le 2026-11-11 ; la mise en production (base, courrier, Vercel) attend la validation des services externes par le propriétaire. La phase reste incomplète tant que l'envoi de validation en production et les cookies de production ne sont pas vérifiés (spécification §17).
+
+### Périmètre retenu
+
+- Dépend de : phase 1 (projets, stockage), phase 0 (API, Prisma).
+- Inclus : inscription, validation d'adresse (reprise contre un compte précréé), connexion, récupération, sessions révocables, CSRF, en-têtes, limites anti-abus partagées, capture SMTP locale, projets privés avec révisions et copie volontaire des projets locaux, pages de compte (360 px, clavier), déploiement sur le projet Vercel existant.
+- Exclus : changement d'adresse et suppression de compte depuis l'interface, second facteur, classes et notes (phases 6 et 17).
+- Données : aucune donnée personnelle autre que l'adresse e-mail ; détails dans [securite.md](securite.md).
+
+### Critères de sortie (spécification §14.7 et §17)
+
+| Critère | État | Preuve |
+|---|---|---|
+| Authentification : adresse vérifiée avant accès privé | atteint (local) | `auth.e2e.test.ts`, `accounts.spec.ts` |
+| Tests de la section 14.7 | atteints localement, sauf vérification sur l'adresse déployée | tableau de [securite.md](securite.md) |
+| Isolation des utilisateurs | atteint (local) | `projects.e2e.test.ts` |
+| Sessions : déconnexion, expiration, révocation globale | atteint (local) | `auth.e2e.test.ts` (horloge contrôlée) |
+| Sauvegarde et relecture après rechargement et redémarrage | atteint (local) | relecture en base, redémarrage de l'API, navigateur vierge |
+| Page de connexion, accès invité, mobile, clavier | atteint, visuel provisoire | `accounts.spec.ts` (360 px, clavier), captures Edge 1440/360, sombre/clair |
+| Courrier de validation réel en production | **ouvert** | fournisseur à valider |
+| Déploiement vérifié (prévisualisation, production) | **ouvert** | services externes à valider |
+
+### Vérifications exécutées (2026-11-11, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- `pnpm check` : lint, typecheck, **302 tests** (format 102, moteur 101, interface 57, contrats 2, API 40 sur PostgreSQL embarqué réel) et builds réussis.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **23 parcours** réussis ; `pnpm test:e2e:accounts` : **4 parcours de compte** réussis sur pile isolée (PostgreSQL, courrier, API, interface).
+- `pnpm test:perf` : inchangé (calcul 100 équipements et tempête sans tâche longue).
+- Parcours réel par l'API locale (`curl`/Node) : inscription, courrier capturé par `pnpm mail:local`, validation, connexion, projet en base, déconnexion.
+- Inspection visuelle réelle (Edge) : connexion 1440 px (sombre) et 360 px (clair), erreur de politique, « Vérifiez votre adresse », confirmation, projets du compte. Défauts trouvés et corrigés : en-tête débordant de 192 px à 360 px, jeton de session à rafraîchir après connexion, cookie de session effacé puis reposé dans la même réponse, délai de renvoi qui bloquait un courrier d'un autre type, processus `io_worker` orphelins de PostgreSQL 18 sous Windows, test de session générant une erreur 401 dans la console à chaque visite.
+
+### Services externes à valider (conditions vérifiées le 2026-11-11)
+
+Voir le compte rendu de phase : Vercel Hobby (projet existant), PostgreSQL Neon Free, courrier par compte Gmail dédié ou Brevo gratuit sans domaine.
+
+## Phase 4 — Premier laboratoire FTTH : validée par le propriétaire (2026-11-11)
+
+Commit `368d93d`. Détail ci-dessous.
 
 ### Périmètre retenu
 

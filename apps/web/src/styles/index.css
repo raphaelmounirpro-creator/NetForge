@@ -26,6 +26,11 @@
   --color-on-accent: #101923;
   --color-accent-text: light-dark(#9a5300, #ffb34d);
 
+  /* Visuel d'accueil (connexion) : bleu nuit dans les deux thèmes, comme la photo qu'il remplacera */
+  --color-hero: #101923;
+  --color-on-hero: #f5f2ea;
+  --color-on-hero-muted: #d6dde4;
+
   /* Trafic réseau et indications techniques (cyan) */
   --color-signal: light-dark(#16716c, #48c9c1);
 

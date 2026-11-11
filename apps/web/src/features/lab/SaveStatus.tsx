@@ -12,7 +12,7 @@ function viewFor(project: OpenProject): View {
     case "saving":
       return { icon: LoaderCircle, label: t.saving, className: "text-text-muted [&>svg]:motion-safe:animate-spin" };
     case "saved":
-      return { icon: CircleCheck, label: t.saved, className: "text-success" };
+      return { icon: CircleCheck, label: project.location === "account" ? t.savedAccount : t.saved, className: "text-success" };
     case "error":
       return { icon: CircleAlert, label: t.error, className: "text-danger" };
     case "conflict":
@@ -22,7 +22,7 @@ function viewFor(project: OpenProject): View {
   }
 }
 
-/** État d'enregistrement visible et annoncé ; « localement » : jamais présenté comme une synchronisation. */
+/** État d'enregistrement visible et annoncé : « localement » (cet appareil) ou « dans le compte » (relu du serveur). */
 export function SaveStatus({ project }: { project: OpenProject }) {
   const { icon: Icon, label, className } = viewFor(project);
   return (

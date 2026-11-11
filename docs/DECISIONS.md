@@ -172,3 +172,31 @@ Les pannes sont des données du projet (D-035), injectées et retirées par des 
 ## D-040 — Ajustement de la vue à la première ouverture, liens sélectionnables au clavier
 
 À la première ouverture d'un projet dans la session, si la vue n'a jamais été déplacée et qu'un équipement sort de la zone visible, le canevas s'ajuste à la topologie (comme « Ajuster à la topologie »). La vue Configuration permet de sélectionner un lien, donc d'ouvrir sa fiche (fibre comprise) sans le canevas ; la vue Optique propose la liste « Équipement à mesurer » comme alternative au clic sur le canevas.
+
+## D-041 — Comptes : e-mail et mot de passe, Argon2id natif
+
+Parcours de la spécification §14 : inscription, validation explicite de l'adresse avec le mot de passe de l'inscription (reprise possible contre un compte précréé par un tiers), connexion, récupération. Hachage Argon2id par `crypto.argon2` de Node (OpenSSL ≥ 3.2, Node ≥ 24.7) : aucune dépendance compilée ni script d'installation. Paramètres OWASP (19 Mio, 2 passes) ; politique de 15 à 128 caractères sans règle de composition. Détail : [securite.md](securite.md).
+
+## D-042 — Sessions opaques en base et CSRF signé lié à la session
+
+Session révocable : secret de 256 bits en cookie `HttpOnly` (`__Host-` et `Secure` en HTTPS), empreinte en base, inactivité 60 min, échéance absolue 12 h. Ces durées dépassent les exemples OWASP pour applications sensibles : un laboratoire pédagogique, sans paiement ni donnée sensible autre que l'adresse, perdrait sinon trop souvent le travail en cours ; elles restent configurables. CSRF : double soumission signée (HMAC) liée à la session ou à une pré-session, plus contrôles `Origin` et `Sec-Fetch-Site`. `GET /api/auth/session` répond 200 avec `account: null` pour un visiteur : demander l'état de la session n'est pas une erreur.
+
+## D-043 — Limites anti-abus dans PostgreSQL, proxys de confiance explicites
+
+Compteurs à fenêtre fixe dans la table `rate_limits` (incrément atomique), communs à toutes les instances, sans service supplémentaire ; aucune limite en mémoire de processus. L'adresse cliente n'est tirée de `X-Forwarded-For` que pour les proxys déclarés (`TRUST_PROXY`).
+
+## D-044 — Courrier : SMTP indépendant du fournisseur, capture locale
+
+`nodemailer` en SMTP : le même code sert la boîte de capture locale (`pnpm mail:local`, `smtp-server` + `mailparser`, développement seulement) et le fournisseur de production. Envoi attendu dans la requête (délais bornés, un nouvel essai), aucun faux succès. Jetons dans le fragment d'URL (`#t=`) : absents des journaux d'accès et du référent.
+
+## D-045 — Projets du compte : même contrat que le stockage local
+
+`RemoteProjectRepository` implémente l'interface de dépôt du stockage local (révisions, conflits) : enregistrement automatique, conflits et reprise fonctionnent à l'identique. Un projet porte son emplacement (« cet appareil » ou « compte ») ; l'enregistrement dans le compte est une copie volontaire, le projet local reste intact. Rien n'est mis en cache dans le navigateur. Contenu en colonne `json` (et non `jsonb`) : le texte, donc l'export, reste identique à l'enregistrement.
+
+## D-046 — Tests d'intégration sur un vrai PostgreSQL embarqué
+
+Les tests de l'API démarrent une grappe `embedded-postgres` (port 54329, base recréée et migrée) ; les parcours de compte une pile isolée (PostgreSQL 54330, courrier 1026/8026, API 3100, interface 4174). `io_method=sync` : sous Windows, les processus `io_worker` de PostgreSQL 18 survivaient à l'arrêt du serveur et bloquaient le démarrage suivant (constaté le 2026-11-11).
+
+## D-047 — Visuel de connexion provisoire
+
+La photo de référence de la spécification n'est pas fournie : le visuel d'accueil (58 %) utilise un fond bleu nuit et une lueur ambre localisée, avec les textes prévus (« LE RÉSEAU PREND VIE », « Comprendre. Connecter. Maîtriser. »). À remplacer par le visuel validé ; voir DESIGN.

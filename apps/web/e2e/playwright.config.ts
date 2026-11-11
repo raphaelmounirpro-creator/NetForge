@@ -18,8 +18,8 @@ export default defineConfig({
     locale: "fr-FR",
     trace: "retain-on-failure",
   },
-  // Les mesures de performance ont leur propre configuration (playwright.perf.config.ts).
-  testIgnore: "**/perf.spec.ts",
+  // Mesures de performance et parcours de compte : configurations dédiées (perf, accounts).
+  testIgnore: ["**/perf.spec.ts", "**/accounts.spec.ts"],
   projects: [
     {
       name: "chromium",

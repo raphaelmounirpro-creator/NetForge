@@ -7,6 +7,10 @@ import { defineConfig } from "vitest/config";
 // « source » : l'interface et ses tests les consomment sans build préalable.
 const SOURCE_CONDITION = "source";
 
+/** API relayée sous /api (même origine) ; autre cible pour la pile isolée des parcours de compte. */
+const API_ORIGIN = process.env["NETFORGE_API_ORIGIN"] ?? "http://localhost:3000";
+const proxy = { "/api": API_ORIGIN };
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -25,10 +29,9 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     // Même origine en développement : /api est relayé vers l'API NestJS locale.
-    proxy: {
-      "/api": "http://localhost:3000",
-    },
+    proxy,
   },
+  preview: { proxy },
   test: {
     environment: "node",
     // Les parcours navigateur (e2e/) relèvent de Playwright.

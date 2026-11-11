@@ -11,9 +11,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
-    "test:perf": "playwright test --config e2e/playwright.perf.config.ts"
+    "test:perf": "playwright test --config e2e/playwright.perf.config.ts",
+    "test:e2e:accounts": "playwright test --config e2e/playwright.accounts.config.ts"
   },
   "dependencies": {
+    "@netforge/contracts": "workspace:*",
     "@netforge/engine": "workspace:*",
     "@netforge/project": "workspace:*",
     "idb": "8.0.4",
@@ -22,6 +24,7 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-konva": "19.3.2",
+    "zod": "catalog:",
     "zustand": "5.0.16"
   },
   "devDependencies": {

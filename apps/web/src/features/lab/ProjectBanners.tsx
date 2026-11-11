@@ -78,7 +78,7 @@ export function ProjectBanners({ projectId, project }: { projectId: string; proj
     return (
       <Notice
         tone="danger"
-        title={t.saveErrorTitle}
+        title={project.location === "account" ? t.saveErrorTitleAccount : t.saveErrorTitle}
         className="m-2"
         actions={
           <>

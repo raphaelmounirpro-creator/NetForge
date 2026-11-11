@@ -2,7 +2,7 @@
 
 Laboratoire web pédagogique de simulation de réseaux pour la formation de techniciens télécom : cuivre, Ethernet/IP, fibre optique, FTTH et réseaux d'entreprise.
 
-> **État actuel : phase 4 (premier laboratoire FTTH).** Équipements optiques (OLT, tiroir, coupleurs 1:2 à 1:64, PBO, PTO, boîtier d'épissure, ONT), fibres et connectiques, bilan optique par chemin et par sens avec la contribution de chaque élément, photomètre, inspection, pannes simples et interventions, exercice de dépannage. Phase 3 : inspecteur des décisions et des trames, explications débutant et technique, animation des trames, console des équipements, outils PC et un premier exercice guidé (page Parcours). Le laboratoire invité permet de construire et configurer un réseau (PC, switches, routeurs, adressage IPv4, routes statiques), puis de le **simuler** : ping, ARP, commutation, routage, coupure de câble, pas à pas, journal des décisions expliquées en français et tables observables (MAC, ARP, routage). Enregistrement automatique dans le navigateur, export/import `.nfg.json`. Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
+> **État actuel : phase 5 en cours (comptes et projets privés, en local ; mise en production en attente).** Comptes avec validation d'adresse par courrier, connexion, récupération du mot de passe, projets privés enregistrés en base avec révisions, copie volontaire des projets de l'appareil. Phase 4 : Équipements optiques (OLT, tiroir, coupleurs 1:2 à 1:64, PBO, PTO, boîtier d'épissure, ONT), fibres et connectiques, bilan optique par chemin et par sens avec la contribution de chaque élément, photomètre, inspection, pannes simples et interventions, exercice de dépannage. Phase 3 : inspecteur des décisions et des trames, explications débutant et technique, animation des trames, console des équipements, outils PC et un premier exercice guidé (page Parcours). Le laboratoire invité permet de construire et configurer un réseau (PC, switches, routeurs, adressage IPv4, routes statiques), puis de le **simuler** : ping, ARP, commutation, routage, coupure de câble, pas à pas, journal des décisions expliquées en français et tables observables (MAC, ARP, routage). Enregistrement automatique dans le navigateur, export/import `.nfg.json`. Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Prérequis
 
@@ -71,15 +71,19 @@ pnpm --filter @netforge/api db:migrate:dev    # crée une migration (développem
 
 ```bash
 pnpm db:local      # ou pnpm db:up, dans un premier terminal
+pnpm mail:local    # boîte de courrier de développement, dans un deuxième terminal
 pnpm db:migrate
 pnpm dev           # interface + API
 ```
+
+Copier d'abord `apps/api/.env.example` vers `apps/api/.env` (valeurs de développement, sans secret). Les courriers de validation et de récupération ne sont jamais envoyés en local : ils sont capturés et lisibles sur http://localhost:8025.
 
 | Service | Adresse |
 |---|---|
 | Interface | http://localhost:5173 |
 | API (vivacité du processus) | http://localhost:3000/api/health |
 | API (préparation, base comprise) | http://localhost:3000/api/health/ready — 200 si prête, 503 sinon |
+| Courrier de développement | http://localhost:8025 (SMTP sur 1025) |
 
 En développement, l'interface relaie `/api` vers l'API (même origine).
 
@@ -92,6 +96,7 @@ pnpm test        # Vitest (moteur, contrats, interface, API)
 pnpm build       # builds de production
 pnpm check       # les quatre à la suite
 pnpm test:e2e    # parcours navigateur Playwright (lance le serveur Vite)
+pnpm test:e2e:accounts # parcours de compte sur une pile isolée (PostgreSQL, courrier, API, interface)
 pnpm test:perf   # mesures de performance dans le navigateur (100 équipements, tempête de diffusion)
 pnpm perf:engine # mesure du moteur seul dans Node
 ```
@@ -113,7 +118,7 @@ docs/               Suivi, feuille de route, décisions, design, protocoles
 
 - Simulation : Ethernet, ARP, IPv4, ICMP et routage statique, à un niveau pédagogique simplifié documenté dans [docs/protocols](docs/protocols/README.md). Pas de traceroute, de VLAN, de STP, de DHCP ni de routage dynamique ; deux exercices embarqués, notés localement (notes vérifiées : phase 6).
 - FTTH : bilan optique statique au pire cas ; pas de service PON simulé (enregistrement des ONT, bande passante), d'OTDR ni de modules SFP (phase 9).
-- Pas de comptes ni de déploiement.
+- Comptes disponibles en local seulement : pas encore de déploiement ni de fournisseur de courrier de production ; pas de changement d'adresse, de suppression de compte ni de second facteur. Sécurité : [docs/securite.md](docs/securite.md).
 - Éditeur conçu pour un écran d'au moins 1 024 px ; pas d'édition complète sur smartphone.
 - Le visuel de connexion attend les fichiers de référence (maquette et photo) : voir [docs/DESIGN.md](docs/DESIGN.md).
 

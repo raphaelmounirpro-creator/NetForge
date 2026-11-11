@@ -12,22 +12,97 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Projet NetForge enregistré côté serveur (format d'échange .nfg.json).
-///
-/// Préparé en phase 0 pour la sauvegarde distante de la phase 5 : aucune route
-/// ne l'expose avant l'arrivée des comptes et des contrôles d'accès. Le
-/// propriétaire (compte) sera ajouté par une migration de la phase 5.
+/// Compte NetForge : adresse e-mail et mot de passe (phase 5).
+model User {
+  id                 String       @id @default(uuid()) @db.Uuid
+  /// Adresse telle que saisie (envoi et affichage).
+  email              String       @db.VarChar(254)
+  /// Clé de comparaison unique (politique unique, voir auth/email.ts).
+  emailKey           String       @unique @map("email_key") @db.VarChar(254)
+  /// Empreinte Argon2id au format PHC ; le mot de passe n'est jamais stocké.
+  passwordHash       String       @map("password_hash") @db.VarChar(255)
+  /// Null tant que l'adresse n'est pas validée : aucun accès aux données privées.
+  emailVerifiedAt    DateTime?    @map("email_verified_at") @db.Timestamptz(3)
+  /// Incrémentée à chaque changement d'identifiants : les jetons émis avant deviennent inutilisables.
+  credentialsVersion Int          @default(1) @map("credentials_version")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sessions           Session[]
+  tokens             EmailToken[]
+  projects           Project[]
+
+  @@map("users")
+}
+
+enum TokenPurpose {
+  VERIFY_EMAIL   @map("verify_email")
+  RESET_PASSWORD @map("reset_password")
+
+  @@map("token_purpose")
+}
+
+/// Jeton à usage unique envoyé par e-mail (validation d'adresse, réinitialisation).
+model EmailToken {
+  id                 String       @id @default(uuid()) @db.Uuid
+  userId             String       @map("user_id") @db.Uuid
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose            TokenPurpose
+  /// SHA-256 (hexadécimal) du secret envoyé ; le secret lui-même n'est jamais stocké.
+  tokenHash          String       @unique @map("token_hash") @db.Char(64)
+  /// Version des identifiants à l'émission : un changement de mot de passe invalide le jeton.
+  credentialsVersion Int          @map("credentials_version")
+  expiresAt          DateTime     @map("expires_at") @db.Timestamptz(3)
+  /// Renseignée de façon atomique à la consommation (une seule réussite possible).
+  consumedAt         DateTime?    @map("consumed_at") @db.Timestamptz(3)
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId, purpose])
+  @@map("email_tokens")
+}
+
+/// Session opaque révocable : le cookie porte le secret, la base son empreinte.
+model Session {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SHA-256 (hexadécimal) du secret du cookie.
+  tokenHash  String    @unique @map("token_hash") @db.Char(64)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Dernière activité (inactivité) ; mise à jour au plus une fois par minute.
+  lastUsedAt DateTime  @map("last_used_at") @db.Timestamptz(3)
+  /// Échéance absolue, jamais prolongée.
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Compteur anti-abus partagé entre instances (fenêtre fixe, incrément atomique).
+model RateLimit {
+  key       String   @id @db.VarChar(200)
+  count     Int
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("rate_limits")
+}
+
+/// Projet NetForge privé, enregistré dans le compte de son propriétaire (format .nfg.json).
 model Project {
-  id            String   @id @default(uuid()) @db.Uuid
+  id            String   @id @db.Uuid
+  ownerId       String   @map("owner_id") @db.Uuid
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name          String   @db.VarChar(120)
   /// Version du schéma .nfg.json du contenu, pour les migrations explicites.
   schemaVersion Int      @map("schema_version")
-  /// Contenu validé du projet (topologie, configurations, disposition).
-  content       Json
+  /// Contenu validé du projet, conservé tel quel (type json : l'ordre des clés et donc l'export restent identiques).
+  content       Json     @db.Json
   /// Révision incrémentée à chaque sauvegarde : détection des conflits.
   revision      Int      @default(1)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  @@index([ownerId, updatedAt])
   @@map("projects")
 }

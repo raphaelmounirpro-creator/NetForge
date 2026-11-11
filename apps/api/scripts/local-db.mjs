@@ -58,6 +58,8 @@ const server = new EmbeddedPostgres({
   authMethod: "scram-sha-256",
   persistent: true,
   initdbFlags: ["--encoding=UTF8", "--no-locale"],
+  // PostgreSQL 18 : sans processus io_worker, qui survivent sous Windows à l'arrêt du serveur (constaté le 2026-11-11).
+  postgresFlags: ["-c", "io_method=sync"],
   onLog: () => {},
   onError: (message) => console.error(String(message).trim()),
 });

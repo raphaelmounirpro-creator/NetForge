@@ -14,8 +14,9 @@ async function bootstrap(): Promise<void> {
   }
   const config = loadConfig(process.env);
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(config));
-  configureApp(app);
+  // Lecteur de corps configuré par configureApp (limite de taille d'un projet).
+  const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(config), { bodyParser: false });
+  configureApp(app, config);
   app.enableShutdownHooks();
 
   await app.listen(config.port);

@@ -1,6 +1,6 @@
 import type { CommandResult, Issue, NfgDocument } from "@netforge/project";
 import { create } from "zustand";
-import type { StorageErrorKind } from "../storage/repository";
+import type { ProjectLocation, StorageErrorKind } from "../storage/repository";
 
 /**
  * État de l'éditeur. Seul le document (topologie, configurations,
@@ -21,6 +21,8 @@ export interface Viewport {
 
 export interface OpenProject {
   document: NfgDocument;
+  /** Où le projet est enregistré : cet appareil ou le compte. */
+  location: ProjectLocation;
   past: NfgDocument[];
   future: NfgDocument[];
   /** Révision IndexedDB du dernier enregistrement connu (null : jamais enregistré). */
@@ -58,7 +60,7 @@ interface LabState {
   /** Taille du canevas affiché (placement des nouveaux équipements, zoom au centre). */
   canvasSize: CanvasSize;
 
-  openProject: (document: NfgDocument, options: { storedRevision: number | null; access: Access; saved: boolean }) => void;
+  openProject: (document: NfgDocument, options: { storedRevision: number | null; access: Access; saved: boolean; location?: ProjectLocation }) => void;
   closeProject: (id: string) => void;
   setActive: (id: string) => void;
   /** Applique une commande métier ; renvoie son résultat (les erreurs ne modifient rien). */
@@ -82,9 +84,10 @@ interface LabState {
   setCanvasSize: (size: CanvasSize) => void;
 }
 
-function newOpenProject(document: NfgDocument, storedRevision: number | null, access: Access, saved: boolean): OpenProject {
+function newOpenProject(document: NfgDocument, storedRevision: number | null, access: Access, saved: boolean, location: ProjectLocation): OpenProject {
   return {
     document,
+    location,
     past: [],
     future: [],
     storedRevision,
@@ -138,10 +141,10 @@ export const useLabStore = create<LabState>()((set, get) => {
     activeId: null,
     canvasSize: { width: 0, height: 0 },
 
-    openProject: (document, { storedRevision, access, saved }) => {
+    openProject: (document, { storedRevision, access, saved, location = "local" }) => {
       const id = document.metadata.id;
       set((state) => ({
-        projects: state.projects[id] ? state.projects : { ...state.projects, [id]: newOpenProject(document, storedRevision, access, saved) },
+        projects: state.projects[id] ? state.projects : { ...state.projects, [id]: newOpenProject(document, storedRevision, access, saved, location) },
         order: state.order.includes(id) ? state.order : [...state.order, id],
         activeId: id,
       }));
@@ -205,7 +208,7 @@ export const useLabStore = create<LabState>()((set, get) => {
 
     reload: (id, document, storedRevision) => {
       update(id, (project) => ({
-        ...newOpenProject(document, storedRevision, project.access, true),
+        ...newOpenProject(document, storedRevision, project.access, true, project.location),
         view: project.view,
         viewport: project.viewport,
         selection: sanitizeSelection(document, project.selection),

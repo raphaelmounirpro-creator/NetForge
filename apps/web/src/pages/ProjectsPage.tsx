@@ -6,6 +6,8 @@ import { Button } from "../components/ui/Button";
 import { Dialog } from "../components/ui/Dialog";
 import { Notice } from "../components/ui/Notice";
 import { fill, formatIssue, messages } from "../i18n";
+import { AccountProjects } from "../features/account/AccountProjects";
+import { useAccountStore } from "../features/account/store";
 import { exportDocument } from "../features/lab/actions";
 import type { ImportOutcome } from "../features/lab/projectService";
 import { projectService } from "../features/lab/services";
@@ -27,6 +29,9 @@ export function ProjectsPage() {
   const [pendingImport, setPendingImport] = useState<{ document: NfgDocument; warnings: Issue[] } | null>(null);
   const [toDelete, setToDelete] = useState<ProjectSummary | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const signedIn = useAccountStore((state) => state.status === "signed-in");
+  /** Incrémenté après une copie vers le compte : relecture de la liste du compte. */
+  const [accountVersion, setAccountVersion] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -99,6 +104,19 @@ export function ProjectsPage() {
     await refresh();
   };
 
+  /** Copie volontaire dans le compte : le projet de l'appareil reste intact. */
+  const copyToAccount = async (project: ProjectSummary) => {
+    const loaded = await projectService.load(project.id);
+    if (!loaded.ok) return;
+    const outcome = await projectService.copyToAccount(loaded.project.document);
+    if (outcome.ok) {
+      setMessage({ tone: "success", title: messages.account.copyToAccount, lines: [fill(messages.account.copied, { name: project.name })] });
+      setAccountVersion((value) => value + 1);
+    } else {
+      setMessage({ tone: "danger", title: messages.account.copyFailed, lines: [messages.storage[outcome.error.kind]] });
+    }
+  };
+
   const exportStored = async (id: string) => {
     const outcome = await projectService.load(id);
     if (outcome.ok) exportDocument(outcome.project.document);
@@ -161,7 +179,10 @@ export function ProjectsPage() {
         </div>
       )}
 
-      <section aria-label={t.title} className="mt-6">
+      <AccountProjects version={accountVersion} />
+
+      <section aria-label={signedIn ? messages.account.deviceProjects : t.title} className="mt-6">
+        {signedIn && <h2 className="mb-3 text-xl font-semibold text-text">{messages.account.deviceProjects}</h2>}
         {list.status === "loading" && <p className="text-text-muted">{t.loading}</p>}
         {list.status === "error" && <Notice tone="danger" title={t.loadError}>{messages.storage.unavailable}</Notice>}
         {list.status === "ready" && list.projects.length === 0 && <p className="text-text-muted">{t.empty}</p>}
@@ -196,6 +217,11 @@ export function ProjectsPage() {
                             <Button size="sm" onClick={() => void exportStored(project.id)}>
                               {t.export}
                             </Button>
+                            {signedIn && (
+                              <Button size="sm" aria-label={fill(messages.account.copyToAccountLabel, { name: project.name })} onClick={() => void copyToAccount(project)}>
+                                {messages.account.copyToAccount}
+                              </Button>
+                            )}
                           </>
                         )}
                         <Button

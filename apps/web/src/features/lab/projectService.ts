@@ -8,11 +8,14 @@ import {
   type NfgDocument,
 } from "@netforge/project";
 import type { EditLock, LockOutcome } from "../storage/editLock";
-import { StorageError, type LoadOutcome, type ProjectRepository } from "../storage/repository";
+import { StorageError, type LoadOutcome, type ProjectLocation, type ProjectRepository } from "../storage/repository";
 import { hasUnsavedChanges, useLabStore } from "./store";
 
 export interface ProjectServiceDeps {
+  /** Projets invités : cet appareil. */
   repository: ProjectRepository;
+  /** Projets du compte (API) ; absent : aucun compte possible. */
+  accountRepository?: ProjectRepository;
   acquireLock: (projectId: string, options?: { steal?: boolean }) => Promise<LockOutcome>;
   now: () => string;
   newId: () => string;
@@ -43,6 +46,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const inFlight = new Map<string, Promise<void>>();
 
+  function repository(location: ProjectLocation): ProjectRepository {
+    if (location === "local") return deps.repository;
+    if (!deps.accountRepository) throw new StorageError("unavailable");
+    return deps.accountRepository;
+  }
+
   // ------------------------------------------------------------ Enregistrement
 
   async function saveNow(id: string): Promise<void> {
@@ -62,7 +71,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     store.getState().markSaving(id);
     const task = (async () => {
       try {
-        const outcome = await deps.repository.save(document, project.storedRevision);
+        const outcome = await repository(project.location).save(document, project.storedRevision);
         if (outcome.ok) store.getState().markSaved(id, { revision: outcome.revision, change, updatedAt });
         else store.getState().markConflict(id);
       } catch (error) {
@@ -106,7 +115,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
   const unsubscribeSession = store.subscribe((state, previous) => {
     if (state.order === previous.order && state.activeId === previous.activeId) return;
     try {
-      deps.sessionStorage?.setItem(SESSION_KEY, JSON.stringify({ open: state.order, active: state.activeId }));
+      // Emplacement noté avec l'identifiant (« account:… ») ; un identifiant seul désigne un projet local.
+      const open = state.order.map((id) => (state.projects[id]?.location === "account" ? `account:${id}` : id));
+      deps.sessionStorage?.setItem(SESSION_KEY, JSON.stringify({ open, active: state.activeId }));
     } catch {
       // Préférence de session seulement : son absence ne gêne pas l'édition.
     }
@@ -120,9 +131,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
       return;
     }
     const ids = Array.isArray(session.open) ? session.open.filter((id): id is string => typeof id === "string") : [];
-    for (const id of ids) {
+    for (const entry of ids) {
+      const location: ProjectLocation = entry.startsWith("account:") ? "account" : "local";
+      const id = location === "account" ? entry.slice("account:".length) : entry;
+      if (location === "account" && !deps.accountRepository) continue;
       try {
-        await openStored(id);
+        await openStored(id, location);
       } catch {
         // Projet supprimé ou stockage indisponible : l'onglet n'est pas restauré.
       }
@@ -167,15 +181,15 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return { ok: true, id };
   }
 
-  async function openStored(id: string): Promise<LoadOutcome | { ok: true }> {
+  async function openStored(id: string, location: ProjectLocation = "local"): Promise<LoadOutcome | { ok: true }> {
     if (store.getState().projects[id]) {
       store.getState().setActive(id);
       return { ok: true };
     }
-    const outcome = await deps.repository.load(id);
+    const outcome = await repository(location).load(id);
     if (!outcome.ok) return outcome;
     const access = await lockAccess(id);
-    store.getState().openProject(outcome.project.document, { storedRevision: outcome.project.revision, access, saved: true });
+    store.getState().openProject(outcome.project.document, { storedRevision: outcome.project.revision, access, saved: true, location });
     return outcome;
   }
 
@@ -193,7 +207,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
   async function takeOver(id: string): Promise<LoadOutcome> {
     const lock = await deps.acquireLock(id, { steal: true });
     if (typeof lock === "object") registerLock(id, lock);
-    const outcome = await deps.repository.load(id);
+    const outcome = await repository(store.getState().projects[id]?.location ?? "local").load(id);
     if (outcome.ok) {
       store.getState().reload(id, outcome.project.document, outcome.project.revision);
       store.getState().setAccess(id, "editor");
@@ -203,13 +217,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /** Abandonne la version locale en conflit et recharge la version enregistrée. */
   async function reloadStored(id: string): Promise<LoadOutcome> {
-    const outcome = await deps.repository.load(id);
+    const outcome = await repository(store.getState().projects[id]?.location ?? "local").load(id);
     if (outcome.ok) store.getState().reload(id, outcome.project.document, outcome.project.revision);
     return outcome;
   }
 
   /** Enregistre la version locale sous un nouveau projet (résolution de conflit sans perte). */
-  async function saveAsCopy(document: NfgDocument): Promise<ImportOutcome> {
+  async function saveAsCopy(document: NfgDocument, location: ProjectLocation = "local"): Promise<ImportOutcome> {
     const now = deps.now();
     const copy: NfgDocument = {
       ...document,
@@ -221,7 +235,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         updatedAt: now,
       },
     };
-    return storeAndOpen(copy, null, []);
+    return storeAndOpen(copy, null, [], location);
   }
 
   /** Crée un nouveau projet à partir d'un document (exercice) : nouvel identifiant, nom donné. */
@@ -234,12 +248,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return storeAndOpen(copy, null, []);
   }
 
-  async function storeAndOpen(document: NfgDocument, expectedRevision: number | null, warnings: Issue[]): Promise<ImportOutcome> {
+  async function storeAndOpen(document: NfgDocument, expectedRevision: number | null, warnings: Issue[], location: ProjectLocation = "local"): Promise<ImportOutcome> {
     try {
-      const outcome = await deps.repository.save(document, expectedRevision);
+      const outcome = await repository(location).save(document, expectedRevision);
       if (!outcome.ok) return { kind: "busy" };
       const access = await lockAccess(document.metadata.id);
-      store.getState().openProject(document, { storedRevision: outcome.revision, access, saved: true });
+      store.getState().openProject(document, { storedRevision: outcome.revision, access, saved: true, location });
       return { kind: "imported", id: document.metadata.id, warnings };
     } catch (error) {
       return { kind: "storage-error", error: error instanceof StorageError ? error : new StorageError("unknown", { cause: error }) };
@@ -278,13 +292,47 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return storeAndOpen(document, existing.ok ? existing.project.revision : null, []);
   }
 
-  async function remove(id: string): Promise<"removed" | "busy"> {
+  async function remove(id: string, location: ProjectLocation = "local"): Promise<"removed" | "busy"> {
     if (store.getState().projects[id]) await close(id, { force: true });
     const lock = await deps.acquireLock(id);
     if (lock === "busy") return "busy";
-    await deps.repository.remove(id);
+    await repository(location).remove(id);
     if (lock !== "unsupported") lock.release();
     return "removed";
+  }
+
+  /**
+   * Enregistrement volontaire d'une copie dans le compte : le projet local
+   * reste intact sur l'appareil (jamais transféré ni supprimé en silence).
+   * La copie reçoit un nouvel identifiant.
+   */
+  async function copyToAccount(document: NfgDocument): Promise<{ ok: true; id: string } | { ok: false; error: StorageError }> {
+    const copy: NfgDocument = { ...document, metadata: { ...document.metadata, id: deps.newId(), updatedAt: deps.now() } };
+    try {
+      const outcome = await repository("account").save(copy, null);
+      if (!outcome.ok) return { ok: false, error: new StorageError("unknown") };
+      return { ok: true, id: copy.metadata.id };
+    } catch (error) {
+      return { ok: false, error: error instanceof StorageError ? error : new StorageError("unknown", { cause: error }) };
+    }
+  }
+
+  /**
+   * Ferme les projets du compte (déconnexion) après un dernier enregistrement :
+   * aucune donnée privée ne reste affichée. Renvoie le nombre de projets dont
+   * des modifications n'ont pas pu être enregistrées.
+   */
+  async function closeAccountProjects(): Promise<number> {
+    const ids = store.getState().order.filter((id) => store.getState().projects[id]?.location === "account");
+    await flush();
+    let unsaved = 0;
+    for (const id of ids) {
+      const project = store.getState().projects[id];
+      if (project && project.access === "editor" && hasUnsavedChanges(project)) unsaved += 1;
+      releaseLock(id);
+      store.getState().closeProject(id);
+    }
+    return unsaved;
   }
 
   function exportDocument(document: NfgDocument): { fileName: string; text: string } {
@@ -312,9 +360,11 @@ export function createProjectService(deps: ProjectServiceDeps) {
     exportDocument,
     flush,
     restoreSession,
-    list: () => deps.repository.list(),
+    copyToAccount,
+    closeAccountProjects,
+    list: (location: ProjectLocation = "local") => repository(location).list(),
     /** Lecture seule d'un projet enregistré, sans l'ouvrir (export depuis la liste). */
-    load: (id: string) => deps.repository.load(id),
+    load: (id: string, location: ProjectLocation = "local") => repository(location).load(id),
     dispose,
   };
 }
