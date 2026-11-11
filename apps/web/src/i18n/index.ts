@@ -27,6 +27,10 @@ function reasonText(reason: string | number | undefined): string {
 export function formatIssue(issue: Issue): string {
   const params: Record<string, string | number> = { ...issue.params };
   if ("reason" in params) params["reasonText"] = reasonText(params["reason"]);
+  const kind = params["kind"];
+  if (typeof kind === "string" && kind in fr.optics.faultKinds) params["kindText"] = fr.optics.faultKinds[kind as keyof typeof fr.optics.faultKinds];
+  const action = params["action"];
+  if (typeof action === "string" && action in fr.optics.actions) params["actionText"] = fr.optics.actions[action as keyof typeof fr.optics.actions];
   if (typeof params["maxBytes"] === "number") params["maxMegabytes"] = params["maxBytes"] / (1024 * 1024);
   return fill(fr.issues[issue.code], params);
 }

@@ -1,8 +1,9 @@
-import { disconnect, getModel, validateDocument, type NfgDocument } from "@netforge/project";
+import { disconnect, getModel, isOptical, validateDocument, type NfgDocument } from "@netforge/project";
 import { useMemo } from "react";
 import { Button } from "../../components/ui/Button";
 import { fill, messages } from "../../i18n";
 import { deviceIssues } from "./properties/PropertiesPanel";
+import { formatLength } from "../optics/format";
 import { useLabStore, type OpenProject } from "./store";
 
 const t = messages.configuration;
@@ -58,7 +59,9 @@ export function ConfigurationView({ projectId, project }: { projectId: string; p
                     <td className={`${cell} text-text-muted`}>{device.model}</td>
                     <td className={`${cell} font-mono text-text`}>
                       {addresses.length === 0
-                        ? t.none
+                        ? isOptical(getModel(device.model).kind)
+                          ? t.optical
+                          : t.none
                         : addresses.map((item) => (
                             <span key={item.port} className="block">
                               {item.port} {item.ipv4?.address}/{item.ipv4?.prefixLength}
@@ -103,17 +106,36 @@ export function ConfigurationView({ projectId, project }: { projectId: string; p
               <tr>
                 <th scope="col" className={head}>{t.columns.endA}</th>
                 <th scope="col" className={head}>{t.columns.endB}</th>
+                <th scope="col" className={head}>{t.columns.medium}</th>
                 <th scope="col" className={head}><span className="sr-only">{t.columns.actions}</span></th>
               </tr>
             </thead>
             <tbody>
               {doc.topology.links.map((link) => {
                 const [a, b] = link.endpoints;
+                const endA = `${nameOf(doc, a.deviceId)} · ${a.portId}`;
+                const endB = `${nameOf(doc, b.deviceId)} · ${b.portId}`;
+                const selected = selection?.kind === "link" && selection.id === link.id;
                 return (
-                  <tr key={link.id}>
-                    <td className={`${cell} font-mono text-text`}>{nameOf(doc, a.deviceId)} · {a.portId}</td>
-                    <td className={`${cell} font-mono text-text`}>{nameOf(doc, b.deviceId)} · {b.portId}</td>
-                    <td className={cell}>
+                  <tr key={link.id} className={selected ? "bg-surface-raised" : undefined}>
+                    <td className={`${cell} font-mono text-text`}>{endA}</td>
+                    <td className={`${cell} font-mono text-text`}>{endB}</td>
+                    <td className={`${cell} text-text`}>
+                      {link.fiber ? fill(t.fiber, { length: formatLength(link.fiber.length), type: link.fiber.type }) : t.copper}
+                    </td>
+                    <td className={`${cell} flex flex-wrap gap-2`}>
+                      {/* Alternative clavier au canevas : la fiche du lien (fibre comprise) s'ouvre dans le panneau de droite. */}
+                      <Button
+                        size="sm"
+                        variant={selected ? "primary" : "secondary"}
+                        aria-pressed={selected}
+                        aria-label={fill(t.selectLink, { a: endA, b: endB })}
+                        onClick={() => {
+                          select(projectId, { kind: "link", id: link.id });
+                        }}
+                      >
+                        {messages.properties.title}
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"

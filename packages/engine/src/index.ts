@@ -12,6 +12,7 @@ export * from "./commands.js";
 export * from "./exercise.js";
 export * from "./host.js";
 export * from "./mac.js";
+export * from "./optics.js";
 export * from "./parameters.js";
 export * from "./pdu.js";
 export * from "./prng.js";

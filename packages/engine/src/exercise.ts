@@ -1,5 +1,6 @@
 import { parseIpv4Input, parseNfgValue, type Issue, type NfgDocument } from "@netforge/project";
 import { z } from "zod";
+import { analyzeOptics, CONFORMITY_TOLERANCE_DB, type OpticalStatus, type PowerMeasurement } from "./optics.js";
 import { createSimulation } from "./simulation.js";
 import type { PingView } from "./views.js";
 
@@ -10,11 +11,13 @@ import type { PingView } from "./views.js";
  * (observer, formuler une hypothèse, mesurer, corriger, retester, comprendre)
  * et des critères COMPORTEMENTAUX vérifiés par le moteur : toute
  * configuration qui produit le comportement attendu est acceptée.
- * Phase 3 : entraînement local, dont la correction n'est pas une note fiable
- * (la notation vérifiée côté serveur arrive en phase 6).
+ * Entraînement local, dont la correction n'est pas une note fiable (la
+ * notation vérifiée côté serveur arrive en phase 6).
+ * Version 2 (phase 4) : mesures optiques (photomètre, réponses en dB) et
+ * critère de service optique. Un exercice version 1 reste valide tel quel.
  */
 export const EXERCISE_FORMAT = "netforge-exercise";
-export const EXERCISE_VERSION = 1;
+export const EXERCISE_VERSION = 2;
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const identifier = z.string().regex(/^[a-z0-9-]{1,64}$/);
@@ -23,6 +26,8 @@ const ipv4 = z.string().max(15);
 export const criterionSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("ping-succeeds"), from: identifier, to: ipv4 }),
   z.strictObject({ kind: z.literal("ping-fails"), from: identifier, to: ipv4 }),
+  /** Le bilan optique (pannes comprises) de chaque chemin vers cet ONT est dans les limites de réception. */
+  z.strictObject({ kind: z.literal("optical-service"), ont: identifier }),
 ]);
 export type Criterion = z.infer<typeof criterionSchema>;
 
@@ -34,10 +39,23 @@ const pingCheckSchema = z.strictObject({
 });
 export type PingCheck = z.infer<typeof pingCheckSchema>;
 
+/** Une mesure au photomètre a été faite à ce port, avec ce résultat comparé au bilan prévisionnel. */
+const powerCheckSchema = z.strictObject({
+  kind: z.literal("power-measured"),
+  deviceId: identifier,
+  portId: z.string().regex(/^[a-z]{1,8}\d{0,3}$/),
+  direction: z.enum(["downstream", "upstream"]),
+  outcome: z.enum(["conform", "deviation"]),
+});
+export type PowerCheck = z.infer<typeof powerCheckSchema>;
+
+const observationCheckSchema = z.discriminatedUnion("kind", [pingCheckSchema, powerCheckSchema]);
+export type ObservationCheck = z.infer<typeof observationCheckSchema>;
+
 const points = z.int().min(0).max(100);
 
 const stepSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("observe"), title: text(80), instruction: text(1000), check: pingCheckSchema, points }),
+  z.strictObject({ kind: z.literal("observe"), title: text(80), instruction: text(1000), check: observationCheckSchema, points }),
   z.strictObject({
     kind: z.literal("hypothesis"),
     title: text(80),
@@ -54,19 +72,23 @@ const stepSchema = z.discriminatedUnion("kind", [
     kind: z.literal("measure"),
     title: text(80),
     question: text(500),
-    answer: z.strictObject({ kind: z.literal("network"), value: z.string().max(18) }),
+    answer: z.discriminatedUnion("kind", [
+      z.strictObject({ kind: z.literal("network"), value: z.string().max(18) }),
+      /** Valeur en dB ou dBm, acceptée à la tolérance près. */
+      z.strictObject({ kind: z.literal("decibel"), value: z.number().min(-60).max(60), tolerance: z.number().min(0.01).max(5) }),
+    ]),
     wrongFeedback: text(600),
     points,
   }),
   z.strictObject({ kind: z.literal("fix"), title: text(80), instruction: text(1000), criteria: z.array(criterionSchema).min(1).max(10), points }),
-  z.strictObject({ kind: z.literal("retest"), title: text(80), instruction: text(1000), check: pingCheckSchema, points }),
+  z.strictObject({ kind: z.literal("retest"), title: text(80), instruction: text(1000), check: observationCheckSchema, points }),
   z.strictObject({ kind: z.literal("debrief"), title: text(80), text: text(3000) }),
 ]);
 export type ExerciseStep = z.infer<typeof stepSchema>;
 
 export const exerciseSchema = z.strictObject({
   format: z.literal(EXERCISE_FORMAT),
-  version: z.literal(EXERCISE_VERSION),
+  version: z.union([z.literal(1), z.literal(EXERCISE_VERSION)]),
   id: identifier,
   revision: z.int().min(1),
   title: text(120),
@@ -75,7 +97,7 @@ export const exerciseSchema = z.strictObject({
   objective: text(1000),
   statement: text(2000),
   /** Fonctions utiles à l'exercice (indicatif en phase 3). */
-  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology"])).max(5),
+  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics"])).max(6),
   project: z.unknown(),
   steps: z.array(stepSchema).min(1).max(12),
   hints: z.array(text(600)).max(5),
@@ -114,6 +136,34 @@ export function sameNetwork(answer: string, expected: string): boolean {
   return given.ipv4.address === wanted.ipv4.address && given.ipv4.prefixLength === wanted.ipv4.prefixLength;
 }
 
+/**
+ * Réponse numérique en dB ou dBm : virgule ou point décimal, signe moins
+ * typographique accepté, unité facultative.
+ */
+export function sameDecibel(answer: string, expected: number, tolerance: number): boolean {
+  const cleaned = answer.trim().replace(/\s+/g, "").replace(/[−–]/g, "-").replace(",", ".").replace(/dBm?$/i, "");
+  if (!/^[-+]?\d+(\.\d+)?$/.test(cleaned)) return false;
+  return Math.abs(Number(cleaned) - expected) <= tolerance + 1e-9;
+}
+
+/** Résultat d'une mesure au regard du bilan prévisionnel ; null si rien n'a pu être mesuré. */
+export function measurementConformity(measurement: PowerMeasurement): "conform" | "deviation" | null {
+  if (measurement.outcome === "not-measurable" || measurement.outcome === "no-source") return null;
+  if (measurement.outcome !== "light") return "deviation";
+  return (measurement.deviationDb ?? 0) < CONFORMITY_TOLERANCE_DB ? "conform" : "deviation";
+}
+
+/** Une mesure correspondante a-t-elle été faite (journal des mesures de la session) ? */
+export function measurementObserved(measurements: readonly PowerMeasurement[], check: PowerCheck): boolean {
+  return measurements.some(
+    (measurement) =>
+      measurement.point.deviceId === check.deviceId &&
+      measurement.point.portId === check.portId &&
+      measurement.direction === check.direction &&
+      measurementConformity(measurement) === check.outcome,
+  );
+}
+
 /** Un ping correspondant a-t-il été observé (terminé) dans la simulation, avec le résultat attendu ? */
 export function pingObserved(pings: readonly PingView[], check: PingCheck): boolean {
   return pings.some((view) => {
@@ -128,7 +178,11 @@ export interface CriterionResult {
   readonly passed: boolean;
   readonly sent: number;
   readonly replies: number;
+  /** Critère optique : état le plus défavorable des chemins vers l'ONT (null s'il n'est atteint par aucun OLT). */
+  readonly opticalStatus: OpticalStatus | null;
 }
+
+const IN_SERVICE: ReadonlySet<OpticalStatus> = new Set<OpticalStatus>(["ok", "low-margin"]);
 
 const EVALUATION_ECHOES = 2;
 const EVALUATION_MAX_EVENTS = 100_000;
@@ -140,13 +194,22 @@ const EVALUATION_MAX_EVENTS = 100_000;
  */
 export function evaluateCriteria(doc: NfgDocument, criteria: readonly Criterion[]): { ok: true; results: CriterionResult[] } | { ok: false; issues: readonly Issue[] } {
   const results: CriterionResult[] = [];
+  let optics: ReturnType<typeof analyzeOptics> | null = null;
   for (const criterion of criteria) {
+    if (criterion.kind === "optical-service") {
+      optics ??= analyzeOptics(doc);
+      const paths = optics.paths.filter((path) => path.ont.deviceId === criterion.ont);
+      const statuses = paths.map((path) => path.status);
+      const worst = statuses.length === 0 ? null : (statuses.find((status) => !IN_SERVICE.has(status)) ?? statuses[0] ?? null);
+      results.push({ criterion, passed: paths.length > 0 && statuses.every((status) => IN_SERVICE.has(status)), sent: 0, replies: 0, opticalStatus: worst });
+      continue;
+    }
     const created = createSimulation(doc, { seed: 1, parameters: { limits: { maxEvents: EVALUATION_MAX_EVENTS } } });
     if (!created.ok) return { ok: false, issues: created.issues };
     const sim = created.simulation;
     const outcome = sim.enqueue({ type: "ping", deviceId: criterion.from, destination: criterion.to, count: EVALUATION_ECHOES });
     if (!outcome.ok) {
-      results.push({ criterion, passed: false, sent: 0, replies: 0 });
+      results.push({ criterion, passed: false, sent: 0, replies: 0, opticalStatus: null });
       continue;
     }
     sim.run({ stopWhenIdle: true, maxEvents: EVALUATION_MAX_EVENTS });
@@ -155,7 +218,7 @@ export function evaluateCriteria(doc: NfgDocument, criteria: readonly Criterion[
     const sent = view?.attempts.length ?? 0;
     const succeeded = view?.done === true && sent > 0 && replies === sent;
     const failed = view?.done === true && replies === 0;
-    results.push({ criterion, passed: criterion.kind === "ping-succeeds" ? succeeded : failed, sent, replies });
+    results.push({ criterion, passed: criterion.kind === "ping-succeeds" ? succeeded : failed, sent, replies, opticalStatus: null });
   }
   return { ok: true, results };
 }

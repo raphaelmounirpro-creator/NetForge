@@ -15,7 +15,7 @@ test("exercice guidé « Le retour manquant » : du symptôme à l'explication",
   test.setTimeout(90_000);
   await page.goto("/parcours");
   await expect(page.getByRole("heading", { name: "Le retour manquant" })).toBeVisible();
-  await page.getByRole("button", { name: "Commencer l'exercice" }).click();
+  await page.getByRole("article", { name: "Le retour manquant" }).getByRole("button", { name: "Commencer l'exercice" }).click();
   await expect(page).toHaveURL(/\/laboratoire$/);
 
   const guide = page.getByRole("region", { name: "Guide de l'exercice" });

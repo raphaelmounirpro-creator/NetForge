@@ -1,8 +1,8 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "models": {
-    "catalog": 1
+    "catalog": 2
   },
   "metadata": {
     "id": "scenario-loop",
@@ -46,7 +46,8 @@
             "deviceId": "sw1",
             "portId": "ge1"
           }
-        ]
+        ],
+        "fiber": null
       },
       {
         "id": "l2",
@@ -59,7 +60,8 @@
             "deviceId": "sw1",
             "portId": "ge2"
           }
-        ]
+        ],
+        "fiber": null
       },
       {
         "id": "l3",
@@ -72,7 +74,8 @@
             "deviceId": "sw2",
             "portId": "ge1"
           }
-        ]
+        ],
+        "fiber": null
       },
       {
         "id": "l4",
@@ -85,7 +88,8 @@
             "deviceId": "sw2",
             "portId": "ge2"
           }
-        ]
+        ],
+        "fiber": null
       },
       {
         "id": "l5",
@@ -98,7 +102,8 @@
             "deviceId": "sw2",
             "portId": "ge3"
           }
-        ]
+        ],
+        "fiber": null
       }
     ]
   },
@@ -138,6 +143,7 @@
       "staticRoutes": []
     }
   },
+  "faults": [],
   "layout": {
     "devices": {
       "pc1": {

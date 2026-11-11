@@ -1,8 +1,8 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "models": {
-    "catalog": 1
+    "catalog": 2
   },
   "metadata": {
     "id": "scenario-two-routers",
@@ -46,7 +46,8 @@
             "deviceId": "r1",
             "portId": "ge0"
           }
-        ]
+        ],
+        "fiber": null
       },
       {
         "id": "l2",
@@ -59,7 +60,8 @@
             "deviceId": "r2",
             "portId": "ge1"
           }
-        ]
+        ],
+        "fiber": null
       },
       {
         "id": "l3",
@@ -72,7 +74,8 @@
             "deviceId": "pc2",
             "portId": "eth0"
           }
-        ]
+        ],
+        "fiber": null
       }
     ]
   },
@@ -144,6 +147,7 @@
       "staticRoutes": []
     }
   },
+  "faults": [],
   "layout": {
     "devices": {
       "pc1": {

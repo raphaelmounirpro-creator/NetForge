@@ -1,12 +1,17 @@
 import {
   addDevice,
+  addFault,
   addStaticRoute,
   connectPorts,
   createProject,
   setDefaultGateway,
+  setFiber,
   setInterfaceIpv4,
   type CommandResult,
   type DeviceModelId,
+  type FaultKind,
+  type FaultTarget,
+  type Fiber,
   type NfgDocument,
 } from "@netforge/project";
 
@@ -23,7 +28,7 @@ function ok(result: CommandResult): NfgDocument {
   return result.document;
 }
 
-class ScenarioBuilder {
+export class ScenarioBuilder {
   private doc: NfgDocument;
   private linkCount = 0;
 
@@ -62,6 +67,17 @@ class ScenarioBuilder {
   route(deviceId: string, cidr: string, nextHop: string): this {
     const [destination = "", prefix = "0"] = cidr.split("/");
     this.doc = ok(addStaticRoute(this.doc, { deviceId, route: { destination, prefixLength: Number(prefix), nextHop } }));
+    return this;
+  }
+
+  /** Propriétés de la fibre du dernier lien créé. */
+  fiber(length: number, type: Fiber["type"] = "G.652.D", cable: Fiber["cable"] = "distribution"): this {
+    this.doc = ok(setFiber(this.doc, { linkId: `l${String(this.linkCount)}`, fiber: { length, type, cable } }));
+    return this;
+  }
+
+  fault(id: string, kind: FaultKind, target: FaultTarget, extraLoss: number | null = null): this {
+    this.doc = ok(addFault(this.doc, { id, kind, target, extraLoss }));
     return this;
   }
 
@@ -195,5 +211,42 @@ export function performanceScenario(): NfgDocument {
         .ip(pc, "eth0", `10.10.0.${String(n)}/24`);
     }
   }
+  return builder.build();
+}
+
+/** Longueurs des câbles de raccordement PBO → PTO (m), par abonné. */
+export const FTTH_DROPS = [150, 60, 120] as const;
+
+/**
+ * Réseau FTTH de référence (GPON classe B+) :
+ * OLT1 pon1 —jarretière 2 m— ODF1 f1 | r1 —transport 5 km— CPL1 (1:8) o1
+ * —1 km— CPL2 (1:4) o1..o3 —distribution 800 m— PBO1 in1..in3 | out1..out3
+ * —raccordement (FTTH_DROPS, G.657.A2, câble court)— PTO1..3 | out —jarretière 2 m— ONT1..3.
+ * Liens : l1 à l3 (tronc), l4 à l6 (distribution), l7 à l9 (raccordement), l10 à l12 (jarretières).
+ * Option dirtyPto3 : connecteur de sortie de PTO3 sale (+4,5 dB), exercice de dépannage.
+ */
+export function ftthScenario(options: { dirtyPto3?: boolean } = {}): NfgDocument {
+  const builder = new ScenarioBuilder("scenario-ftth", "Réseau FTTH")
+    .device("olt1", "OLT-16", 80, 260)
+    .device("odf1", "ODF-12", 240, 260)
+    .device("cpl1", "SPL-8", 400, 260)
+    .device("cpl2", "SPL-4", 560, 260)
+    .device("pbo1", "PBO-8", 720, 260)
+    .link("olt1", "pon1", "odf1", "f1")
+    .link("odf1", "r1", "cpl1", "com")
+    .fiber(5000)
+    .link("cpl1", "o1", "cpl2", "com")
+    .fiber(1000);
+  for (let index = 1; index <= 3; index += 1) {
+    builder.link("cpl2", `o${String(index)}`, "pbo1", `in${String(index)}`).fiber(800);
+  }
+  FTTH_DROPS.forEach((length, offset) => {
+    const index = String(offset + 1);
+    builder.device(`pto${index}`, "PTO", 880, 120 + offset * 140).link("pbo1", `out${index}`, `pto${index}`, "in").fiber(length, "G.657.A2", "short");
+  });
+  for (let index = 1; index <= 3; index += 1) {
+    builder.device(`ont${String(index)}`, "ONT-1G", 1040, 120 + (index - 1) * 140).link(`pto${String(index)}`, "out", `ont${String(index)}`, "pon");
+  }
+  if (options.dirtyPto3) builder.fault("panne-1", "dirty-connector", { kind: "port", deviceId: "pto3", portId: "out" }, 4.5);
   return builder.build();
 }

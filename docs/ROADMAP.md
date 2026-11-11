@@ -46,7 +46,7 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | ID | Exigence | Phase | Statut | Dépend | Critère vérifiable |
 |---|---|---|---|---|---|
 | E-01 | Placer PC, switch, routeur (PC, S-24, R-200) avec ports explicites | 1 | disponible | S-06 | Ports issus du catalogue (eth0 ; ge1–ge24 ; ge0–ge3) |
-| E-02 | Liens valides uniquement (port existant, libre, deux équipements distincts) | 1 | disponible avec limites | E-01 | Refus expliqué ; compatibilité de connectique reportée (E-13) |
+| E-02 | Liens valides uniquement (port existant, libre, deux équipements distincts) | 1 | disponible | E-01 | Refus expliqué ; compatibilité de connectique ajoutée en phase 4 (E-13) |
 | E-03 | Configuration IPv4 validée (adresse, masque, passerelle) | 1 | disponible | E-01 | Erreurs bloquantes et avertissements pédagogiques (docs/protocols/ipv4-adressage.md) |
 | E-04 | Déplacer, supprimer, zoomer, annuler/rétablir d'édition | 1 | disponible | E-01 | Historique d'édition distinct, 100 étapes |
 | E-05 | Sauvegarde automatique IndexedDB, états visibles, récupération | 1 | disponible | E-01 | Rechargement sans perte ; quota et stockage indisponible signalés |
@@ -57,7 +57,7 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | E-10 | Tests Playwright des parcours front essentiels | 1 | disponible avec limites | E-05 | 8 parcours ; exécution CI après le push de fin de projet |
 | E-11 | Annotations libres sur le canevas | 3 | disponible | E-01 | Texte affiché comme texte, exporté, sans effet sur le réseau (format v3 ; annotations.test.ts, e2e « notes libres ») |
 | E-12 | Mini-carte et glisser-déposer depuis la palette | 3 | disponible | M-11 | Glisser-déposer et recentrage par la mini-carte (e2e) ; mini-carte masquée sous 640 px de canevas, le clavier garde zoom, ajustement et liste |
-| E-13 | Compatibilité des connectiques (cuivre/fibre, modules) | 4 | prévu | F-01 | Lien entre connectiques incompatibles refusé avec explication |
+| E-13 | Compatibilité des connectiques (cuivre/fibre, modules) | 4 | disponible avec limites | F-01 | Lien cuivre ↔ fibre refusé avec explication ; seuls les ports compatibles sont proposés (ftth.test.ts, e2e) ; modules SFP reportés |
 | E-14 | Routes statiques des routeurs (format v2, migration v1 → v2) | 2 | disponible | E-03 | Destination réseau, doublon et prochain saut validés ; sous-onglet Routes et vue Configuration |
 | E-15 | Avertissement de boucle de commutation | 2 | disponible | E-02 | Cycle de switches signalé (topology.test.ts, e2e « boucle de commutation ») |
 
@@ -93,13 +93,13 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 
 | ID | Exigence | Phase | Statut | Dépend | Critère vérifiable |
 |---|---|---|---|---|---|
-| F-01 | OLT, ONT, ODF, PBO, PTO, coupleurs à ports explicites, épissures, fibres, jarretières | 4 | prévu | E-01 | Chemins OLT–ONT identifiés |
-| F-02 | Bilan par direction, longueur d'onde et profil, contributions par composant | 4 | prévu | F-01 | Chemin calculé manuellement retrouvé |
-| F-03 | Règle de comptage des connexions appariées | 4 | prévu | F-02 | Aucun double comptage testé |
-| F-04 | Marges, sensibilité, surcharge, réserve d'ingénierie | 4 | prévu | F-02 | Limites de réception testées |
-| F-05 | Photomètre/source | 4 | prévu | F-02 | Mesure cohérente avec le bilan |
-| F-06 | Pannes simples (coupure, courbure, connecteur sale, épissure) | 4 | prévu | F-02 | Symptômes visibles, cause cachée à l'élève |
-| F-07 | Exercice local de dépannage FTTH | 4 | prévu | F-06 | Exercice terminé |
+| F-01 | OLT, ONT, ODF, PBO, PTO, coupleurs à ports explicites, épissures, fibres, jarretières | 4 | disponible | E-01 | Chemins OLT–ONT identifiés, boucles signalées (optics.test.ts) ; [fiche](protocols/ftth-bilan-optique.md) |
+| F-02 | Bilan par direction, longueur d'onde et profil, contributions par composant | 4 | disponible | F-01 | Chemin calculé à la main retrouvé à 10⁻⁹ dB près, contributions dans l'ordre de chaque sens (optics.test.ts, e2e) |
+| F-03 | Règle de comptage des connexions appariées | 4 | disponible | F-02 | Une connexion par extrémité de câble sur un connecteur, une épissure par équipement : aucun élément compté deux fois (optics.test.ts) |
+| F-04 | Marges, sensibilité, surcharge, réserve d'ingénierie | 4 | disponible | F-02 | Sensibilité insuffisante, surcharge et marge faible testées ; réserve de 3 dB pédagogique et réglable (D-037) |
+| F-05 | Photomètre/source | 4 | disponible avec limites | F-02 | Mesure au pire cas égale au bilan sans panne, écart égal à la perte de panne (optics.test.ts) ; source séparée non modélisée |
+| F-06 | Pannes simples (coupure, courbure, connecteur sale, épissure) | 4 | disponible | F-02 | Cinq pannes (dont polissage APC/UPC sans pénalité inventée) ; symptômes seuls pendant un exercice (e2e) |
+| F-07 | Exercice local de dépannage FTTH | 4 | disponible | F-06 | « L'abonné sans service » terminé à 100/100 (e2e) ; nettoyage au mauvais endroit refusé (catalog.test.ts) |
 | F-08 | GPON/XGS-PON pédagogiques, enregistrement par numéro de série | 9 | prévu | F-04 | Chemin optique OK distinct d'un ONT enregistré |
 | F-09 | VLAN de service Internet/VoIP/IPTV, partage de bande passante | 9 | prévu | F-08, P-01 | Débits partagés expliqués |
 | F-10 | OTDR pédagogique (événements, pertes, limites documentées) | 9 | prévu | F-02 | Trace approximative documentée |

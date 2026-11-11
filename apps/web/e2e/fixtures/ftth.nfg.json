@@ -1,0 +1,398 @@
+{
+  "format": "netforge-project",
+  "schemaVersion": 4,
+  "models": {
+    "catalog": 2
+  },
+  "metadata": {
+    "id": "scenario-ftth",
+    "name": "Réseau FTTH",
+    "description": "",
+    "createdAt": "2026-11-11T08:00:00.000Z",
+    "updatedAt": "2026-11-11T08:00:00.000Z"
+  },
+  "topology": {
+    "devices": [
+      {
+        "id": "olt1",
+        "model": "OLT-16",
+        "name": "OLT1"
+      },
+      {
+        "id": "odf1",
+        "model": "ODF-12",
+        "name": "ODF1"
+      },
+      {
+        "id": "cpl1",
+        "model": "SPL-8",
+        "name": "CPL1"
+      },
+      {
+        "id": "cpl2",
+        "model": "SPL-4",
+        "name": "CPL2"
+      },
+      {
+        "id": "pbo1",
+        "model": "PBO-8",
+        "name": "PBO1"
+      },
+      {
+        "id": "pto1",
+        "model": "PTO",
+        "name": "PTO1"
+      },
+      {
+        "id": "pto2",
+        "model": "PTO",
+        "name": "PTO2"
+      },
+      {
+        "id": "pto3",
+        "model": "PTO",
+        "name": "PTO3"
+      },
+      {
+        "id": "ont1",
+        "model": "ONT-1G",
+        "name": "ONT1"
+      },
+      {
+        "id": "ont2",
+        "model": "ONT-1G",
+        "name": "ONT2"
+      },
+      {
+        "id": "ont3",
+        "model": "ONT-1G",
+        "name": "ONT3"
+      }
+    ],
+    "links": [
+      {
+        "id": "l1",
+        "endpoints": [
+          {
+            "deviceId": "olt1",
+            "portId": "pon1"
+          },
+          {
+            "deviceId": "odf1",
+            "portId": "f1"
+          }
+        ],
+        "fiber": {
+          "length": 2,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l2",
+        "endpoints": [
+          {
+            "deviceId": "odf1",
+            "portId": "r1"
+          },
+          {
+            "deviceId": "cpl1",
+            "portId": "com"
+          }
+        ],
+        "fiber": {
+          "length": 5000,
+          "type": "G.652.D",
+          "cable": "distribution"
+        }
+      },
+      {
+        "id": "l3",
+        "endpoints": [
+          {
+            "deviceId": "cpl1",
+            "portId": "o1"
+          },
+          {
+            "deviceId": "cpl2",
+            "portId": "com"
+          }
+        ],
+        "fiber": {
+          "length": 1000,
+          "type": "G.652.D",
+          "cable": "distribution"
+        }
+      },
+      {
+        "id": "l4",
+        "endpoints": [
+          {
+            "deviceId": "cpl2",
+            "portId": "o1"
+          },
+          {
+            "deviceId": "pbo1",
+            "portId": "in1"
+          }
+        ],
+        "fiber": {
+          "length": 800,
+          "type": "G.652.D",
+          "cable": "distribution"
+        }
+      },
+      {
+        "id": "l5",
+        "endpoints": [
+          {
+            "deviceId": "cpl2",
+            "portId": "o2"
+          },
+          {
+            "deviceId": "pbo1",
+            "portId": "in2"
+          }
+        ],
+        "fiber": {
+          "length": 800,
+          "type": "G.652.D",
+          "cable": "distribution"
+        }
+      },
+      {
+        "id": "l6",
+        "endpoints": [
+          {
+            "deviceId": "cpl2",
+            "portId": "o3"
+          },
+          {
+            "deviceId": "pbo1",
+            "portId": "in3"
+          }
+        ],
+        "fiber": {
+          "length": 800,
+          "type": "G.652.D",
+          "cable": "distribution"
+        }
+      },
+      {
+        "id": "l7",
+        "endpoints": [
+          {
+            "deviceId": "pbo1",
+            "portId": "out1"
+          },
+          {
+            "deviceId": "pto1",
+            "portId": "in"
+          }
+        ],
+        "fiber": {
+          "length": 150,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l8",
+        "endpoints": [
+          {
+            "deviceId": "pbo1",
+            "portId": "out2"
+          },
+          {
+            "deviceId": "pto2",
+            "portId": "in"
+          }
+        ],
+        "fiber": {
+          "length": 60,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l9",
+        "endpoints": [
+          {
+            "deviceId": "pbo1",
+            "portId": "out3"
+          },
+          {
+            "deviceId": "pto3",
+            "portId": "in"
+          }
+        ],
+        "fiber": {
+          "length": 120,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l10",
+        "endpoints": [
+          {
+            "deviceId": "pto1",
+            "portId": "out"
+          },
+          {
+            "deviceId": "ont1",
+            "portId": "pon"
+          }
+        ],
+        "fiber": {
+          "length": 2,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l11",
+        "endpoints": [
+          {
+            "deviceId": "pto2",
+            "portId": "out"
+          },
+          {
+            "deviceId": "ont2",
+            "portId": "pon"
+          }
+        ],
+        "fiber": {
+          "length": 2,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l12",
+        "endpoints": [
+          {
+            "deviceId": "pto3",
+            "portId": "out"
+          },
+          {
+            "deviceId": "ont3",
+            "portId": "pon"
+          }
+        ],
+        "fiber": {
+          "length": 2,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      }
+    ]
+  },
+  "configurations": {
+    "olt1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "odf1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "cpl1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "cpl2": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pbo1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pto1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pto2": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pto3": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "ont1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "ont2": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "ont3": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    }
+  },
+  "faults": [],
+  "layout": {
+    "devices": {
+      "olt1": {
+        "x": 80,
+        "y": 260
+      },
+      "odf1": {
+        "x": 240,
+        "y": 260
+      },
+      "cpl1": {
+        "x": 400,
+        "y": 260
+      },
+      "cpl2": {
+        "x": 560,
+        "y": 260
+      },
+      "pbo1": {
+        "x": 720,
+        "y": 260
+      },
+      "pto1": {
+        "x": 880,
+        "y": 120
+      },
+      "pto2": {
+        "x": 880,
+        "y": 260
+      },
+      "pto3": {
+        "x": 880,
+        "y": 400
+      },
+      "ont1": {
+        "x": 1040,
+        "y": 120
+      },
+      "ont2": {
+        "x": 1040,
+        "y": 260
+      },
+      "ont3": {
+        "x": 1040,
+        "y": 400
+      }
+    },
+    "annotations": []
+  }
+}

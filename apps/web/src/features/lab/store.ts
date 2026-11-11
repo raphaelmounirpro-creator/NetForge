@@ -9,7 +9,7 @@ import type { StorageErrorKind } from "../storage/repository";
  */
 export type SaveStatus = "saved" | "pending" | "saving" | "error" | "conflict";
 export type Access = "editor" | "readonly";
-export type LabView = "topology" | "simulation" | "configuration";
+export type LabView = "topology" | "simulation" | "configuration" | "optics";
 export type Tool = "select" | "link";
 export type Selection = { kind: "device"; id: string } | { kind: "link"; id: string } | { kind: "annotation"; id: string } | null;
 

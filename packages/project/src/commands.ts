@@ -12,6 +12,10 @@ import {
   type NfgDocument,
   type Position,
   type Annotation,
+  type Fault,
+  type FaultKind,
+  type FaultTarget,
+  type Fiber,
   type StaticRoute,
 } from "./schema.js";
 import { validateDocument } from "./validation.js";
@@ -75,6 +79,7 @@ export function createProject(params: { id: string; name: string; now: string })
       metadata: { id: params.id, name, description: "", createdAt: params.now, updatedAt: params.now },
       topology: { devices: [], links: [] },
       configurations: {},
+      faults: [],
       layout: { devices: {}, annotations: [] },
     },
   };
@@ -148,14 +153,16 @@ export function removeDevice(doc: NfgDocument, params: { deviceId: string }): Co
   if (!findDevice(doc, params.deviceId)) return deviceNotFound(params.deviceId);
   const { [params.deviceId]: _removedConfig, ...configurations } = doc.configurations;
   const { [params.deviceId]: _removedPosition, ...positions } = doc.layout.devices;
+  const links = doc.topology.links.filter((link) => link.endpoints.every((end) => end.deviceId !== params.deviceId));
   return commit(doc, {
     ...doc,
-    topology: {
-      devices: doc.topology.devices.filter((device) => device.id !== params.deviceId),
-      links: doc.topology.links.filter((link) => link.endpoints.every((end) => end.deviceId !== params.deviceId)),
-    },
+    topology: { devices: doc.topology.devices.filter((device) => device.id !== params.deviceId), links },
     configurations,
     layout: { ...doc.layout, devices: positions },
+    // Les pannes de l'équipement et de ses câbles disparaissent avec eux.
+    faults: doc.faults.filter(({ target }) =>
+      target.kind === "port" ? target.deviceId !== params.deviceId : links.some((link) => link.id === target.linkId),
+    ),
   });
 }
 
@@ -182,17 +189,23 @@ export function connectPorts(
   if (doc.topology.links.length >= LIMITS.maxLinks) {
     return fail(error("project.too-many-links", { max: LIMITS.maxLinks }));
   }
-  for (const end of [params.a, params.b]) {
-    if (!findDevice(doc, end.deviceId)) return deviceNotFound(end.deviceId);
-  }
+  const devices = [params.a, params.b].map((end) => findDevice(doc, end.deviceId));
+  const [deviceA, deviceB] = devices;
+  if (!deviceA) return deviceNotFound(params.a.deviceId);
+  if (!deviceB) return deviceNotFound(params.b.deviceId);
+  // Une fibre reçoit des propriétés par défaut (jarretière intérieure de 2 m), modifiables ensuite.
+  const fiberLink = findPort(deviceA.model, params.a.portId)?.medium === "fiber" && findPort(deviceB.model, params.b.portId)?.medium === "fiber";
   return commit(doc, {
     ...doc,
     topology: {
       ...doc.topology,
-      links: [...doc.topology.links, { id: params.linkId, endpoints: [params.a, params.b] }],
+      links: [...doc.topology.links, { id: params.linkId, endpoints: [params.a, params.b], fiber: fiberLink ? { ...DEFAULT_FIBER } : null }],
     },
   });
 }
+
+/** Fibre par défaut d'un nouveau lien optique : jarretière intérieure G.657.A2 de 2 m. */
+export const DEFAULT_FIBER: Fiber = { length: 2, type: "G.657.A2", cable: "short" };
 
 /**
  * Relie deux équipements par leurs premiers ports libres.
@@ -208,17 +221,60 @@ export function connectDevices(
   if (!deviceB) return deviceNotFound(params.bDeviceId);
   if (deviceA.id === deviceB.id) return fail(error("link.same-device", { deviceId: deviceA.id, deviceName: deviceA.name }));
 
-  const portA = freePorts(doc, deviceA.id)[0];
-  const portB = freePorts(doc, deviceB.id)[0];
-  if (portA === undefined || portB === undefined) {
-    const saturated = portA === undefined ? deviceA : deviceB;
+  const freeA = freePorts(doc, deviceA.id);
+  const freeB = freePorts(doc, deviceB.id);
+  if (freeA.length === 0 || freeB.length === 0) {
+    const saturated = freeA.length === 0 ? deviceA : deviceB;
     return fail(error("link.no-free-port", { deviceId: saturated.id, deviceName: saturated.name }));
+  }
+  const pair = bestPortPair(doc, deviceA, freeA, deviceB, freeB);
+  if (!pair) {
+    return fail(
+      error("link.incompatible-media", {
+        linkId: params.linkId,
+        deviceId: deviceA.id,
+        deviceName: deviceA.name,
+        portId: freeA[0] ?? "",
+        otherDeviceName: deviceB.name,
+        otherPortId: freeB[0] ?? "",
+      }),
+    );
   }
   return connectPorts(doc, {
     linkId: params.linkId,
-    a: { deviceId: deviceA.id, portId: portA },
-    b: { deviceId: deviceB.id, portId: portB },
+    a: { deviceId: deviceA.id, portId: pair[0] },
+    b: { deviceId: deviceB.id, portId: pair[1] },
   });
+}
+
+/**
+ * Choix des ports d'un raccordement automatique : même support obligatoire ;
+ * on préfère, sur un équipement passif, le port qui prolonge un chemin déjà
+ * raccordé (sortie d'un coupleur dont l'entrée est câblée…), puis deux ports
+ * de même nature (connecteur ↔ connecteur, entrée de câble ↔ entrée de câble).
+ * À score égal, l'ordre des ports du modèle décide (comportement inchangé en cuivre).
+ */
+function bestPortPair(doc: NfgDocument, deviceA: Device, freeA: readonly string[], deviceB: Device, freeB: readonly string[]): [string, string] | null {
+  const continues = (device: Device, portId: string) => {
+    const connected = new Set(doc.topology.links.flatMap((link) => link.endpoints.filter((end) => end.deviceId === device.id).map((end) => end.portId)));
+    return (getModel(device.model).channels ?? []).some(
+      (channel) => (channel.from === portId && connected.has(channel.to)) || (channel.to === portId && connected.has(channel.from)),
+    );
+  };
+  const continuesA = new Map(freeA.map((port) => [port, continues(deviceA, port)]));
+  const continuesB = new Map(freeB.map((port) => [port, continues(deviceB, port)]));
+  let best: { pair: [string, string]; score: number } | null = null;
+  for (const portA of freeA) {
+    const specA = findPort(deviceA.model, portA);
+    for (const portB of freeB) {
+      const specB = findPort(deviceB.model, portB);
+      if (!specA || !specB || specA.medium !== specB.medium) continue;
+      const score =
+        (continuesA.get(portA) === true ? 2 : 0) + (continuesB.get(portB) === true ? 2 : 0) + ((specA.connector === null) === (specB.connector === null) ? 1 : 0);
+      if (!best || score > best.score) best = { pair: [portA, portB], score };
+    }
+  }
+  return best?.pair ?? null;
 }
 
 export function disconnect(doc: NfgDocument, params: { linkId: string }): CommandResult {
@@ -228,6 +284,22 @@ export function disconnect(doc: NfgDocument, params: { linkId: string }): Comman
   return commit(doc, {
     ...doc,
     topology: { ...doc.topology, links: doc.topology.links.filter((link) => link.id !== params.linkId) },
+    faults: doc.faults.filter((fault) => fault.target.kind !== "link" || fault.target.linkId !== params.linkId),
+  });
+}
+
+/** Modifie les propriétés d'une fibre : longueur (m), type et usage du câble. */
+export function setFiber(doc: NfgDocument, params: { linkId: string; fiber: Fiber }): CommandResult {
+  const link = doc.topology.links.find((item) => item.id === params.linkId);
+  if (!link) return fail(error("link.not-found", { linkId: params.linkId }));
+  if (link.fiber === null) return fail(error("link.fiber-unexpected", { linkId: link.id }));
+  const { length } = params.fiber;
+  if (!Number.isFinite(length) || length < LIMITS.minFiberLength || length > LIMITS.maxFiberLength) {
+    return fail(error("link.invalid-fiber", { min: LIMITS.minFiberLength, max: LIMITS.maxFiberLength }));
+  }
+  return commit(doc, {
+    ...doc,
+    topology: { ...doc.topology, links: doc.topology.links.map((item) => (item.id === link.id ? { ...item, fiber: { ...params.fiber } } : item)) },
   });
 }
 
@@ -398,4 +470,48 @@ export function moveAnnotation(doc: NfgDocument, params: { id: string; position:
 export function removeAnnotation(doc: NfgDocument, params: { id: string }): CommandResult {
   if (!doc.layout.annotations.some((item) => item.id === params.id)) return annotationNotFound(params.id);
   return commit(doc, withAnnotations(doc, doc.layout.annotations.filter((item) => item.id !== params.id)));
+}
+
+// ---------------------------------------------------------------- Pannes optiques
+
+/** Ajoute une panne (formateur). Les cibles et pertes sont vérifiées par la validation. */
+export function addFault(doc: NfgDocument, params: { id: string; kind: FaultKind; target: FaultTarget; extraLoss: number | null }): CommandResult {
+  if (doc.faults.length >= LIMITS.maxFaults) return fail(error("fault.too-many", { max: LIMITS.maxFaults }));
+  if (params.extraLoss !== null && (!Number.isFinite(params.extraLoss) || params.extraLoss < LIMITS.minFaultLoss || params.extraLoss > LIMITS.maxFaultLoss)) {
+    return fail(error("fault.invalid-loss", { min: LIMITS.minFaultLoss, max: LIMITS.maxFaultLoss }));
+  }
+  const fault: Fault = { id: params.id, kind: params.kind, target: { ...params.target }, extraLoss: params.extraLoss };
+  return commit(doc, { ...doc, faults: [...doc.faults, fault] });
+}
+
+export function removeFault(doc: NfgDocument, params: { id: string }): CommandResult {
+  if (!doc.faults.some((fault) => fault.id === params.id)) return fail(error("fault.not-found", { faultId: params.id }));
+  return commit(doc, { ...doc, faults: doc.faults.filter((fault) => fault.id !== params.id) });
+}
+
+export const REPAIR_ACTIONS = ["clean", "reconnect", "resplice", "replace-fiber"] as const;
+export type RepairAction = (typeof REPAIR_ACTIONS)[number];
+
+/** Pannes supprimées par chaque intervention de terrain. */
+const REPAIRS: Readonly<Record<RepairAction, readonly FaultKind[]>> = {
+  clean: ["dirty-connector"],
+  reconnect: ["polish-mismatch"],
+  resplice: ["bad-splice"],
+  "replace-fiber": ["cut", "bend"],
+};
+
+const sameTarget = (a: FaultTarget, b: FaultTarget) =>
+  a.kind === "link" ? b.kind === "link" && a.linkId === b.linkId : b.kind === "port" && a.deviceId === b.deviceId && a.portId === b.portId;
+
+/**
+ * Intervention de réparation sur un composant (nettoyer un connecteur,
+ * refaire une épissure, remplacer une fibre…) : supprime les pannes qu'elle
+ * corrige à cet endroit. Sans panne correspondante, l'intervention est refusée
+ * avec une explication (elle n'aurait rien changé).
+ */
+export function repair(doc: NfgDocument, params: { action: RepairAction; target: FaultTarget }): CommandResult {
+  const fixed = REPAIRS[params.action];
+  const remaining = doc.faults.filter((fault) => !(fixed.includes(fault.kind) && sameTarget(fault.target, params.target)));
+  if (remaining.length === doc.faults.length) return fail(error("repair.nothing-found", { action: params.action }));
+  return commit(doc, { ...doc, faults: remaining });
 }

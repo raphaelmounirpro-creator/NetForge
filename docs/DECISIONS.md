@@ -148,3 +148,27 @@ Format `netforge-exercise` v1 (Zod, `packages/engine/src/exercise.ts`) : énonc�
 ## D-034 — Format `.nfg.json` v3 : annotations
 
 `layout.annotations` (identifiant, texte de 280 caractères au plus, position ; 200 au plus). Migration v2 → v3 (liste vide), testée avec la chaîne v1 → v3. Les annotations font partie de la disposition : l'empreinte du réseau simulé (D-022) les ignore, donc les modifier ne demande jamais de réinitialisation. Texte rendu par Konva comme du texte, jamais interprété.
+
+## D-035 — Format `.nfg.json` v4 : fibres, pannes, catalogue 2
+
+Un lien porte `fiber` : longueur en mètres, type (G.652.D, G.657.A2) et catégorie de câble, ou `null` pour un câble cuivre. Le projet porte `faults` (100 au plus). Le catalogue 2 ajoute les équipements FTTH sans modifier un modèle existant. Migration v3 → v4 explicite et testée (chaîne v1 → v4) : catalogue 2, `fiber: null` sur tous les liens existants, liste de pannes vide. La validation refuse un câble entre ports de natures différentes, une fibre sur un câble cuivre (ou l'inverse) et une panne sur une cible inadaptée.
+
+## D-036 — Réseau optique : calcul statique, hors du moteur à événements
+
+Le bilan optique (`packages/engine/src/optics.ts`) est une fonction pure du document : chemins, contributions, marges, mesures et inspections. Les équipements optiques et les fibres sont exclus du réseau Ethernet simulé (traces identiques avec ou sans eux, testé) et de l'empreinte de simulation : régler une fibre ou injecter une panne optique ne demande jamais de réinitialiser la simulation. Le calcul tourne dans le fil principal : 7 ms pour 448 chemins (456 équipements) sur le poste de référence. Le service PON (enregistrement, bande passante) viendra en phase 9.
+
+## D-037 — Valeurs maximales normatives, mesures au pire cas
+
+Les pertes nominales sont les maximums vérifiés (G.652, G.657, G.671) et les profils d'émission et de réception ceux de G.984.2 annexe A, classe B+ (fiche `docs/protocols/ftth-bilan-optique.md`). Les minimums non spécifiés valent 0 dB, ce qui rend la vérification de surcharge prudente. Le photomètre affiche le pire cas (émission minimale garantie, pertes maximales, pannes comprises) : aucune valeur « typique » ni aléa n'est inventé, et l'écart au bilan de conception égale exactement la perte ajoutée par les pannes en amont. Câbles : la note 1 du tableau 2 de G.652 exclut jarretières, câbles intérieurs et câbles de raccordement de la valeur 0,40 dB/km ; ils forment la catégorie « câble court » à 1,0 dB/km (exemple cité par la note pour un câble intérieur), choix pédagogique documenté. Réserve d'ingénierie : 3 dB, choix pédagogique non normatif. Un polissage incompatible (APC/UPC) est signalé sans pénalité chiffrée.
+
+## D-038 — Pannes : le formateur les voit, l'élève n'en voit que les symptômes
+
+Les pannes sont des données du projet (D-035), injectées et retirées par des commandes. Les interventions de l'élève (nettoyer, remplacer une jarretière, refaire une épissure, remplacer une fibre) sont aussi des commandes : elles retirent la panne correspondante à l'endroit choisi, ou sont refusées avec l'explication « rien corrigé à cet endroit ». Pendant un exercice, l'interface masque l'onglet Pannes et la colonne des pertes de panne : l'élève voit l'état constaté par l'ONT, le bilan de conception, ses mesures et ses inspections. La panne reste lisible dans le fichier exporté : entraînement local, comme D-033.
+
+## D-039 — Format d'exercice v2 : mesures optiques
+
+`netforge-exercise` version 2 ajoute une observation « mesure au photomètre » (port, sens, conforme ou en écart), une réponse en dB avec tolérance (virgule ou point, unité facultative) et le critère « service optique » (tous les chemins vers l'ONT dans les limites de réception, pannes comprises). Un exercice version 1 reste valide sans changement. Le journal des mesures est un état de session, jamais exporté.
+
+## D-040 — Ajustement de la vue à la première ouverture, liens sélectionnables au clavier
+
+À la première ouverture d'un projet dans la session, si la vue n'a jamais été déplacée et qu'un équipement sort de la zone visible, le canevas s'ajuste à la topologie (comme « Ajuster à la topologie »). La vue Configuration permet de sélectionner un lien, donc d'ouvrir sa fiche (fibre comprise) sans le canevas ; la vue Optique propose la liste « Équipement à mesurer » comme alternative au clic sur le canevas.

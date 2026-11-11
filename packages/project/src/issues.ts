@@ -31,6 +31,10 @@ export const ISSUE_CODES = [
   "link.same-device",
   "link.port-in-use",
   "link.no-free-port",
+  "link.incompatible-media",
+  "link.fiber-missing",
+  "link.fiber-unexpected",
+  "link.invalid-fiber",
   "topology.switch-loop",
   // Configurations et disposition
   "config.missing",
@@ -44,6 +48,14 @@ export const ISSUE_CODES = [
   "annotation.invalid-text",
   "annotation.too-many",
   "annotation.duplicate-id",
+  // Pannes optiques
+  "fault.not-found",
+  "fault.too-many",
+  "fault.unknown-target",
+  "fault.invalid-target",
+  "fault.invalid-loss",
+  "fault.duplicate",
+  "repair.nothing-found",
   // IPv4
   "ipv4.invalid-address",
   "ipv4.invalid-mask",

@@ -2,7 +2,7 @@
 
 Laboratoire web pédagogique de simulation de réseaux pour la formation de techniciens télécom : cuivre, Ethernet/IP, fibre optique, FTTH et réseaux d'entreprise.
 
-> **État actuel : phase 3 (observation, console et premier exercice).** En plus du moteur de la phase 2 : inspecteur des décisions et des trames, explications débutant et technique, animation des trames, console des équipements, outils PC et un premier exercice guidé (page Parcours). Le laboratoire invité permet de construire et configurer un réseau (PC, switches, routeurs, adressage IPv4, routes statiques), puis de le **simuler** : ping, ARP, commutation, routage, coupure de câble, pas à pas, journal des décisions expliquées en français et tables observables (MAC, ARP, routage). Enregistrement automatique dans le navigateur, export/import `.nfg.json`. Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
+> **État actuel : phase 4 (premier laboratoire FTTH).** Équipements optiques (OLT, tiroir, coupleurs 1:2 à 1:64, PBO, PTO, boîtier d'épissure, ONT), fibres et connectiques, bilan optique par chemin et par sens avec la contribution de chaque élément, photomètre, inspection, pannes simples et interventions, exercice de dépannage. Phase 3 : inspecteur des décisions et des trames, explications débutant et technique, animation des trames, console des équipements, outils PC et un premier exercice guidé (page Parcours). Le laboratoire invité permet de construire et configurer un réseau (PC, switches, routeurs, adressage IPv4, routes statiques), puis de le **simuler** : ping, ARP, commutation, routage, coupure de câble, pas à pas, journal des décisions expliquées en français et tables observables (MAC, ARP, routage). Enregistrement automatique dans le navigateur, export/import `.nfg.json`. Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Prérequis
 
@@ -35,15 +35,16 @@ Ouvre http://localhost:5173 (redirigé vers `/laboratoire`). Aucun compte, aucun
 
 ### Utilisation
 
-1. **Nouveau projet**, puis ajout d'équipements depuis la palette (PC, Switch S-24, Routeur R-200) : ils apparaissent au centre de la vue et se déplacent à la souris ou aux flèches.
-2. **Relier** : outil de liaison (touche L) puis clic sur deux équipements, ou formulaire « Relier un port libre » de l'onglet Interfaces des propriétés.
+1. **Nouveau projet**, puis ajout d'équipements depuis la palette (réseau IP : PC, Switch S-24, Routeur R-200 ; réseau optique FTTH : OLT-16, tiroir ODF-12, coupleur 1:2 à 1:64, BPE-12, PBO-8, PTO, ONT-1G) : ils apparaissent au centre de la vue et se déplacent à la souris ou aux flèches.
+2. **Relier** : outil de liaison (touche L) puis clic sur deux équipements, ou formulaire « Relier un port libre » de l'onglet Interfaces (ou Ports) des propriétés. Un câble relie deux ports de même nature (cuivre ou fibre) ; la fiche d'un lien fibre règle sa longueur, son type et sa catégorie de câble.
 3. **Configurer** : adresse IPv4 et masque (`255.255.255.0` ou `24`) par port, passerelle par défaut des PC, **routes statiques** des routeurs (sous-onglet Routes : réseau de destination, masque, prochain saut). Les erreurs bloquent ; les incohérences possibles (adresse en double, passerelle hors réseau, boucle de switches) sont signalées sans bloquer, pour les exercices de dépannage.
-4. **Vue Configuration** : plan d'adressage, liens et routes statiques en tableaux, utilisables entièrement au clavier.
+4. **Vue Configuration** : plan d'adressage, liens (sélectionnables) et routes statiques en tableaux, utilisables entièrement au clavier.
 5. **Vue Simulation** : choisir un PC source et une adresse de destination puis « Lancer le ping » ; observer avec « Événement suivant » (pas à pas), « Lecture » (temps réel, ×10 ou ×100) ou « Terminer les échanges ». Le journal explique chaque décision du moteur (niveau débutant ou technique, filtres) ; cliquer une décision l'ouvre dans l'onglet « Inspection » (contexte, cause, unité de données par couche) ; « Suivre cet échange » isole un écho de bout en bout ; « Pourquoi ? » sur un écho en échec mène à la décision qui l'explique. Les trames sont animées sur les câbles (immobiles si le système demande moins d'animations). L'onglet Console donne la console des équipements ([référence](docs/cli.md)). « Couper le câble » simule une panne sans modifier le projet. Modifier le réseau pendant une simulation demande une réinitialisation.
-6. **Parcours** : exercices guidés (observer, hypothèse, mesure, correction, nouveau test, explication) ; chaque exercice crée son propre projet, avec un guide en tête du panneau de droite.
-7. **Notes** : « Ajouter une note » dans la palette ; glisser un équipement de la palette vers le canevas ; mini-carte en haut à droite du canevas.
-8. **Enregistrement** automatique dans ce navigateur (« Enregistré localement »). Ce stockage n'est pas une sauvegarde garantie : exportez vos projets (`.nfg.json`) depuis la barre d'outils ou la page Projets.
-9. **Plusieurs onglets** : un seul onglet modifie un projet ; les autres passent en lecture seule et peuvent « Prendre la main ».
+6. **Vue Optique** : chemins OLT → ONT avec leur état, bilan descendant (1 490 nm) et montant (1 310 nm) selon le profil GPON classe B+, contributions élément par élément, marges et réserve d'ingénierie ([fiche](docs/protocols/ftth-bilan-optique.md)). Onglet Mesures : photomètre et inspection des connecteurs ; onglet Interventions : nettoyer, remplacer une jarretière, refaire une épissure, remplacer une fibre ; onglet Pannes (formateur) : injecter une coupure, une courbure, un connecteur sale, une épissure défectueuse ou un polissage incompatible.
+7. **Parcours** : exercices guidés (observer, hypothèse, mesure, correction, nouveau test, explication) ; chaque exercice crée son propre projet, avec un guide en tête du panneau de droite.
+8. **Notes** : « Ajouter une note » dans la palette ; glisser un équipement de la palette vers le canevas ; mini-carte en haut à droite du canevas.
+9. **Enregistrement** automatique dans ce navigateur (« Enregistré localement »). Ce stockage n'est pas une sauvegarde garantie : exportez vos projets (`.nfg.json`) depuis la barre d'outils ou la page Projets.
+10. **Plusieurs onglets** : un seul onglet modifie un projet ; les autres passent en lecture seule et peuvent « Prendre la main ».
 
 Raccourcis : Ctrl+Z / Ctrl+Y, V (sélection), L (liaison), Suppr, flèches (déplacement), + / − / 0 (zoom), Échap. Liste complète : bouton « Raccourcis clavier » du laboratoire.
 
@@ -110,10 +111,10 @@ docs/               Suivi, feuille de route, décisions, design, protocoles
 
 ## Limites actuelles
 
-- Simulation : Ethernet, ARP, IPv4, ICMP et routage statique, à un niveau pédagogique simplifié documenté dans [docs/protocols](docs/protocols/README.md). Pas de traceroute, de VLAN, de STP, de DHCP ni de routage dynamique ; un seul exercice embarqué, noté localement (notes vérifiées : phase 6).
+- Simulation : Ethernet, ARP, IPv4, ICMP et routage statique, à un niveau pédagogique simplifié documenté dans [docs/protocols](docs/protocols/README.md). Pas de traceroute, de VLAN, de STP, de DHCP ni de routage dynamique ; deux exercices embarqués, notés localement (notes vérifiées : phase 6).
+- FTTH : bilan optique statique au pire cas ; pas de service PON simulé (enregistrement des ONT, bande passante), d'OTDR ni de modules SFP (phase 9).
 - Pas de comptes ni de déploiement.
 - Éditeur conçu pour un écran d'au moins 1 024 px ; pas d'édition complète sur smartphone.
-- Une seule connectique (cuivre RJ45).
 - Le visuel de connexion attend les fichiers de référence (maquette et photo) : voir [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Documentation

@@ -2,6 +2,7 @@ import {
   disconnect,
   editAnnotation,
   getModel,
+  isOptical,
   removeAnnotation,
   removeDevice,
   renameDevice,
@@ -19,6 +20,7 @@ import { Tabs } from "../../../components/ui/Tabs";
 import { fill, formatIssue, messages } from "../../../i18n";
 import { useLabStore, type OpenProject } from "../store";
 import { ConnectForm } from "./ConnectForm";
+import { FiberForm } from "./FiberForm";
 import { Ipv4Form } from "./Ipv4Form";
 import { RoutesTab } from "./RoutesTab";
 import { SingleFieldForm } from "./SingleFieldForm";
@@ -92,7 +94,7 @@ function GeneralTab({ projectId, project, device }: { projectId: string; project
         <dt className="text-text-muted">{t.type}</dt>
         <dd className="text-text">{t.kind[model.kind]}</dd>
         <dt className="text-text-muted">{t.portsLabel}</dt>
-        <dd className="text-text">{fill(t.ports, { count: model.ports.length })}</dd>
+        <dd className="text-text">{fill(isOptical(model.kind) ? t.portsFiber : t.ports, { count: model.ports.length })}</dd>
       </dl>
       <Button
         variant="danger"
@@ -117,7 +119,7 @@ function InterfacesTab({ projectId, project, device }: { projectId: string; proj
   return (
     <div className="flex flex-col gap-3 p-4">
       <ConnectForm key={`${device.id}-${String(doc.topology.links.length)}`} projectId={projectId} doc={doc} deviceId={device.id} disabled={!editable} />
-      <p className="text-xs text-text-muted">{model.ipCapable ? t.maskHint : t.noIp}</p>
+      <p className="text-xs text-text-muted">{model.ipCapable ? t.maskHint : isOptical(model.kind) ? t.noIpOptical : t.noIp}</p>
       <ul className="flex flex-col gap-2">
         {model.ports.map((port) => {
           const link = findLinkOnPort(doc, device.id, port.id);
@@ -128,7 +130,14 @@ function InterfacesTab({ projectId, project, device }: { projectId: string; proj
               <fieldset className="min-w-0">
                 <legend className="sr-only">{fill(t.port, { port: port.id })}</legend>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-mono text-sm font-semibold text-text">{port.id}</span>
+                  <span className="font-mono text-sm font-semibold text-text">
+                    {port.id}
+                    {port.medium === "fiber" && (
+                      <span className="ml-2 font-sans text-xs font-normal text-text-muted">
+                        {port.connector ? fill(t.connector, { connector: port.connector }) : t.cableEntry}
+                      </span>
+                    )}
+                  </span>
                   {link && other ? (
                     <span className="flex items-center gap-2">
                       <span className="text-xs text-text">{fill(t.linkedTo, { device: deviceName(doc, other.deviceId), port: other.portId })}</span>
@@ -191,7 +200,7 @@ function DeviceProperties({ projectId, project, device, issues }: { projectId: s
         size="sm"
         tabs={[
           { id: "general", label: t.general },
-          { id: "interfaces", label: t.interfaces },
+          { id: "interfaces", label: isOptical(getModel(device.model).kind) ? t.portsTab : t.interfaces },
           ...(getModel(device.model).kind === "router" ? [{ id: "routes" as const, label: t.routes }] : []),
         ]}
         selected={tab}
@@ -224,8 +233,17 @@ function LinkProperties({ projectId, project, linkId }: { projectId: string; pro
           </dd>
         ))}
         <dt className="mt-2 text-text-muted">{t.medium}</dt>
-        <dd className="text-text">{t.linkMedium}</dd>
+        <dd className="text-text">{link.fiber ? t.linkMediumFiber : t.linkMedium}</dd>
       </dl>
+      {link.fiber && (
+        <FiberForm
+          key={`${link.id}:${String(link.fiber.length)}:${link.fiber.type}:${link.fiber.cable}`}
+          projectId={projectId}
+          linkId={link.id}
+          fiber={link.fiber}
+          disabled={project.access !== "editor"}
+        />
+      )}
       <Button
         variant="danger"
         size="sm"

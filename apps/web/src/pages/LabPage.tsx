@@ -19,6 +19,9 @@ import { useLabStore, type LabView } from "../features/lab/store";
 import { TopologyCanvas } from "../features/lab/topology/TopologyCanvas";
 import { useLabShortcuts } from "../features/lab/useLabShortcuts";
 import { ExercisePanel } from "../features/exercises/ExercisePanel";
+import { OpticsPathsList } from "../features/optics/OpticsPathsList";
+import { OpticsSidePanel } from "../features/optics/OpticsSidePanel";
+import { OpticsView } from "../features/optics/OpticsView";
 import { NewProjectDialog } from "../features/projects/NewProjectDialog";
 import { SimulationSidePanel } from "../features/simulation/SimulationSidePanel";
 import { SimulationActions } from "../features/simulation/SimulationActions";
@@ -66,6 +69,7 @@ export function LabPage() {
             tabs={[
               { id: "topology", label: t.viewTopology },
               { id: "simulation", label: t.viewSimulation },
+              { id: "optics", label: t.viewOptics },
               { id: "configuration", label: t.viewConfiguration },
             ]}
             selected={project.view}
@@ -90,11 +94,13 @@ export function LabPage() {
             <div className="flex h-full min-h-0">
               {paletteOpen && (
                 <aside
-                  aria-label={project.view === "simulation" ? messages.simulation.actions : messages.palette.region}
+                  aria-label={project.view === "simulation" ? messages.simulation.actions : project.view === "optics" ? messages.optics.pathsRegion : messages.palette.region}
                   className="w-64 shrink-0 animate-panel-in-left border-r border-border bg-surface"
                 >
                   {project.view === "simulation" ? (
                     <SimulationActions session={session} disabled={simulationBlocked} />
+                  ) : project.view === "optics" ? (
+                    <OpticsPathsList projectId={activeId} project={project} />
                   ) : (
                     <Palette projectId={activeId} project={project} />
                   )}
@@ -105,6 +111,8 @@ export function LabPage() {
                   <TopologyCanvas projectId={activeId} project={project} />
                 ) : project.view === "simulation" ? (
                   <SimulationView projectId={activeId} project={project} />
+                ) : project.view === "optics" ? (
+                  <OpticsView projectId={activeId} project={project} />
                 ) : (
                   <ConfigurationView projectId={activeId} project={project} />
                 )}
@@ -112,7 +120,7 @@ export function LabPage() {
               </div>
               {propertiesOpen && (
                 <aside
-                  aria-label={project.view === "simulation" ? messages.simulation.runtime.title : messages.properties.title}
+                  aria-label={project.view === "simulation" ? messages.simulation.runtime.title : project.view === "optics" ? messages.optics.tabs : messages.properties.title}
                   className="flex w-[22rem] shrink-0 animate-panel-in-right flex-col border-l border-border bg-surface"
                 >
                   {/* Guide d'exercice en tête du panneau : le canevas garde toute sa hauteur. */}
@@ -120,6 +128,8 @@ export function LabPage() {
                   <div className="min-h-0 flex-1">
                     {project.view === "simulation" ? (
                       <SimulationSidePanel projectId={activeId} session={session} selection={project.selection} disabled={simulationBlocked} />
+                    ) : project.view === "optics" ? (
+                      <OpticsSidePanel projectId={activeId} project={project} />
                     ) : (
                       <PropertiesPanel projectId={activeId} project={project} />
                     )}

@@ -3,14 +3,15 @@ import { CATALOG_VERSION, DEVICE_MODEL_IDS } from "./catalog.js";
 import { isIpv4Address } from "./ipv4.js";
 
 /**
- * Format d'échange .nfg.json, version 3 (v2 : routes statiques ; v3 : annotations).
+ * Format d'échange .nfg.json, version 4 (v2 : routes statiques ; v3 : annotations ;
+ * v4 : fibres optiques et pannes).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -25,6 +26,13 @@ export const LIMITS = {
   maxStaticRoutes: 64,
   maxAnnotations: 200,
   maxAnnotationLength: 280,
+  maxFaults: 100,
+  /** Longueur d'une fibre, en mètres. */
+  minFiberLength: 0.1,
+  maxFiberLength: 100_000,
+  /** Perte supplémentaire d'une panne, en dB. */
+  minFaultLoss: 0.1,
+  maxFaultLoss: 30,
 } as const;
 
 // Les noms réservés des objets JavaScript sont exclus : ces identifiants
@@ -37,7 +45,7 @@ export const idSchema = z
 export const DEVICE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/;
 const deviceNameSchema = z.string().regex(DEVICE_NAME_PATTERN, "nom d'équipement invalide");
 
-const portIdSchema = z.string().regex(/^[a-z]{1,8}\d{1,3}$/, "identifiant de port invalide");
+const portIdSchema = z.string().regex(/^[a-z]{1,8}\d{0,3}$/, "identifiant de port invalide");
 const ipv4AddressSchema = z.string().refine(isIpv4Address, "adresse IPv4 invalide");
 
 export const ipv4InterfaceSchema = z.strictObject({
@@ -77,9 +85,43 @@ const endpointSchema = z.strictObject({
   portId: portIdSchema,
 });
 
+export const FIBER_TYPES = ["G.652.D", "G.657.A2"] as const;
+export const FIBER_CABLES = ["distribution", "short"] as const;
+
+/**
+ * Propriétés d'une fibre (lien entre deux ports fibre) : longueur en mètres,
+ * type de fibre et catégorie du câble : « distribution » (câble de transport
+ * ou de distribution) ou « short » (câble court : jarretière, câble intérieur,
+ * câble de raccordement d'abonné). null pour un câble cuivre.
+ */
+const fiberSchema = z.strictObject({
+  length: z.number().min(LIMITS.minFiberLength).max(LIMITS.maxFiberLength),
+  type: z.enum(FIBER_TYPES),
+  cable: z.enum(FIBER_CABLES),
+});
+
 const linkSchema = z.strictObject({
   id: idSchema,
   endpoints: z.tuple([endpointSchema, endpointSchema]),
+  fiber: fiberSchema.nullable(),
+});
+
+export const FAULT_KINDS = ["cut", "bend", "dirty-connector", "bad-splice", "polish-mismatch"] as const;
+
+/**
+ * Panne injectée par le formateur : une perte supplémentaire (distincte de la
+ * perte nominale du composant), une coupure ou une incompatibilité de
+ * raccordement. Visible dans le projet ; masquée pendant un exercice.
+ */
+const faultSchema = z.strictObject({
+  id: idSchema,
+  kind: z.enum(FAULT_KINDS),
+  target: z.discriminatedUnion("kind", [
+    z.strictObject({ kind: z.literal("link"), linkId: idSchema }),
+    z.strictObject({ kind: z.literal("port"), deviceId: idSchema, portId: portIdSchema }),
+  ]),
+  /** Perte supplémentaire en dB (courbure, connecteur sale, épissure défectueuse) ; null sinon. */
+  extraLoss: z.number().min(LIMITS.minFaultLoss).max(LIMITS.maxFaultLoss).nullable(),
 });
 
 const coordinateSchema = z.number().min(-LIMITS.maxCoordinate).max(LIMITS.maxCoordinate);
@@ -100,6 +142,7 @@ export const nfgDocumentSchema = z.strictObject({
     links: z.array(linkSchema).max(LIMITS.maxLinks),
   }),
   configurations: z.record(idSchema, deviceConfigSchema),
+  faults: z.array(faultSchema).max(LIMITS.maxFaults),
   layout: z.strictObject({
     devices: z.record(idSchema, z.strictObject({ x: coordinateSchema, y: coordinateSchema })),
     /** Annotations libres : du texte affiché sur le canevas, sans effet sur le réseau. */
@@ -124,3 +167,7 @@ export type DeviceConfig = NfgDocument["configurations"][string];
 export type StaticRoute = DeviceConfig["staticRoutes"][number];
 export type Position = NfgDocument["layout"]["devices"][string];
 export type Annotation = NfgDocument["layout"]["annotations"][number];
+export type Fiber = NonNullable<Link["fiber"]>;
+export type Fault = NfgDocument["faults"][number];
+export type FaultKind = Fault["kind"];
+export type FaultTarget = Fault["target"];

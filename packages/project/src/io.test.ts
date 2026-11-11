@@ -59,7 +59,7 @@ describe("import refusé avec un diagnostic clair", () => {
     const doc = sampleProject();
     const broken = {
       ...doc,
-      topology: { ...doc.topology, links: [{ id: "l9", endpoints: [{ deviceId: "fantome", portId: "eth0" }, { deviceId: "sw1", portId: "ge5" }] }] },
+      topology: { ...doc.topology, links: [{ id: "l9", endpoints: [{ deviceId: "fantome", portId: "eth0" }, { deviceId: "sw1", portId: "ge5" }], fiber: null }] },
     };
     expect(errorCodes(JSON.stringify(broken))).toContain("link.unknown-device");
   });

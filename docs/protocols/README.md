@@ -1,6 +1,6 @@
 # Protocoles et modèles physiques
 
-Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2). Chaque fiche indique le niveau de modélisation, les références publiques effectivement consultées, les simplifications et les tests qui vérifient le comportement.
+Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2) et calcule le bilan optique d'un réseau FTTH (phase 4). Chaque fiche indique le niveau de modélisation, les références publiques effectivement consultées, les simplifications et les tests qui vérifient le comportement.
 
 | Fiche | Niveau |
 |---|---|
@@ -10,6 +10,7 @@ Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2). Chaque fiche indique le 
 | [Adressage IPv4 (configuration)](ipv4-adressage.md) | Pédagogique simplifié — configuration et validation |
 | [IPv4 : acheminement et routage statique](ipv4-routage.md) | Pédagogique simplifié |
 | [ICMP et ping](icmp-ping.md) | Pédagogique simplifié (sous-ensemble) |
+| [Réseau optique FTTH : bilan, mesures et pannes](ftth-bilan-optique.md) | Pédagogique simplifié — calcul statique |
 
 Chaque protocole ou modèle ajouté reçoit un fichier `docs/protocols/<nom>.md` selon ce gabarit :
 

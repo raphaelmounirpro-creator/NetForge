@@ -12,7 +12,7 @@ import {
   type Ipv4Interface,
   type UnassignableReason,
 } from "./ipv4.js";
-import type { Device, NfgDocument, StaticRoute } from "./schema.js";
+import { LIMITS, type Device, type FaultKind, type Link, type NfgDocument, type StaticRoute } from "./schema.js";
 
 /**
  * Validation sémantique d'un document déjà conforme au schéma.
@@ -24,7 +24,77 @@ import type { Device, NfgDocument, StaticRoute } from "./schema.js";
  * passerelle erronée ou une adresse en double.
  */
 export function validateDocument(doc: NfgDocument): Issue[] {
-  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc)];
+  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkFaults(doc)];
+}
+
+/**
+ * Compatibilité des connectiques : un câble relie deux ports de même support
+ * (cuivre ou fibre) ; un lien fibre porte ses propriétés, un câble cuivre n'en a pas.
+ */
+function checkMedia(link: Link, devices: ReadonlyMap<string, Device>): Issue[] {
+  const ends = link.endpoints.map((end) => {
+    const device = devices.get(end.deviceId);
+    return device ? { device, port: findPort(device.model, end.portId) } : null;
+  });
+  const [a, b] = ends;
+  if (!a?.port || !b?.port) return [];
+  if (a.port.medium !== b.port.medium) {
+    return [
+      error("link.incompatible-media", {
+        linkId: link.id,
+        deviceId: a.device.id,
+        deviceName: a.device.name,
+        portId: a.port.id,
+        otherDeviceName: b.device.name,
+        otherPortId: b.port.id,
+      }),
+    ];
+  }
+  if (a.port.medium === "fiber" && link.fiber === null) return [error("link.fiber-missing", { linkId: link.id })];
+  if (a.port.medium !== "fiber" && link.fiber !== null) return [error("link.fiber-unexpected", { linkId: link.id })];
+  return [];
+}
+
+/** Ports d'un équipement où une épissure interne existe (cible possible d'une épissure défectueuse). */
+export function splicePorts(device: Device): Set<string> {
+  const ports = new Set<string>();
+  for (const channel of getModel(device.model).channels ?? []) {
+    for (const element of channel.elements) if (element.kind === "splice") ports.add(element.port);
+  }
+  return ports;
+}
+
+const LOSS_FAULTS: ReadonlySet<FaultKind> = new Set<FaultKind>(["bend", "dirty-connector", "bad-splice"]);
+
+/** Cohérence des pannes : cible existante et adaptée au type de panne, perte indiquée si nécessaire. */
+function checkFaults(doc: NfgDocument): Issue[] {
+  const issues: Issue[] = [];
+  const seen = new Set<string>();
+  for (const fault of doc.faults) {
+    const base = { faultId: fault.id, kind: fault.kind };
+    const target = fault.target;
+    const key = `${fault.kind}|${target.kind === "link" ? target.linkId : `${target.deviceId}/${target.portId}`}`;
+    if (seen.has(key)) issues.push(error("fault.duplicate", base));
+    seen.add(key);
+    if (LOSS_FAULTS.has(fault.kind) !== (fault.extraLoss !== null)) issues.push(error("fault.invalid-loss", { ...base, min: LIMITS.minFaultLoss, max: LIMITS.maxFaultLoss }));
+
+    if (target.kind === "link") {
+      const link = doc.topology.links.find((item) => item.id === target.linkId);
+      if (!link) issues.push(error("fault.unknown-target", base));
+      else if (link.fiber === null || (fault.kind !== "cut" && fault.kind !== "bend")) issues.push(error("fault.invalid-target", base));
+      continue;
+    }
+    const device = doc.topology.devices.find((item) => item.id === target.deviceId);
+    const port = device ? findPort(device.model, target.portId) : undefined;
+    if (!device || !port) {
+      issues.push(error("fault.unknown-target", base));
+      continue;
+    }
+    const valid =
+      fault.kind === "bad-splice" ? splicePorts(device).has(port.id) : (fault.kind === "dirty-connector" || fault.kind === "polish-mismatch") && port.connector !== null;
+    if (!valid) issues.push(error("fault.invalid-target", base));
+  }
+  return issues;
 }
 
 function checkIntegrity(doc: NfgDocument): Issue[] {
@@ -73,6 +143,7 @@ function checkIntegrity(doc: NfgDocument): Issue[] {
       const name = devices.get(a.deviceId)?.name ?? a.deviceId;
       issues.push(error("link.same-device", { deviceId: a.deviceId, deviceName: name }));
     }
+    issues.push(...checkMedia(link, devices));
   }
 
   for (const device of devices.values()) {

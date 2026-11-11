@@ -1,4 +1,4 @@
-import { cliPrompt, complete } from "@netforge/project";
+import { cliPrompt, complete, getModel, isOptical } from "@netforge/project";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type SubmitEvent } from "react";
 import { compareNames, fill, messages } from "../../i18n";
 import type { OpenProject } from "../lab/store";
@@ -24,7 +24,11 @@ export function ConsolePanel({ projectId, project }: { projectId: string; projec
   const inputId = useId();
   const outputRef = useRef<HTMLDivElement>(null);
   const doc = project.document;
-  const devices = useMemo(() => [...doc.topology.devices].sort((a, b) => compareNames(a.name, b.name)), [doc.topology.devices]);
+  // Les équipements optiques n'ont pas de console en phase 4 (aucune configuration IP).
+  const devices = useMemo(
+    () => doc.topology.devices.filter((item) => !isOptical(getModel(item.model).kind)).sort((a, b) => compareNames(a.name, b.name)),
+    [doc.topology.devices],
+  );
   const selected = project.selection?.kind === "device" ? project.selection.id : null;
   const [chosen, setChosen] = useState<string | null>(null);
   const deviceId = [chosen, selected, devices[0]?.id].find((id) => id && devices.some((device) => device.id === id)) ?? null;

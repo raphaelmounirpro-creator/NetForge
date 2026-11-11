@@ -3,7 +3,8 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { memo, useEffect, useId, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type KeyboardEvent } from "react";
 import { Label, Layer, Line, Stage, Tag, Text } from "react-konva";
 import { fill, messages } from "../../../i18n";
-import { addDeviceAt, deleteSelection, newEntityId, zoomBy } from "../actions";
+import { formatLength } from "../../optics/format";
+import { addDeviceAt, deleteSelection, fitToContent, newEntityId, zoomBy } from "../actions";
 import { useLabStore, type OpenProject } from "../store";
 import { PacketLayer } from "../../simulation/PacketLayer";
 import { DeviceNode } from "./DeviceNode";
@@ -18,9 +19,16 @@ const WHEEL_ZOOM = 1.1;
 /** Type de donnée du glisser-déposer depuis la palette (identifiant de modèle). */
 export const DRAG_TYPE = "application/x-netforge-model";
 const NOTE_WIDTH = 220;
+/** Projets déjà ajustés automatiquement pendant la session (une seule fois par projet). */
+const autoFitted = new Set<string>();
+/** Marge (px) sous laquelle un équipement est jugé hors de la zone visible. */
+const FIT_MARGIN = 40;
 
-/** Libellé secondaire d'un équipement : première adresse configurée. */
+/** Libellé secondaire d'un équipement : première adresse configurée, ou rapport d'un coupleur. */
 function deviceDetail(doc: NfgDocument, deviceId: string): string | null {
+  const device = doc.topology.devices.find((item) => item.id === deviceId);
+  const model = device ? getModel(device.model) : null;
+  if (model?.kind === "splitter") return `1:${String(model.ports.length - 1)}`;
   const config = doc.configurations[deviceId];
   const first = config && Object.values(config.interfaces).find((item) => item.ipv4)?.ipv4;
   return first ? `${first.address}/${String(first.prefixLength)}` : null;
@@ -35,16 +43,18 @@ interface DragState {
 interface TopologyCanvasProps {
   projectId: string;
   project: OpenProject;
-  /** « simulate » : observation (déplacements autorisés, aucun outil d'édition du réseau). */
-  mode?: "edit" | "simulate";
+  /** « simulate » et « optics » : observation (déplacements autorisés, aucun outil d'édition du réseau). */
+  mode?: "edit" | "simulate" | "optics";
   /** État des câbles calculé par le moteur (vue Simulation). */
   linkStates?: Readonly<Record<string, boolean>> | undefined;
-  /** Câbles empruntés par l'échange suivi (vue Simulation). */
+  /** Câbles empruntés par l'échange suivi (vue Simulation) ou par le chemin optique choisi. */
   highlightLinks?: ReadonlySet<string> | undefined;
+  /** Libellés secondaires imposés (état optique des ONT dans la vue Optique). */
+  deviceDetails?: ReadonlyMap<string, string> | undefined;
 }
 
 /** Mémoïsé : la vue Simulation reçoit des lots fréquents qui ne concernent pas le canevas. */
-export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project, mode = "edit", linkStates, highlightLinks }: TopologyCanvasProps) {
+export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project, mode = "edit", linkStates, highlightLinks, deviceDetails }: TopologyCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const helpId = useId();
   const colors = useThemeColors();
@@ -52,7 +62,7 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
   const [drag, setDrag] = useState<DragState | null>(null);
   const { document: doc, viewport, selection, linkSourceId, access } = project;
   const editable = access === "editor";
-  const simulate = mode === "simulate";
+  const simulate = mode !== "edit";
   const tool = simulate ? "select" : project.tool;
 
   useEffect(() => {
@@ -69,6 +79,20 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
       observer.disconnect();
     };
   }, []);
+
+  // Première ouverture d'un projet dont la topologie dépasse la zone visible (vue jamais déplacée) : on l'ajuste.
+  useEffect(() => {
+    if (size.width === 0 || size.height === 0 || autoFitted.has(projectId)) return;
+    autoFitted.add(projectId);
+    const current = useLabStore.getState().projects[projectId];
+    if (!current) return;
+    const { x, y, scale } = current.viewport;
+    if (x !== 0 || y !== 0 || scale !== 1) return;
+    const outside = Object.values(current.document.layout.devices).some(
+      (pos) => pos.x < FIT_MARGIN || pos.y < FIT_MARGIN || pos.x > size.width - FIT_MARGIN || pos.y > size.height - FIT_MARGIN,
+    );
+    if (outside) fitToContent(projectId);
+  }, [projectId, size.width, size.height]);
 
   const positionOf = useMemo(
     () => (deviceId: string) => (drag?.id === deviceId ? drag : doc.layout.devices[deviceId]),
@@ -172,7 +196,7 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
     <div
       ref={containerRef}
       role="region"
-      aria-label={simulate ? messages.lab.viewSimulation : messages.lab.viewTopology}
+      aria-label={mode === "optics" ? messages.lab.viewOptics : simulate ? messages.lab.viewSimulation : messages.lab.viewTopology}
       aria-describedby={helpId}
       tabIndex={0}
       onKeyDown={(event) => {
@@ -265,6 +289,28 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
                   />
                 ));
               })}
+            {/* Fibre : sa longueur, écrite au milieu du lien, la distingue d'un câble cuivre. */}
+            {showPortLabels &&
+              doc.topology.links.map((link) => {
+                if (link.fiber === null) return null;
+                const [a, b] = link.endpoints;
+                const posA = positionOf(a.deviceId);
+                const posB = positionOf(b.deviceId);
+                if (!posA || !posB) return null;
+                return (
+                  <Text
+                    key={`${link.id}-fiber`}
+                    text={formatLength(link.fiber.length)}
+                    x={(posA.x + posB.x) / 2 - 40}
+                    y={(posA.y + posB.y) / 2 + 4}
+                    width={80}
+                    align="center"
+                    fontSize={10}
+                    fill={colors["text-muted"]}
+                    listening={false}
+                  />
+                );
+              })}
             {/* Câble coupé : le libellé texte double le pointillé (la couleur n'est jamais seule). */}
             {doc.topology.links.map((link) => {
               if (linkStates?.[link.id] !== false) return null;
@@ -319,7 +365,7 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
                   id={device.id}
                   kind={getModel(device.model).kind}
                   name={device.name}
-                  detail={deviceDetail(doc, device.id)}
+                  detail={deviceDetails?.get(device.id) ?? deviceDetail(doc, device.id)}
                   x={position.x}
                   y={position.y}
                   selected={selection?.kind === "device" && selection.id === device.id}
@@ -335,7 +381,7 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
               );
             })}
           </Layer>
-          {simulate && <PacketLayer positionOf={positionOf} colors={colors} />}
+          {mode === "simulate" && <PacketLayer positionOf={positionOf} colors={colors} />}
         </Stage>
       )}
       <Minimap

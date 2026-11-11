@@ -1,11 +1,12 @@
 import { parseExercise, type Exercise } from "@netforge/engine";
+import { connecteurSale } from "./connecteurSale";
 import { retourManquant } from "./retourManquant";
 
 /**
  * Exercices embarqués, validés au chargement comme toute donnée externe :
  * un exercice invalide n'est pas proposé (son identifiant est signalé).
  */
-const RAW: readonly unknown[] = [retourManquant];
+const RAW: readonly unknown[] = [retourManquant, connecteurSale];
 
 export const exercises: readonly Exercise[] = RAW.flatMap((raw) => {
   const parsed = parseExercise(raw);

@@ -1,6 +1,7 @@
 import {
   broadcastAddress,
   getModel,
+  isOptical,
   networkAddress,
   parseIpv4,
   type DeviceKind,
@@ -85,16 +86,21 @@ function runtimeAddress(address: string, prefixLength: number): RuntimeAddress |
 const byId = <T extends { id: string }>(a: T, b: T) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
+  // Le réseau optique (OLT, coupleurs, ONT…) ne transporte pas de trames simulées :
+  // il est analysé par le bilan optique (optics.ts). Les câbles fibre ne relient
+  // que des ports fibre (validation), les deux réseaux sont donc disjoints.
+  const ethernetDevices = doc.topology.devices.filter((device) => !isOptical(getModel(device.model).kind));
+  const ethernetIds = new Set(ethernetDevices.map((device) => device.id));
   const linkOfPort = new Map<string, string>();
   const links = new Map<string, RuntimeLink>();
-  for (const link of [...doc.topology.links].sort(byId)) {
+  for (const link of [...doc.topology.links].filter((item) => item.endpoints.every((end) => ethernetIds.has(end.deviceId))).sort(byId)) {
     const [a, b] = link.endpoints;
     links.set(link.id, { id: link.id, ends: [{ ...a }, { ...b }], up: true });
     linkOfPort.set(`${a.deviceId}/${a.portId}`, link.id);
     linkOfPort.set(`${b.deviceId}/${b.portId}`, link.id);
   }
 
-  const sortedDevices = [...doc.topology.devices].sort(byId);
+  const sortedDevices = [...ethernetDevices].sort(byId);
   const macs = assignMacs(
     sortedDevices.flatMap((device) => getModel(device.model).ports.map((port) => `${device.id}/${port.id}`)),
   );

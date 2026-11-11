@@ -35,12 +35,33 @@ function migrateV2toV3(doc: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * Version 3 → 4 : catalogue 2 (équipements FTTH, aucun modèle existant
+ * modifié), propriété « fiber » des liens (null : tous les liens v3 sont en
+ * cuivre) et liste des pannes (vide).
+ */
+function migrateV3toV4(doc: Record<string, unknown>): Record<string, unknown> {
+  const topology = doc["topology"];
+  const links: unknown[] | null = isRecord(topology) && Array.isArray(topology["links"]) ? (topology["links"] as unknown[]) : null;
+  return {
+    ...doc,
+    schemaVersion: 4,
+    models: isRecord(doc["models"]) && doc["models"]["catalog"] === 1 ? { ...doc["models"], catalog: 2 } : doc["models"],
+    topology:
+      isRecord(topology) && links
+        ? { ...topology, links: links.map((link) => (isRecord(link) ? { ...link, fiber: link["fiber"] ?? null } : link)) }
+        : topology,
+    faults: doc["faults"] ?? [],
+  };
+}
+
+/**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
  */
 const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Record<string, unknown>>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
+  3: migrateV3toV4,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

@@ -10,9 +10,51 @@ Détail des preuves : commits `6b49de3` à `aff43fc`. Limites restantes : Docker
 
 Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests unitaires seulement ; éditeur prévu pour ≥ 1 024 px.
 
-## Phase active : 3 — Observation, CLI et premier exercice
+## Phase active : 4 — Premier laboratoire FTTH
 
-**État : terminée localement, en attente de validation du propriétaire.**
+**État : terminée localement le 2026-11-11, en attente de validation du propriétaire.**
+
+### Périmètre retenu
+
+- Dépend de : phase 2 (projet, éditeur) ; indépendant du moteur à événements (le bilan optique est un calcul statique).
+- Inclus : équipements passifs génériques (OLT-16, ONT-1G, tiroir optique ODF-12, coupleurs 1:2 à 1:64, PBO-8, PTO, boîtier d'épissure BPE-12) à ports explicites ; fibres G.652.D et G.657.A2, câble de transport/distribution ou câble court (jarretière, intérieur, raccordement), longueurs en mètres ; connecteurs SC/LC APC/UPC ; compatibilité des connectiques (cuivre/fibre, E-13) ; chemins OLT → ONT et bilan par direction (1 490 nm descendant, 1 310 nm montant) avec contribution de chaque composant, marges, réserve d'ingénierie et limites du profil GPON classe B+ ; photomètre ; pannes simples (coupure, courbure, connecteur sale, épissure défectueuse, incompatibilité de polissage) et interventions de réparation ; exercice local de dépannage.
+- Exclus : enregistrement PON (numéro de série), VLAN de service et partage de bande passante, OTDR, XGS-PON (phase 9) ; exports CSV/PDF des bilans (phase 15).
+- Scénarios d'acceptation : chemin calculé à la main retrouvé à 0,01 dB ; cascade de coupleurs ; plusieurs branches ; limites de réception (sensibilité, surcharge) ; fibre coupée ; aucun double comptage d'une connexion ; exercice de dépannage terminé.
+- Données : valeurs normatives vérifiées (UIT-T G.984.2 annexe A, G.652, G.657, G.671), consignées dans docs/protocols/ftth-bilan-optique.md.
+
+### Critères de sortie (spécification §12 et §17)
+
+| Critère | État | Preuve |
+|---|---|---|
+| Calculs manuels de référence | atteint | chemin ONT1 calculé à la main (24,974 dB, marge 3,026 dB dans les deux sens) retrouvé à 10⁻⁹ dB près ; contributions élément par élément dans l'ordre de chaque sens (`optics.test.ts`) ; valeurs affichées vérifiées dans le navigateur (e2e « formateur ») |
+| Absence de double comptage | atteint | une connexion par extrémité de câble sur un connecteur, une épissure par équipement : 4 connexions, 7 épissures, 2 coupleurs, 6 fibres, chacun une seule fois (`optics.test.ts`) |
+| Marges explicables | atteint | puissance reçue au pire cas, seuil (sensibilité + pénalité), marge, marge avant surcharge, budget disponible, réserve conseillée, contribution de chaque élément ; sensibilité insuffisante, surcharge et marge faible testées |
+| Cascade, branches, fibre coupée, limites | atteint | coupleurs 1:8 puis 1:4 et trois branches ; coupure (plus de lumière en aval, lumière normale en amont) ; cascade 1:64 + 1:8 sous la sensibilité ; ONT relié directement à l'OLT en surcharge |
+| Pannes simples, symptômes seuls pour l'élève | atteint | coupure, courbure, connecteur sale, épissure défectueuse, polissage APC/UPC (sans pénalité inventée) ; onglet Pannes et pertes de panne masqués en exercice (e2e) |
+| Photomètre | atteint avec limite | mesure au pire cas, écart au bilan égal à la perte de panne, descendant et montant ; source lumineuse séparée non modélisée |
+| Exercice local de dépannage | atteint | « L'abonné sans service » : mesurer, situer, mesurer de proche en proche, inspecter, nettoyer, remesurer, 100/100 (e2e) |
+| Compatibilité des connectiques (E-13) | atteint avec limite | cuivre ↔ fibre refusé avec explication ; ports compatibles seuls proposés ; modules SFP reportés |
+| Format et migrations | atteint | format v4 (fibres, pannes, catalogue 2) ; migration v3 → v4 et chaîne v1 → v4 testées ; format d'exercice v2 compatible v1 |
+
+### Vérifications exécutées (2026-11-11, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- `pnpm check` : lint, typecheck, **268 tests** (format 102, moteur 101, interface 57, contrats 2, API 6) et builds réussis.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **23 parcours réussis** (dont 3 de la phase 4 : formateur, éditeur, exercice).
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:perf` : seuils respectés (calcul 7 ms pour 100 équipements, aucune tâche longue pendant le calcul ; tempête interrompue sans tâche longue).
+- Bilan optique sur un grand PON (456 équipements, 448 chemins) : 7 ms ; mesure au photomètre : 2 ms.
+- Inspection visuelle réelle (captures Edge) : vue Optique en exercice (liste des chemins, état sous chaque ONT, bilan, photomètre, inspection, intervention), thèmes sombre et clair, 1440 et 1024 px ; aucun défilement horizontal, aucune erreur console. Défauts trouvés et corrigés : topologie FTTH hors de la zone visible à l'ouverture (ajustement automatique, D-040), bilan illisible dans le panneau étroit (une grandeur par ligne), marge de conception confondue avec l'état réel en exercice (libellé explicite), liste « Équipements du projet » écrasée sous les notes par la palette allongée (sections non compressibles).
+- Relecture des références : la note 1 du tableau 2 de G.652 exclut aussi les câbles de raccordement de la valeur 0,40 dB/km ; les catégories de câble ont été corrigées en conséquence et les références recalculées (D-037).
+
+### Limites connues
+
+- Mesures déterministes au pire cas ; affaiblissement identique à 1 310 et 1 490 nm ; épissures par fusion à alignement actif seulement ; ni réflectance, ni OTDR, ni atténuateur.
+- Service PON non simulé : un ONT « conforme » a un chemin optique correct, il n'est pas enregistré (phase 9).
+- Exercice FTTH : la panne reste lisible dans le fichier exporté (entraînement local, D-038).
+- Modules SFP et connectique cuivre détaillée reportés (phases 9 et 12).
+
+## Phase 3 — Observation, CLI et premier exercice : validée par le propriétaire (2026-11-11)
+
+Commits `e868461` et `4860f4c` (rappel quand la simulation est en pause). Détail ci-dessous.
 
 ### Périmètre retenu
 

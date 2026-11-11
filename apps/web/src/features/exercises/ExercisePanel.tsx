@@ -2,7 +2,9 @@ import {
   currentScore,
   evaluateCriteria,
   maxScore,
+  measurementObserved,
   pingObserved,
+  sameDecibel,
   sameNetwork,
   type Exercise,
   type ExerciseProgress,
@@ -14,6 +16,8 @@ import { Button } from "../../components/ui/Button";
 import { TextField } from "../../components/ui/TextField";
 import { fill, formatIssue, messages } from "../../i18n";
 import type { OpenProject } from "../lab/store";
+import { statusText } from "../optics/format";
+import { powerMeasurements, useOpticsSession } from "../optics/store";
 import { useSimulationStore } from "../simulation/store";
 import { findExercise } from "./catalog";
 import { useExerciseStore } from "./progress";
@@ -48,13 +52,28 @@ function FeedbackLine({ feedback }: { feedback: Feedback }) {
   );
 }
 
-/** Observer ou retester : le moteur a-t-il calculé le ping demandé, avec le résultat attendu ? */
-function PingStep({ projectId, step, succeed, fail }: StepProps<"observe" | "retest">) {
+/**
+ * Observer ou retester : le moteur a-t-il calculé le ping demandé, ou le
+ * photomètre a-t-il donné la mesure demandée, avec le résultat attendu ?
+ */
+function ObserveStep({ projectId, project, step, succeed, fail }: StepProps<"observe" | "retest">) {
   const session = useSimulationStore((state) => (state.session?.projectId === projectId ? state.session : null));
+  const optics = useOpticsSession(projectId);
   const verify = () => {
+    const check = step.check;
+    if (check.kind === "power-measured") {
+      if (measurementObserved(powerMeasurements(optics), check)) {
+        succeed(step.points, fill(t.measuredOk, { points: step.points }));
+        return;
+      }
+      const device = project.document.topology.devices.find((item) => item.id === check.deviceId)?.name ?? check.deviceId;
+      const params = { device, port: check.portId, direction: messages.optics.directionShort[check.direction] };
+      fail([fill(step.kind === "retest" ? t.remeasureMissing : t.measuredMissing, params)]);
+      return;
+    }
     const pings = session ? Object.values(session.pings) : [];
-    if (pingObserved(pings, step.check)) succeed(step.points, fill(t.observedOk, { points: step.points }));
-    else if (step.kind === "retest") fail([fill(t.retestMissing, { from: step.check.from.toUpperCase(), to: step.check.to })]);
+    if (pingObserved(pings, check)) succeed(step.points, fill(t.observedOk, { points: step.points }));
+    else if (step.kind === "retest") fail([fill(t.retestMissing, { from: check.from.toUpperCase(), to: check.to })]);
     else fail([t.observedMissing]);
   };
   return (
@@ -116,7 +135,9 @@ function MeasureStep({ step, succeed, fail }: StepProps<"measure">) {
       className="flex flex-col gap-2"
       onSubmit={(event) => {
         event.preventDefault();
-        if (sameNetwork(answer, step.answer.value)) succeed(step.points, fill(t.rightMeasure, { points: step.points }));
+        const expected = step.answer;
+        const right = expected.kind === "network" ? sameNetwork(answer, expected.value) : sameDecibel(answer, expected.value, expected.tolerance);
+        if (right) succeed(step.points, fill(t.rightMeasure, { points: step.points }));
         else fail([fill(t.wrongMeasure, { feedback: step.wrongFeedback })]);
       }}
     >
@@ -154,13 +175,14 @@ function FixStep({ project, step, succeed, fail }: StepProps<"fix">) {
     }
     fail([
       t.fixFailed,
-      ...failing.map((result) =>
-        fill(t.criteria[result.criterion.kind], {
-          from: nameOf(result.criterion.from),
-          to: result.criterion.to,
-          replies: result.replies,
-          sent: result.sent,
-        }),
+      ...failing.map(({ criterion, opticalStatus, replies, sent }) =>
+        criterion.kind === "optical-service"
+          ? fill(t.criteria["optical-service"], {
+              ont: nameOf(criterion.ont),
+              // Symptôme seulement : le guide ne révèle pas la panne.
+              status: opticalStatus ? statusText(opticalStatus, true) : t.opticalUnreached,
+            })
+          : fill(t.criteria[criterion.kind], { from: nameOf(criterion.from), to: criterion.to, replies, sent }),
       ),
     ]);
   };
@@ -179,7 +201,7 @@ function StepBody(props: StepProps<ExerciseStep["kind"]> & { onFinish: () => voi
   switch (step.kind) {
     case "observe":
     case "retest":
-      return <PingStep {...props} step={step} />;
+      return <ObserveStep {...props} step={step} />;
     case "hypothesis":
       return <HypothesisStep {...props} step={step} />;
     case "measure":

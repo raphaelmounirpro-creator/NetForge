@@ -34,15 +34,21 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 3", () => {
+describe("migration du format version 1 → 4", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(3);
+    expect(result.document.schemaVersion).toBe(4);
+    expect(result.document.models).toEqual({ catalog: 2 });
+    expect(result.document.faults).toEqual([]);
     expect(result.document.configurations["pc1"]).toEqual({ ...versionOne.configurations.pc1, staticRoutes: [] });
     expect(result.document.configurations["r1"]).toEqual({ ...versionOne.configurations.r1, staticRoutes: [] });
-    expect(result.document.topology).toEqual(versionOne.topology);
+    // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre.
+    expect(result.document.topology).toEqual({
+      ...versionOne.topology,
+      links: versionOne.topology.links.map((link) => ({ ...link, fiber: null })),
+    });
     expect(result.document.layout).toEqual({ ...versionOne.layout, annotations: [] });
     expect(result.document.metadata).toEqual(versionOne.metadata);
   });
@@ -84,6 +90,31 @@ describe("migration du format version 1 → 3", () => {
     if (!migrated.ok) throw new Error("migration attendue");
     const { annotations: _removed, ...layout } = migrated.document.layout;
     expect(errorCodes({ ...migrated.document, layout })).toEqual(["import.schema"]);
+  });
+
+  it("migre un fichier version 3 : catalogue 2, liens en cuivre et pannes vides", () => {
+    const versionThree = {
+      ...versionOne,
+      schemaVersion: 3,
+      configurations: Object.fromEntries(Object.entries(versionOne.configurations).map(([id, config]) => [id, { ...config, staticRoutes: [] }])),
+      layout: { ...versionOne.layout, annotations: [] },
+    };
+    const result = parseNfgValue(versionThree);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.schemaVersion).toBe(4);
+    expect(result.document.models.catalog).toBe(2);
+    expect(result.document.topology.links[0]?.fiber).toBeNull();
+    expect(result.document.faults).toEqual([]);
+  });
+
+  it("refuse une version 4 sans liste de pannes ni propriété de fibre", () => {
+    const migrated = parseNfgValue(versionOne);
+    if (!migrated.ok) throw new Error("migration attendue");
+    const { faults: _removed, ...withoutFaults } = migrated.document;
+    expect(errorCodes(withoutFaults)).toEqual(["import.schema"]);
+    const links = migrated.document.topology.links.map(({ fiber: _fiber, ...link }) => link);
+    expect(errorCodes({ ...migrated.document, topology: { ...migrated.document.topology, links } })).toEqual(["import.schema"]);
   });
 
   it("refuse des routes statiques sur un PC dans un fichier importé", () => {

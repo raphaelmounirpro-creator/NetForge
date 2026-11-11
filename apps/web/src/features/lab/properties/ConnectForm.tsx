@@ -1,4 +1,4 @@
-import { connectPorts, freePorts, type NfgDocument } from "@netforge/project";
+import { connectPorts, findPort, freePorts, type NfgDocument } from "@netforge/project";
 import { useId, useState, type SubmitEvent } from "react";
 import { Button } from "../../../components/ui/Button";
 import { formatIssue, messages } from "../../../i18n";
@@ -20,16 +20,20 @@ const selectClass = "min-h-9 w-full rounded-sm border border-border-strong bg-ca
 export function ConnectForm({ projectId, doc, deviceId, disabled }: ConnectFormProps) {
   const id = useId();
   const localPorts = freePorts(doc, deviceId);
-  const remote = doc.topology.devices
-    .filter((device) => device.id !== deviceId)
-    .map((device) => ({ device, ports: freePorts(doc, device.id) }))
-    .filter((entry) => entry.ports.length > 0);
   const [localPort, setLocalPort] = useState(localPorts[0] ?? "");
   const [target, setTarget] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const local = doc.topology.devices.find((device) => device.id === deviceId);
+  const chosen = localPorts.includes(localPort) ? localPort : localPorts[0];
+  // Seuls les ports de même support que le port local sont proposés (cuivre ↔ cuivre, fibre ↔ fibre).
+  const medium = local && chosen ? findPort(local.model, chosen)?.medium : undefined;
+  const remote = doc.topology.devices
+    .filter((device) => device.id !== deviceId)
+    .map((device) => ({ device, ports: freePorts(doc, device.id).filter((port) => findPort(device.model, port)?.medium === medium) }))
+    .filter((entry) => entry.ports.length > 0);
 
   if (localPorts.length === 0) return null;
-  if (remote.length === 0) return <p className="text-xs text-text-muted">{t.noFreePorts}</p>;
+  if (remote.length === 0) return <p className="text-xs text-text-muted">{doc.topology.devices.length > 1 ? t.noCompatiblePorts : t.noFreePorts}</p>;
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
