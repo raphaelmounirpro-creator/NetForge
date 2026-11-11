@@ -9,6 +9,7 @@
 export const ENGINE_VERSION = "0.2.0";
 
 export * from "./commands.js";
+export * from "./evaluation.js";
 export * from "./exercise.js";
 export * from "./host.js";
 export * from "./mac.js";

@@ -27,6 +27,21 @@ export const API_ERROR_CODES = [
   "project.conflict",
   "project.invalid",
   "project.too-many",
+  "exercise.not-found",
+  "exercise.invalid",
+  "exercise.conflict",
+  "exercise.too-many",
+  "evaluation.not-found",
+  "evaluation.not-ready",
+  "evaluation.closed",
+  "evaluation.no-attempts-left",
+  "evaluation.already-submitted",
+  "evaluation.no-more-hints",
+  "evaluation.invalid-project",
+  "evaluation.invalid-answer",
+  "evaluation.forbidden-change",
+  "evaluation.limit-exceeded",
+  "evaluation.rate-limited",
   "server.unavailable",
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
@@ -39,5 +54,16 @@ export const apiErrorSchema = z.strictObject({
   storedRevision: z.int().min(1).nullable().optional(),
   /** Problèmes de validation d'un projet (codes du format .nfg.json). */
   issues: z.array(z.strictObject({ code: z.string(), params: z.record(z.string(), z.union([z.string(), z.number()])) })).max(50).optional(),
+  /** Exercice invalide : chemins des champs refusés. */
+  paths: z.array(z.string()).max(50).optional(),
+  /** Évaluation : limite atteinte (diagnostic, aucune note). */
+  limit: z.enum(["devices", "links", "checks", "events", "pending-events", "time"]).optional(),
+  max: z.int().min(0).optional(),
+  /** Étape concernée (null : soumission entière). */
+  step: z.int().min(0).nullable().optional(),
+  /** Évaluation : modifications du projet hors des fonctions autorisées. */
+  changes: z.array(z.enum(["topology", "addressing", "routes", "optics", "faults"])).max(5).optional(),
+  /** Publication impossible : raison. */
+  reason: z.enum(["no-graded-points", "too-many-checks"]).optional(),
 });
 export type ApiError = z.infer<typeof apiErrorSchema>;

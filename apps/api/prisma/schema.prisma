@@ -30,8 +30,75 @@ model User {
   sessions           Session[]
   tokens             EmailToken[]
   projects           Project[]
+  exercises          Exercise[]
+  publications       Publication[]
+  attempts           Attempt[]
 
   @@map("users")
+}
+
+/// Exercice rédigé par un compte, privé à son auteur (format « netforge-exercise » validé par le moteur).
+model Exercise {
+  id           String        @id @default(uuid()) @db.Uuid
+  ownerId      String        @map("owner_id") @db.Uuid
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title        String        @db.VarChar(120)
+  /// Contenu complet, critères et bonnes réponses compris : jamais envoyé à un élève.
+  content      Json          @db.Json
+  revision     Int           @default(1)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  publications Publication[]
+
+  @@index([ownerId, updatedAt])
+  @@map("exercises")
+}
+
+/// Évaluation publiée : instantané immuable d'une révision d'exercice, joignable par un code non devinable.
+model Publication {
+  id               String    @id @default(uuid()) @db.Uuid
+  code             String    @unique @db.VarChar(16)
+  ownerId          String    @map("owner_id") @db.Uuid
+  owner            User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  /// Exercice d'origine ; l'instantané reste valable si l'exercice est supprimé.
+  exerciseId       String?   @map("exercise_id") @db.Uuid
+  exercise         Exercise? @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+  exerciseRevision Int       @map("exercise_revision")
+  title            String    @db.VarChar(120)
+  content          Json      @db.Json
+  /// SHA-256 du contenu de l'instantané (versionnement des évaluations).
+  contentHash      String    @map("content_hash") @db.Char(64)
+  maxAttempts      Int       @map("max_attempts")
+  closedAt         DateTime? @map("closed_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  attempts         Attempt[]
+
+  @@index([exerciseId, createdAt])
+  @@map("publications")
+}
+
+/// Tentative d'un élève : indices comptés par le serveur ; résultat immuable une fois noté.
+model Attempt {
+  id               String      @id @default(uuid()) @db.Uuid
+  publicationId    String      @map("publication_id") @db.Uuid
+  publication      Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  userId           String      @map("user_id") @db.Uuid
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hintsRevealed    Int         @default(0) @map("hints_revealed")
+  startedAt        DateTime    @default(now()) @map("started_at") @db.Timestamptz(3)
+  submittedAt      DateTime?   @map("submitted_at") @db.Timestamptz(3)
+  score            Int?
+  maxScore         Int         @map("max_score")
+  /// Détail par étape, versions du correcteur et du moteur.
+  result           Json?       @db.Json
+  evaluatorVersion Int?        @map("evaluator_version")
+  engineVersion    String?     @map("engine_version") @db.VarChar(32)
+  /// SHA-256 de la soumission notée (projet et réponses).
+  submissionHash   String?     @map("submission_hash") @db.Char(64)
+
+  @@index([userId, startedAt])
+  @@index([publicationId, userId])
+  @@map("attempts")
 }
 
 enum TokenPurpose {

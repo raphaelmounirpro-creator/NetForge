@@ -6,6 +6,7 @@ import { CommonModule } from "./common/common.module.js";
 import type { AppConfig } from "./config/app-config.js";
 import { ConfigModule } from "./config/config.module.js";
 import { HealthModule } from "./health/health.module.js";
+import { ExercisesModule } from "./exercises/exercises.module.js";
 import { ProjectsModule } from "./projects/projects.module.js";
 import { CsrfGuard } from "./security/csrf.guard.js";
 import { SecurityModule } from "./security/security.module.js";
@@ -15,7 +16,7 @@ export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [ConfigModule.forRoot(config), CommonModule, SecurityModule, HealthModule, AuthModule, ProjectsModule],
+      imports: [ConfigModule.forRoot(config), CommonModule, SecurityModule, HealthModule, AuthModule, ProjectsModule, ExercisesModule],
       providers: [
         // Toute requête qui modifie l'état passe par la vérification CSRF.
         { provide: APP_GUARD, useClass: CsrfGuard },

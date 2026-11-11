@@ -10,9 +10,36 @@ Détail des preuves : commits `6b49de3` à `aff43fc`. Limites restantes : Docker
 
 Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests unitaires seulement ; éditeur prévu pour ≥ 1 024 px.
 
-## Phase active : 5 — Comptes, projets privés et déploiement
+## Phase active : 6 — Exercices éditables et notes vérifiées
 
-**État : terminée le 2026-11-11, en attente de validation du propriétaire.** Partie locale vérifiée, puis mise en production sur https://netforge-amber.vercel.app (projet Vercel existant, base Neon, courrier Gmail dédié) : prévisualisation et production vérifiées, courrier de validation réel reçu par le propriétaire (dans les indésirables, voir limites).
+**État : en cours (démarrée le 2026-11-12).**
+
+### Périmètre retenu
+
+- Dépend de : phase 3 (format d'exercice, critères comportementaux, moteur), phase 5 (comptes vérifiés, API, base, sécurité).
+- Inclus :
+  - **Éditeur d'exercices** (compte requis) : énoncé, objectif, niveau, topologie initiale copiée d'un projet, fonctions autorisées, étapes (observer, hypothèse, mesure, correction, retest, bilan), critères comportementaux, barème, indices progressifs et pénalité ; validation en direct par le schéma du moteur ; essai en mode entraînement. Exercices enregistrés dans le compte, privés à leur auteur.
+  - **Publication en évaluation** : instantané immuable d'une révision, lien non devinable, nombre de tentatives, fermeture par l'auteur.
+  - **Passage d'une évaluation** (compte vérifié) : partie publique seulement (sans critères, bonnes réponses, retours, bilan ni indices non demandés) ; indices délivrés et comptés par le serveur ; soumission du projet final et des réponses.
+  - **Correction serveur bornée et versionnée** : moteur exécuté par l'API, graine fixe, limites de taille, d'équipements, de critères et d'événements ; dépassement → diagnostic explicite sans note ; résultat immuable avec version du correcteur, révision et empreinte de l'exercice, empreinte de la soumission.
+  - Notation en évaluation : hypothèse et mesure par réponse, correction par critères sur le projet soumis, retest par re-simulation du contrôle sur le projet soumis ; l'étape « observer » (démarche, invérifiable a posteriori) n'est pas notée.
+- Exclus : classes, rôles formateur et consultation des notes par l'auteur, export des notes (phase 17, J-02) ; édition d'exercices en invité et échange de fichiers d'exercice ; quiz (J-01) ; nouveaux types de critères au-delà du ping et du service optique.
+- Données : aucune nouvelle donnée personnelle ; une tentative relie un compte, un instantané d'évaluation, les indices demandés et le résultat.
+
+### Scénarios d'acceptation (spécification §13 et §17)
+
+| Critère | État | Preuve prévue |
+|---|---|---|
+| Exercice créé dans l'éditeur puis joué | ouvert | parcours navigateur |
+| Plusieurs solutions valides acceptées | ouvert | deux corrections différentes notées au maximum (moteur et API) |
+| Score falsifié côté client rejeté | ouvert | soumission portant un score refusée ; note recalculée par le serveur |
+| Critères privés jamais envoyés au navigateur | ouvert | inspection de toutes les réponses destinées à l'élève |
+| Diagnostic clair d'une limite d'évaluation | ouvert | tempête de diffusion soumise : diagnostic, aucune note enregistrée |
+| Versionnement des évaluations | ouvert | republication sans effet sur les tentatives passées |
+
+## Phase 5 — Comptes, projets privés et déploiement : validée par le propriétaire (2026-11-12)
+
+**État : terminée le 2026-11-11, validée le 2026-11-12.** Partie locale vérifiée, puis mise en production sur https://netforge-amber.vercel.app (projet Vercel existant, base Neon, courrier Gmail dédié) : prévisualisation et production vérifiées, courrier de validation réel reçu par le propriétaire (dans les indésirables, voir limites).
 
 ### Périmètre retenu
 
@@ -61,9 +88,6 @@ Services validés par le propriétaire : Vercel Hobby (projet `netforge` existan
 - Non vérifié en production : copie d'un projet local vers le compte et relecture après rechargement (vérifiée en local et dans les parcours de compte) ; récupération du mot de passe par courrier réel.
 - Neon a activé par défaut sa propre authentification (« Neon Auth », variables `NEON_AUTH_BASE_URL` et `VITE_NEON_AUTH_URL`) : inutilisée par NetForge, non lue par l'interface, réglage non modifiable après création.
 
-### Prochaine action
-
-Validation de la phase 5 par le propriétaire, puis phase 6 (exercices éditables et notes vérifiées côté serveur).
 
 ## Phase 4 — Premier laboratoire FTTH : validée par le propriétaire (2026-11-11)
 

@@ -24,6 +24,9 @@ export const RULES = {
   mailGlobalHour: { name: "mail-global-hour", limit: 200, windowSeconds: HOUR },
   /** Soumissions de jetons (validation, reprise, réinitialisation) par adresse IP. */
   tokenIp: { name: "token-ip", limit: 30, windowSeconds: 15 * MINUTE },
+  /** Évaluations : tentatives commencées et soumissions par compte (chaque soumission exécute le moteur). */
+  attemptStartAccount: { name: "attempt-start-acct", limit: 30, windowSeconds: HOUR },
+  submissionAccount: { name: "submission-acct", limit: 30, windowSeconds: 15 * MINUTE },
 } as const satisfies Record<string, RateRule>;
 
 /** Délai minimal entre deux courriers du même type au même compte (fenêtre = RESEND_MIN_SECONDS). */
