@@ -1,4 +1,4 @@
-// Migrations au déploiement Vercel (dernière étape de pnpm vercel-build).
+// Migrations au déploiement Vercel (dernière étape de pnpm build:vercel).
 // Utilise la connexion directe de Neon (DATABASE_URL_UNPOOLED) si elle existe, sinon DATABASE_URL.
 // Hors Vercel, ne fait rien : en local, pnpm db:migrate reste la commande explicite.
 

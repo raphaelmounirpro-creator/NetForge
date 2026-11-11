@@ -12,7 +12,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 5 — Comptes, projets privés et déploiement
 
-**État : en cours.** Partie locale terminée et vérifiée le 2026-11-11 ; la mise en production (base, courrier, Vercel) attend la validation des services externes par le propriétaire. La phase reste incomplète tant que l'envoi de validation en production et les cookies de production ne sont pas vérifiés (spécification §17).
+**État : terminée le 2026-11-11, en attente de validation du propriétaire.** Partie locale vérifiée, puis mise en production sur https://netforge-amber.vercel.app (projet Vercel existant, base Neon, courrier Gmail dédié) : prévisualisation et production vérifiées, courrier de validation réel reçu par le propriétaire (dans les indésirables, voir limites).
 
 ### Périmètre retenu
 
@@ -25,26 +25,43 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 | Critère | État | Preuve |
 |---|---|---|
-| Authentification : adresse vérifiée avant accès privé | atteint (local) | `auth.e2e.test.ts`, `accounts.spec.ts` |
-| Tests de la section 14.7 | atteints localement, sauf vérification sur l'adresse déployée | tableau de [securite.md](securite.md) |
+| Authentification : adresse vérifiée avant accès privé | atteint | `auth.e2e.test.ts`, `accounts.spec.ts` ; inscription, validation et connexion réelles en production |
+| Tests de la section 14.7 | atteints | tableau de [securite.md](securite.md) ; CSRF, origine et cookies revérifiés sur l'adresse déployée |
 | Isolation des utilisateurs | atteint (local) | `projects.e2e.test.ts` |
 | Sessions : déconnexion, expiration, révocation globale | atteint (local) | `auth.e2e.test.ts` (horloge contrôlée) |
 | Sauvegarde et relecture après rechargement et redémarrage | atteint (local) | relecture en base, redémarrage de l'API, navigateur vierge |
 | Page de connexion, accès invité, mobile, clavier | atteint, visuel provisoire | `accounts.spec.ts` (360 px, clavier), captures Edge 1440/360, sombre/clair |
-| Courrier de validation réel en production | **ouvert** | fournisseur à valider |
-| Déploiement vérifié (prévisualisation, production) | **ouvert** | services externes à valider |
+| Courrier de validation réel en production | atteint, avec limite | courrier reçu par le propriétaire depuis l'adresse dédiée, lien de validation fonctionnel ; classé en indésirables |
+| Déploiement vérifié (prévisualisation, production) | atteint | deux prévisualisations protégées puis production : voir ci-dessous |
 
 ### Vérifications exécutées (2026-11-11, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
 
-- `pnpm check` : lint, typecheck, **302 tests** (format 102, moteur 101, interface 57, contrats 2, API 40 sur PostgreSQL embarqué réel) et builds réussis.
+- `pnpm check` (après les corrections du déploiement) : lint, typecheck, **306 tests** (format 102, moteur 101, interface 59, contrats 2, API 42 sur PostgreSQL embarqué réel) et builds réussis.
 - `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **23 parcours** réussis ; `pnpm test:e2e:accounts` : **4 parcours de compte** réussis sur pile isolée (PostgreSQL, courrier, API, interface).
 - `pnpm test:perf` : inchangé (calcul 100 équipements et tempête sans tâche longue).
 - Parcours réel par l'API locale (`curl`/Node) : inscription, courrier capturé par `pnpm mail:local`, validation, connexion, projet en base, déconnexion.
 - Inspection visuelle réelle (Edge) : connexion 1440 px (sombre) et 360 px (clair), erreur de politique, « Vérifiez votre adresse », confirmation, projets du compte. Défauts trouvés et corrigés : en-tête débordant de 192 px à 360 px, jeton de session à rafraîchir après connexion, cookie de session effacé puis reposé dans la même réponse, délai de renvoi qui bloquait un courrier d'un autre type, processus `io_worker` orphelins de PostgreSQL 18 sous Windows, test de session générant une erreur 401 dans la console à chaque visite.
 
-### Services externes (validés par le propriétaire le 2026-11-11, D-048)
+### Mise en production (2026-11-11, D-048, D-049)
 
-Vercel Hobby (projet existant, usage personnel non commercial), PostgreSQL Neon formule gratuite, courrier par compte Gmail dédié. Configuration de déploiement prête et vérifiée en local (fonction émulée, CSP sur le build de production) ; déploiement en attente des actions du propriétaire (connexion Vercel, base Neon, identifiants Gmail).
+Services validés par le propriétaire : Vercel Hobby (projet `netforge` existant, usage personnel non commercial), PostgreSQL Neon formule gratuite (base `neon-bronze-flask`, Frankfurt, sans moyen de paiement), courrier par un compte Gmail dédié. Secrets saisis par le propriétaire dans Vercel ou injectés par l'intégration Neon ; `CSRF_SECRET` généré sur le poste et transmis à Vercel sans affichage, distinct pour Production et Preview.
+
+- **Build Vercel** : installation figée, pnpm 12.18.0 par Corepack, client Prisma généré, 3 migrations appliquées à la base Neon, puis « No pending migrations » aux déploiements suivants (schéma conservé).
+- **Prévisualisation** (protégée par l'authentification Vercel, interrogée par `vercel curl`) puis **production** (adresse publique, `curl` ordinaire) : `/api/health/ready` 200 avec la base ; `/api/auth/session` 200 sans compte, `Cache-Control: no-store`, cookie `__Host-nf_pre; Path=/; HttpOnly; SameSite=Lax; Secure` sans `Domain` ; écriture depuis une autre origine sans jeton → 403 `csrf.invalid` ; même origine avec jeton → 401 `auth.invalid-credentials` (CSRF et origine `https://netforge-amber.vercel.app` acceptés) ; route d'API inconnue → 404 `request.not-found` ; pages avec CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP ; routes de l'application servies par `index.html` ; ressources en cache immuable. Fonction exécutée à Frankfurt (`x-vercel-id` … `fra1`).
+- **Navigateur réel sur la production** (Edge sans interface) : exercice lancé, ping simulé dans le worker, export téléchargé, vue Optique, page de connexion ; aucune erreur ni violation de la politique de contenu dans la console.
+- **Parcours réel du propriétaire** : inscription avec sa propre adresse, courrier reçu, validation et connexion réussies. Compte conservé (pas une donnée de test).
+- **Défauts trouvés et corrigés** : build exécuté deux fois (Vercel relançait le script `vercel-build`, renommé `build:vercel`) ; script d'installation Linux de PostgreSQL embarqué non autorisé (nécessaire à la CI ; lu puis autorisé) ; `vercel link` ajoutait `.env*` au `.gitignore`, ce qui aurait ignoré les `.env.example` (ajout annulé).
+
+### Limites connues
+
+- Le courrier de validation est arrivé dans les **indésirables** : adresse Gmail neuve sans réputation d'envoi, liens vers un domaine partagé `vercel.app`. Contournements gratuits : « Non spam » et ajout de l'expéditeur aux contacts côté destinataire ; la réputation s'améliore avec l'usage. Une amélioration nette demanderait un domaine propre (payant), écarté par les contraintes du projet. L'interface prévient déjà que la réception n'est pas garantie.
+- Prévisualisations et production partagent la même base : une prévisualisation qui contient une nouvelle migration l'applique à la base de production (D-049).
+- Non vérifié en production : copie d'un projet local vers le compte et relecture après rechargement (vérifiée en local et dans les parcours de compte) ; récupération du mot de passe par courrier réel.
+- Neon a activé par défaut sa propre authentification (« Neon Auth », variables `NEON_AUTH_BASE_URL` et `VITE_NEON_AUTH_URL`) : inutilisée par NetForge, non lue par l'interface, réglage non modifiable après création.
+
+### Prochaine action
+
+Validation de la phase 5 par le propriétaire, puis phase 6 (exercices éditables et notes vérifiées côté serveur).
 
 ## Phase 4 — Premier laboratoire FTTH : validée par le propriétaire (2026-11-11)
 

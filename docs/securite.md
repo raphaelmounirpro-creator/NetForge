@@ -49,11 +49,14 @@ Les seuils par adresse IP sont larges pour une salle de classe derrière une mê
 
 ## Courrier
 
-Service indépendant du fournisseur (SMTP, `nodemailer`) ; identifiants uniquement côté serveur (`SMTP_URL`). Envoi attendu avant la réponse, délais bornés, un nouvel essai au plus ; en cas d'échec : `503 auth.mail-unavailable`, jamais de faux succès ni d'activation ; à l'inscription, le compte en attente est supprimé. L'interface précise que l'acceptation par le serveur d'envoi ne garantit pas la réception. Sans `SMTP_URL`, les parcours de compte sont déclarés indisponibles ; le laboratoire invité reste utilisable. En local et en test : capture (`pnpm mail:local`, boîte de test), aucun envoi réel.
+Service indépendant du fournisseur (SMTP, `nodemailer`) ; identifiants uniquement côté serveur : `SMTP_URL`, ou `SMTP_HOST`, `SMTP_PORT` (465 en TLS direct, 587 en STARTTLS), `SMTP_USER` et `SMTP_PASSWORD`. Envoi attendu avant la réponse, délais bornés, un nouvel essai au plus ; en cas d'échec : `503 auth.mail-unavailable`, jamais de faux succès ni d'activation ; à l'inscription, le compte en attente est supprimé. L'interface précise que l'acceptation par le serveur d'envoi ne garantit pas la réception. Sans serveur d'envoi configuré, les parcours de compte sont déclarés indisponibles ; le laboratoire invité reste utilisable. En local et en test : capture (`pnpm mail:local`, boîte de test), aucun envoi réel.
+
+En production : compte Gmail dédié à NetForge, mot de passe d'application (validation en deux étapes obligatoire) enregistré comme secret Vercel, jamais lu ni transmis ailleurs. Courriers en texte et HTML sobre, sans pièce jointe. Le premier courrier réel (2026-11-11) est arrivé dans les indésirables : expéditeur neuf et liens vers un domaine partagé `vercel.app` ; voir les limites résiduelles.
 
 ## Autres défenses
 
-- **En-têtes de l'API** : `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin`, `Cache-Control: no-store` sur toutes les réponses. Interface : `<meta name="referrer" content="no-referrer">` ; la politique de sécurité du contenu de l'interface sera fixée avec l'hébergement de production.
+- **En-têtes de l'API** : `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin`, `Cache-Control: no-store` sur toutes les réponses. Interface : `<meta name="referrer" content="no-referrer">`.
+- **En-têtes de l'interface** (`apps/web/security-headers.json`, appliqués à l'identique par `vercel.json` et par l'aperçu local, synchronisation testée) : `Content-Security-Policy` limitée à l'origine du site (`script-src 'self'` sans script en ligne ni `eval`, `connect-src 'self'`, `worker-src 'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'` ; seul `style-src` admet `'unsafe-inline'` pour les styles calculés de l'éditeur), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy` (caméra, micro, géolocalisation, paiement refusés), `Cross-Origin-Opener-Policy: same-origin`. HSTS ajouté par Vercel. Vérifié sur la production le 2026-11-11 : aucune violation dans Edge (simulation, export, vue Optique, connexion).
 - **XSS** : échappement de React, aucun `dangerouslySetInnerHTML` ; noms de projets, notes, console et imports traités comme du texte ; gabarits de courrier échappés.
 - **Autorisations** : chaque lecture, modification, suppression et export d'un projet du compte vérifie le propriétaire ; le projet d'un autre compte reçoit la même réponse 404 qu'un projet absent ; un identifiant déjà pris est refusé sans révéler la révision d'autrui.
 - **Entrées** : contrats Zod stricts, corps limité (taille maximale d'un projet + 64 Kio), contenu de projet validé et migré comme un import, requêtes paramétrées (Prisma), erreurs internes masquées (`server.unavailable`).
@@ -72,7 +75,7 @@ Service indépendant du fournisseur (SMTP, `nodemailer`) ; identifiants uniqueme
 | Réinitialisation puis ancienne session | session refusée, ancien mot de passe inutilisable | `auth.e2e.test.ts` ; `accounts.spec.ts` |
 | Déconnexion, expiration, révocation globale | anciennes sessions refusées | `auth.e2e.test.ts` (cookie rejoué, 60 min, 12 h) |
 | Session dans une URL ou le stockage | absente ou refusée | `auth.e2e.test.ts` ; `accounts.spec.ts` (stockage inspecté) |
-| Cookie de production | `__Host-`, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, sans `Domain` | `auth.e2e.test.ts` (origine HTTPS) ; **à revérifier sur l'adresse déployée** |
+| Cookie de production | `__Host-`, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, sans `Domain` | `auth.e2e.test.ts` (origine HTTPS) ; sur https://netforge-amber.vercel.app le 2026-11-11 : cookie de présession `__Host-nf_pre` (même fonction d'émission que la session) avec ces attributs, connexion réelle réussie |
 | Modification depuis une origine étrangère ou sans CSRF | refus | `auth.e2e.test.ts` |
 | HTML/script dans un nom | conservé comme texte (JSON, `nosniff`) | `projects.e2e.test.ts` ; échappement React |
 | Accès aux projets d'un autre compte | refus côté API | `projects.e2e.test.ts` |
@@ -87,11 +90,13 @@ Classes, notes et rôles formateur (phases 6 et 17) n'existent pas encore : leur
 - Pendant une panne du courrier, renvoi et récupération répondent `503` pour un compte existant et `202` pour une adresse inconnue : énumération possible pendant la panne seulement.
 - Pas encore de suppression de compte ni de changement d'adresse depuis l'interface (suppression en cascade prête en base).
 - Pas de journal d'audit des abus au-delà des journaux de l'API (sans adresse complète ni jeton).
+- Délivrabilité : courriers envoyés par une adresse Gmail neuve, sans domaine propre (achat écarté par les contraintes du projet) ; ils peuvent être classés en indésirables.
+- Les déploiements de prévisualisation sont protégés par l'authentification Vercel mais utilisent la base de production (D-049).
 
 ## Révocation d'urgence
 
 1. **Une session ou un compte compromis** : `UPDATE sessions SET revoked_at = now() WHERE user_id = '<id>' AND revoked_at IS NULL;` (ou « Déconnecter tous mes appareils »).
 2. **Toutes les sessions** : `UPDATE sessions SET revoked_at = now() WHERE revoked_at IS NULL;`
-3. **Jetons CSRF** : changer `CSRF_SECRET` sur toutes les instances, puis redéployer.
+3. **Jetons CSRF** : changer `CSRF_SECRET` sur toutes les instances, puis redéployer. Sur Vercel, pour chaque environnement, sans afficher la valeur : `node -e "process.stdout.write(require('node:crypto').randomBytes(48).toString('base64url'))" | vercel env add CSRF_SECRET --environment production --sensitive --force`.
 4. **Liens de courrier en circulation** : `UPDATE email_tokens SET consumed_at = now() WHERE consumed_at IS NULL;`
-5. **Secrets d'infrastructure** : renouveler l'identifiant SMTP et le mot de passe PostgreSQL chez le fournisseur, puis mettre à jour les variables d'environnement.
+5. **Secrets d'infrastructure** : renouveler l'identifiant SMTP et le mot de passe PostgreSQL chez le fournisseur, puis mettre à jour les variables d'environnement. Production : supprimer puis recréer le mot de passe d'application du compte Gmail dédié et remplacer le secret `SMTP_PASSWORD` dans Vercel ; les requêtes SQL ci-dessus s'exécutent dans l'éditeur SQL de Neon (Vercel → Storage → base → « Open in Neon »).

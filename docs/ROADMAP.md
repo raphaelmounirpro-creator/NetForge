@@ -114,13 +114,13 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | A-02 | Validation d'adresse : jetons hachés, finalité, expiration, consommation atomique | 5 | disponible | A-01 | Trois validations simultanées : une seule réussit (auth.e2e.test.ts) |
 | A-03 | Protection contre l'activation par un tiers (mot de passe demandé à la confirmation) | 5 | disponible | A-02 | Reprise par le titulaire, identifiants du tiers invalidés (auth.e2e.test.ts) |
 | A-04 | Mot de passe oublié, révocation des sessions, notification | 5 | disponible | A-02 | API et parcours navigateur (accounts.spec.ts) |
-| A-05 | Sessions opaques révocables, cookie `HttpOnly`/`Secure`/`SameSite=Lax`, `__Host-` | 5 | disponible avec limites | A-01 | Attributs vérifiés avec une origine HTTPS en test ; vérification sur l'adresse déployée à faire |
-| A-06 | CSRF, XSS, CSP, en-têtes, autorisations par ressource | 5 | disponible avec limites | A-05 | Tests §14.7 locaux ; CSP de l'interface à fixer avec l'hébergement |
+| A-05 | Sessions opaques révocables, cookie `HttpOnly`/`Secure`/`SameSite=Lax`, `__Host-` | 5 | disponible | A-01 | Attributs vérifiés en test (origine HTTPS) et sur l'adresse déployée (`__Host-`, `Secure`, `HttpOnly`, `SameSite=Lax`, sans `Domain`) |
+| A-06 | CSRF, XSS, CSP, en-têtes, autorisations par ressource | 5 | disponible | A-05 | Tests §14.7 ; CSP de l'interface identique en aperçu local et sur Vercel (test de synchronisation), production sans violation dans Edge |
 | A-07 | Limites anti-abus partagées en PostgreSQL, proxys de confiance | 5 | disponible | A-01 | Deuxième instance et `X-Forwarded-For` falsifié sans effet (auth.e2e.test.ts) |
-| A-08 | Courrier : capture SMTP locale, fournisseur de production validé | 5 | en cours | A-02 | Capture locale et absence de faux succès vérifiées ; fournisseur de production en attente de validation |
+| A-08 | Courrier : capture SMTP locale, fournisseur de production validé | 5 | disponible avec limites | A-02 | Capture locale et absence de faux succès vérifiées ; Gmail dédié en production, courrier réel reçu, mais classé en indésirables (expéditeur neuf, domaine partagé) |
 | A-09 | Projets privés avec révisions, import volontaire des projets locaux | 5 | disponible | A-05, E-06 | Conflit, isolation, relecture en base et depuis un navigateur vierge (projects.e2e.test.ts, accounts.spec.ts) |
 | A-10 | Page connexion/inscription, accès invité, mobile, clavier | 5 | disponible avec limites | A-01, S-06 | 360 px sans défilement, clavier, erreurs annoncées (accounts.spec.ts) ; photo de référence absente (D-047) |
-| A-11 | Déploiement Vercel vérifié (local, prévisualisation, production distingués) | 5 | prévu | S-07 | En attente de validation des services externes (base, courrier) |
+| A-11 | Déploiement Vercel vérifié (local, prévisualisation, production distingués) | 5 | disponible | S-07 | Local, prévisualisation protégée et production vérifiés séparément (santé, base, CSRF, cookies, en-têtes, navigateur réel) ; voir PROGRESS |
 
 ### Exercices et notes (phase 6)
 

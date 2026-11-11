@@ -2,7 +2,7 @@
 
 Laboratoire web pédagogique de simulation de réseaux pour la formation de techniciens télécom : cuivre, Ethernet/IP, fibre optique, FTTH et réseaux d'entreprise.
 
-> **État actuel : phase 5 en cours (comptes et projets privés, en local ; mise en production en attente).** Comptes avec validation d'adresse par courrier, connexion, récupération du mot de passe, projets privés enregistrés en base avec révisions, copie volontaire des projets de l'appareil. Phase 4 : Équipements optiques (OLT, tiroir, coupleurs 1:2 à 1:64, PBO, PTO, boîtier d'épissure, ONT), fibres et connectiques, bilan optique par chemin et par sens avec la contribution de chaque élément, photomètre, inspection, pannes simples et interventions, exercice de dépannage. Phase 3 : inspecteur des décisions et des trames, explications débutant et technique, animation des trames, console des équipements, outils PC et un premier exercice guidé (page Parcours). Le laboratoire invité permet de construire et configurer un réseau (PC, switches, routeurs, adressage IPv4, routes statiques), puis de le **simuler** : ping, ARP, commutation, routage, coupure de câble, pas à pas, journal des décisions expliquées en français et tables observables (MAC, ARP, routage). Enregistrement automatique dans le navigateur, export/import `.nfg.json`. Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
+> **État actuel : phase 5 terminée, en attente de validation — en ligne sur https://netforge-amber.vercel.app.** Comptes avec validation d'adresse par courrier, connexion, récupération du mot de passe, projets privés enregistrés en base avec révisions, copie volontaire des projets de l'appareil. Phase 4 : Équipements optiques (OLT, tiroir, coupleurs 1:2 à 1:64, PBO, PTO, boîtier d'épissure, ONT), fibres et connectiques, bilan optique par chemin et par sens avec la contribution de chaque élément, photomètre, inspection, pannes simples et interventions, exercice de dépannage. Phase 3 : inspecteur des décisions et des trames, explications débutant et technique, animation des trames, console des équipements, outils PC et un premier exercice guidé (page Parcours). Le laboratoire invité permet de construire et configurer un réseau (PC, switches, routeurs, adressage IPv4, routes statiques), puis de le **simuler** : ping, ARP, commutation, routage, coupure de câble, pas à pas, journal des décisions expliquées en français et tables observables (MAC, ARP, routage). Enregistrement automatique dans le navigateur, export/import `.nfg.json`. Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Prérequis
 
@@ -87,6 +87,18 @@ Copier d'abord `apps/api/.env.example` vers `apps/api/.env` (valeurs de dévelop
 
 En développement, l'interface relaie `/api` vers l'API (même origine).
 
+## Déploiement (Vercel)
+
+Interface statique et API (fonction unique `api/index.mjs`) sur la même origine ; build `pnpm build:vercel`, qui applique les migrations à la fin. Variables du projet Vercel (Production et Preview) : `DATABASE_URL` et `DATABASE_URL_UNPOOLED` (intégration Neon), `CSRF_SECRET` (secret), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` (secret), `MAIL_FROM`, `ENABLE_EXPERIMENTAL_COREPACK=1`. `APP_ORIGIN` est déduite de l'adresse Vercel. Les secrets se saisissent dans Vercel, jamais dans le dépôt.
+
+```bash
+vercel link --project netforge   # une fois ; annuler l'ajout de .env* au .gitignore et supprimer .env.local
+vercel deploy                    # prévisualisation (protégée, base de production partagée)
+vercel deploy --prod             # production
+```
+
+Sous PowerShell, si l'exécution de scripts est bloquée : `vercel.cmd`. Choix et limites : [docs/DECISIONS.md](docs/DECISIONS.md) (D-048, D-049).
+
 ## Vérifications
 
 ```bash
@@ -118,7 +130,7 @@ docs/               Suivi, feuille de route, décisions, design, protocoles
 
 - Simulation : Ethernet, ARP, IPv4, ICMP et routage statique, à un niveau pédagogique simplifié documenté dans [docs/protocols](docs/protocols/README.md). Pas de traceroute, de VLAN, de STP, de DHCP ni de routage dynamique ; deux exercices embarqués, notés localement (notes vérifiées : phase 6).
 - FTTH : bilan optique statique au pire cas ; pas de service PON simulé (enregistrement des ONT, bande passante), d'OTDR ni de modules SFP (phase 9).
-- Comptes disponibles en local seulement : pas encore de déploiement ni de fournisseur de courrier de production ; pas de changement d'adresse, de suppression de compte ni de second facteur. Sécurité : [docs/securite.md](docs/securite.md).
+- Comptes : pas de changement d'adresse, de suppression de compte ni de second facteur ; les courriers, envoyés depuis une adresse Gmail dédiée, peuvent arriver dans les indésirables. Sécurité : [docs/securite.md](docs/securite.md).
 - Éditeur conçu pour un écran d'au moins 1 024 px ; pas d'édition complète sur smartphone.
 - Le visuel de connexion attend les fichiers de référence (maquette et photo) : voir [docs/DESIGN.md](docs/DESIGN.md).
 

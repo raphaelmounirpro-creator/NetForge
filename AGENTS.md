@@ -49,6 +49,7 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 | `pnpm test:e2e` | Parcours Playwright (`PLAYWRIGHT_CHANNEL=msedge` en local, sans téléchargement de navigateur) |
 | `pnpm test:e2e:accounts` | Parcours de compte sur pile isolée (PostgreSQL 54330, courrier 1026/8026, API 3100, interface 4174) |
 | `pnpm test:perf` / `pnpm perf:engine` | Mesures de performance (navigateur / moteur seul), hors CI |
+| `vercel deploy` / `vercel deploy --prod` | Prévisualisation / production sur le projet Vercel `netforge` existant, après accord du propriétaire ; la prévisualisation partage la base de production (D-049) |
 
 ## Conventions
 

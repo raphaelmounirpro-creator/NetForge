@@ -1,5 +1,5 @@
 // Fonction Vercel unique de l'API : toutes les routes /api/* y sont relayées (vercel.json).
-// Le code de l'API est construit dans apps/api/dist par la commande de build (pnpm vercel-build).
+// Le code de l'API est construit dans apps/api/dist par la commande de build (pnpm build:vercel).
 import { serverlessHandler } from "../apps/api/dist/serverless.js";
 
 export default async function handler(request, response) {
