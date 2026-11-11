@@ -10,7 +10,17 @@ import {
 } from "@netforge/engine";
 import { addStaticRoute, disconnect, setDefaultGateway, setInterfaceIpv4, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
-import { buildNameIndex, formatCommandError, formatDuration, formatSimTime, formatTrace, pingAttemptText, pingSummary, traceCategory } from "./simulation";
+import {
+  buildNameIndex,
+  formatCommandError,
+  formatDuration,
+  formatSimTime,
+  formatTrace,
+  isLossOrError,
+  pingAttemptText,
+  pingSummary,
+  traceCategory,
+} from "./simulation";
 
 function ok<T extends { ok: boolean }>(result: T): Extract<T, { ok: true }> {
   if (!result.ok) throw new Error("résultat attendu");
@@ -123,6 +133,50 @@ describe("textes de la trace", () => {
   });
 });
 
+describe("pertes et erreurs mises en évidence", () => {
+  const codesWhere = (predicate: (entry: TraceEntry) => boolean) =>
+    new Set(allScenarios().flatMap(({ trace }) => trace.filter(predicate).map((entry) => entry.code)));
+
+  it("signale les pertes et erreurs réellement produites par le moteur", () => {
+    const flagged = codesWhere(isLossOrError);
+    for (const code of ["arp.failed", "ip.no-route", "ip.ttl-expired", "icmp.error-sent", "ping.error", "ping.failed", "ping.timeout", "command.link-down", "sim.interrupted"]) {
+      expect(flagged, code).toContain(code);
+    }
+  });
+
+  it("ne signale pas le fonctionnement normal", () => {
+    const normal = codesWhere((entry) => !isLossOrError(entry));
+    for (const code of ["arp.request-sent", "arp.reply-received", "switch.learn", "switch.flood-broadcast", "ip.forward", "ping.reply"]) {
+      expect(normal, code).toContain(code);
+    }
+    expect(codesWhere(isLossOrError)).not.toContain("ping.reply");
+  });
+
+  it("classe une trame non émise comme une perte, une trame filtrée par une carte comme normale", () => {
+    const entry = (code: TraceEntry["code"]): TraceEntry => ({ event: 1, parent: null, time: 0, deviceId: null, portId: null, exchange: null, code, params: {}, pdu: null });
+    expect(isLossOrError(entry("eth.link-down"))).toBe(true);
+    expect(isLossOrError(entry("eth.lost-in-transit"))).toBe(true);
+    expect(isLossOrError(entry("nic.filtered"))).toBe(false);
+    expect(isLossOrError({ ...entry("command.link-down"), params: { changed: false } })).toBe(false);
+  });
+
+  it("ne signale un bilan de ping que s'il y a eu des pertes", () => {
+    const done = (lost: number): TraceEntry => ({
+      event: 1,
+      parent: null,
+      time: 0,
+      deviceId: null,
+      portId: null,
+      exchange: null,
+      code: "ping.done",
+      params: { sent: 4, received: 4 - lost, lost },
+      pdu: null,
+    });
+    expect(isLossOrError(done(0))).toBe(false);
+    expect(isLossOrError(done(1))).toBe(true);
+  });
+});
+
 describe("résultats de ping", () => {
   it("décrit chaque écho et le bilan", () => {
     const { snapshot } = run(routedScenario(), [
@@ -134,10 +188,11 @@ describe("résultats de ping", () => {
     if (!success || !unreachable || !failedAttempt) throw new Error("pings attendus");
     expect(success.attempts.map(pingAttemptText)[0]).toMatch(/^Réponse de 192\.168\.2\.10 : séquence 1, TTL 63, temps \d+,\d{3} µs$/);
     expect(pingSummary(success)?.summary).toBe("2 envoyé(s), 2 reçu(s), 0 perdu(s) (0 % de perte)");
+    expect(pingSummary(success)?.hasLoss).toBe(false);
     expect(pingAttemptText(failedAttempt)).toBe(
       "Séquence 1 : hôte de destination inaccessible (signalé par 192.168.1.1)",
     );
-    expect(pingSummary(unreachable)).toEqual({ summary: "1 envoyé(s), 0 reçu(s), 1 perdu(s) (100 % de perte)", rtt: null });
+    expect(pingSummary(unreachable)).toEqual({ summary: "1 envoyé(s), 0 reçu(s), 1 perdu(s) (100 % de perte)", rtt: null, hasLoss: true });
   });
 });
 

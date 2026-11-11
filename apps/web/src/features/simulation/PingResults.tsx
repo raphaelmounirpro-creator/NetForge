@@ -32,8 +32,11 @@ export function PingResults({ session }: { session: SimulationSession }) {
               </ol>
             )}
             {summary && (
-              <p aria-live="polite" className="mt-1 text-xs text-text">
-                <span className="font-semibold">{summary.summary}</span>
+              <p aria-live="polite" data-severity={summary.hasLoss ? "error" : "normal"} className={`mt-1 text-xs ${summary.hasLoss ? "text-danger" : "text-text"}`}>
+                <span className="font-semibold">
+                  {summary.hasLoss ? "✕ " : "✓ "}
+                  {summary.summary}
+                </span>
                 {summary.rtt && <span className="block text-text-muted">{summary.rtt}</span>}
               </p>
             )}

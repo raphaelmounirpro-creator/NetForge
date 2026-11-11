@@ -5,6 +5,7 @@ import {
   TRACE_CATEGORIES,
   formatSimTime,
   formatTrace,
+  isLossOrError,
   traceCategory,
   type NameIndex,
   type TraceCategory,
@@ -18,14 +19,27 @@ const RENDER_STEP = 100;
 const Row = memo(function Row({ item, names }: { item: JournalEntry; names: NameIndex }) {
   const { entry } = item;
   const category = traceCategory(entry.code);
+  // Perte ou erreur : rouge, mais aussi symbole et texte (la couleur n'est jamais seule).
+  const error = isLossOrError(entry);
   return (
     <li
-      className="grid grid-cols-[6.75rem_minmax(0,1fr)] gap-x-3 border-b border-border px-3 py-1.5 text-xs [contain-intrinsic-size:auto_2rem] [content-visibility:auto]"
+      className={`grid grid-cols-[6.75rem_minmax(0,1fr)] gap-x-3 border-b border-border py-1.5 pr-3 text-xs [contain-intrinsic-size:auto_2rem] [content-visibility:auto] ${
+        error ? "border-l-4 border-l-danger bg-danger/10 pl-2" : "pl-3"
+      }`}
       data-code={entry.code}
+      data-severity={error ? "error" : "normal"}
     >
       <span className="font-mono text-text-muted">{formatSimTime(entry.time)}</span>
-      <span className="break-words text-text">
-        <span className="mr-2 inline-block rounded-sm border border-border px-1 font-medium text-accent-text">{t.categories[category]}</span>
+      <span className={`break-words ${error ? "font-medium text-danger" : "text-text"}`}>
+        {error && (
+          <span aria-hidden="true" className="mr-1 font-bold">
+            ✕
+          </span>
+        )}
+        {error && <span className="sr-only">{t.lossOrError} </span>}
+        <span className={`mr-2 inline-block rounded-sm border px-1 font-medium ${error ? "border-danger text-danger" : "border-border text-accent-text"}`}>
+          {t.categories[category]}
+        </span>
         {formatTrace(entry, names)}
       </span>
     </li>
@@ -43,6 +57,7 @@ export function TraceJournal({ session }: { session: SimulationSession }) {
   const [device, setDevice] = useState("");
   const [hidden, setHidden] = useState<ReadonlySet<TraceCategory>>(() => new Set());
   const [renderLimit, setRenderLimit] = useState(RENDER_STEP);
+  const [lossesOnly, setLossesOnly] = useState(false);
   const names = session.names;
   // Rendu différé et interruptible : un lot volumineux ne bloque jamais le fil de l'interface.
   const journal = useDeferredValue(session.journal);
@@ -52,8 +67,13 @@ export function TraceJournal({ session }: { session: SimulationSession }) {
   );
   const entries = useMemo(
     () =>
-      journal.filter((item) => (device === "" || item.entry.deviceId === device) && !hidden.has(traceCategory(item.entry.code))),
-    [journal, device, hidden],
+      journal.filter(
+        (item) =>
+          (device === "" || item.entry.deviceId === device) &&
+          !hidden.has(traceCategory(item.entry.code)) &&
+          (!lossesOnly || isLossOrError(item.entry)),
+      ),
+    [journal, device, hidden, lossesOnly],
   );
   const shown = entries.length > renderLimit ? entries.slice(-renderLimit) : entries;
 
@@ -116,6 +136,18 @@ export function TraceJournal({ session }: { session: SimulationSession }) {
             );
           })}
         </fieldset>
+        <button
+          type="button"
+          aria-pressed={lossesOnly}
+          onClick={() => {
+            setLossesOnly((value) => !value);
+          }}
+          className={`min-h-7 rounded-sm border px-2 font-medium transition-colors duration-(--duration-fast) ${
+            lossesOnly ? "border-danger bg-danger/10 text-danger" : "border-border text-text-muted hover:text-text"
+          }`}
+        >
+          ✕ {t.lossesOnly}
+        </button>
       </div>
       {session.journalHidden > 0 && (
         <p className="shrink-0 border-b border-border px-3 py-1 text-xs text-text-muted">

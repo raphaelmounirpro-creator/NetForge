@@ -31,6 +31,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 | Lien déconnecté : aucune transmission | atteint | `lan.test.ts` (câble absent, coupé, trame perdue en transit) ; e2e « panne de câble » |
 | Réinitialisation puis scénario identique : même trace | atteint | `determinism.test.ts` (même graine, rejeu du journal des commandes, ordre du document) ; `host.test.ts` (réinitialisation) |
 | Apprentissage et vieillissement MAC, destination inconnue, expiration ARP, TTL, sélection des routes | atteint | fiches [docs/protocols](protocols/README.md) et tests associés ; expirations testées en temps virtuel |
+| Pertes et erreurs mises en évidence (demande du propriétaire, 2026-11-11) | atteint | journal et bilans de ping en rouge avec symbole « ✕ » et texte, filtre « Pertes et erreurs uniquement » ; `simulation.test.ts` (classement sur des traces réelles), e2e « routage statique » |
 | Caches et tables observables | atteint | panneau « État d'exécution » (interfaces, table MAC, cache ARP, résolutions en cours, table de routage avec routes inactives) ; e2e |
 | Trace structurée | atteint | événement, cause, instant, équipement, port, échange, code stable, paramètres, unité de données ; phrase française pour chaque code (`simulation.test.ts` de l'interface, sur des traces réelles) |
 | Limites d'exécution | atteint | interruption propre et expliquée (événements en attente, total, temps simulé) ; budget de calcul de « Terminer » ; journal affiché limité avec compteur |
@@ -41,7 +42,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ### Vérifications exécutées (2026-11-11, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157.0.4341.42)
 
-- `pnpm check` : lint, typecheck, **169 tests** (format 61, moteur 63, interface 37, contrats 2, API 6) et builds réussis.
+- `pnpm check` : lint, typecheck, **173 tests** (format 61, moteur 63, interface 41, contrats 2, API 6) et builds réussis.
 - `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **13 parcours réussis** (8 de la phase 1, 5 de simulation).
 - `PLAYWRIGHT_CHANNEL=msedge pnpm test:perf` : 2 mesures réussies, répétées 5 fois à la suite (seuils ci-dessous).
 - Inspection visuelle réelle (captures Edge) de la vue Simulation : thèmes sombre et clair, 1440 et 1024 px, aucun défilement horizontal, aucune erreur console. Défauts trouvés et corrigés : tables trop larges pour le panneau, libellés de câbles tronqués, message « ping programmé » persistant, zoom absent de la barre d'outils, coupure de câble sans effet visible en pause (D-025), journal à colonnes trop étroites à 1024 px.

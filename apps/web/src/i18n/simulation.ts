@@ -98,6 +98,44 @@ export function traceCategory(code: TraceCode): TraceCategory {
   }
 }
 
+/**
+ * Décisions qui traduisent une perte de paquet ou une erreur : trame non émise
+ * ou perdue, paquet abandonné, résolution ARP échouée, erreur ICMP, écho sans
+ * réponse, simulation interrompue. Classement d'affichage des codes du moteur
+ * (le moteur, lui, a déjà décidé) ; toujours doublé d'un symbole et d'un texte.
+ */
+const LOSS_OR_ERROR_CODES: ReadonlySet<TraceCode> = new Set<TraceCode>([
+  "eth.no-link",
+  "eth.link-down",
+  "eth.lost-in-transit",
+  "arp.queue-full",
+  "arp.failed",
+  "ip.no-route",
+  "ip.not-for-host",
+  "ip.ttl-expired",
+  "ip.broadcast-dropped",
+  "icmp.error-sent",
+  "icmp.error-received",
+  "icmp.error-suppressed",
+  "icmp.unmatched-reply",
+  "ping.error",
+  "ping.failed",
+  "ping.timeout",
+  "ping.late-reply",
+  "sim.interrupted",
+]);
+
+export function isLossOrError(entry: TraceEntry): boolean {
+  switch (entry.code) {
+    case "ping.done":
+      return typeof entry.params["lost"] === "number" && entry.params["lost"] > 0;
+    case "command.link-down":
+      return entry.params["changed"] !== false;
+    default:
+      return LOSS_OR_ERROR_CODES.has(entry.code);
+  }
+}
+
 export function icmpText(type: string | null, code: number | null): string {
   const key = `${type ?? ""}-${String(code ?? "")}`;
   return key in t.icmp ? t.icmp[key as keyof typeof t.icmp] : fill(t.icmp.other, { type: type ?? "?", code: code ?? "?" });
@@ -202,17 +240,18 @@ export function pingAttemptText(attempt: PingAttemptView): string {
 }
 
 /** Bilan d'un ping terminé (null tant qu'il est en cours). */
-export function pingSummary(view: PingView): { summary: string; rtt: string | null } | null {
+export function pingSummary(view: PingView): { summary: string; rtt: string | null; hasLoss: boolean } | null {
   if (!view.done) return null;
   const rtts = view.attempts.flatMap((attempt) => (attempt.rtt === null ? [] : [attempt.rtt]));
   const sent = view.attempts.length;
   const received = rtts.length;
   const lost = sent - received;
   const summary = fill(t.pingSummary, { sent, received, lost, loss: sent === 0 ? 0 : Math.round((lost / sent) * 100) });
-  if (received === 0) return { summary, rtt: null };
+  if (received === 0) return { summary, rtt: null, hasLoss: lost > 0 };
   const avg = Math.round(rtts.reduce((sum, value) => sum + value, 0) / received);
   return {
     summary,
+    hasLoss: lost > 0,
     rtt: fill(t.pingRtt, { min: formatDuration(Math.min(...rtts)), avg: formatDuration(avg), max: formatDuration(Math.max(...rtts)) }),
   };
 }

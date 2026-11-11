@@ -96,9 +96,18 @@ test("routage statique : retour manquant identifié, correction puis réinitiali
   await openSimulation(page);
   await ping(page, "10.0.2.10", "1");
   await finish(page);
-  await expect(journal(page)).toContainText("R2 abandonne le paquet : aucune route ne correspond à 10.0.1.10 et aucune route par défaut n'est configurée.");
+  const drop = journal(page).getByRole("listitem").filter({ hasText: "R2 abandonne le paquet : aucune route ne correspond à 10.0.1.10" });
+  await expect(drop).toHaveAttribute("data-severity", "error");
+  await expect(drop).toContainText("Perte ou erreur :");
+  // Filtre « Pertes et erreurs uniquement » : seules les lignes signalées restent.
+  await page.getByRole("button", { name: "✕ Pertes et erreurs uniquement" }).click();
+  const rows = journal(page).getByRole("listitem");
+  await expect(rows.first()).toHaveAttribute("data-severity", "error");
+  expect(await rows.evaluateAll((items) => items.every((item) => item.getAttribute("data-severity") === "error"))).toBe(true);
+  await page.getByRole("button", { name: "✕ Pertes et erreurs uniquement" }).click();
   await showDock(page, "Pings");
   await expect(pings(page)).toContainText("Séquence 1 : délai d'attente dépassé");
+  await expect(pings(page).getByText("✕ 1 envoyé(s), 0 reçu(s), 1 perdu(s) (100 % de perte)")).toBeVisible();
 
   // Correction dans l'éditeur : route de retour sur R2.
   await page.getByRole("tab", { name: "Topologie" }).click();
@@ -121,7 +130,7 @@ test("routage statique : retour manquant identifié, correction puis réinitiali
   await finish(page);
   await showDock(page, "Pings");
   await expect(pings(page)).toContainText("Réponse de 10.0.2.10 : séquence 2, TTL 62");
-  await expect(pings(page)).toContainText("2 envoyé(s), 2 reçu(s), 0 perdu(s)");
+  await expect(pings(page).getByText("✓ 2 envoyé(s), 2 reçu(s), 0 perdu(s) (0 % de perte)")).toBeVisible();
 });
 
 test("panne de câble : aucune transmission sur le câble coupé, échec expliqué", async ({ page }) => {

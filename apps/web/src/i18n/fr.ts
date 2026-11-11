@@ -327,6 +327,8 @@ export const fr = {
     journalFiltered: "Aucune décision ne correspond aux filtres.",
     journalWindow: "Affichage des {shown} dernières décisions sur {total} conservées.",
     journalMore: "Afficher {count} décisions de plus",
+    lossOrError: "Perte ou erreur :",
+    lossesOnly: "Pertes et erreurs uniquement",
     journalTrimmed: "{count} décision(s) plus ancienne(s) ne sont plus affichées : le journal garde les {max} dernières. Le moteur, lui, les a toutes calculées.",
     filterDevice: "Équipement",
     allDevices: "Tous les équipements",
