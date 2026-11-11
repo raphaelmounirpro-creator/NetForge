@@ -132,8 +132,6 @@ docs/               Suivi, feuille de route, décisions, design, protocoles
 - FTTH : bilan optique statique au pire cas ; pas de service PON simulé (enregistrement des ONT, bande passante), d'OTDR ni de modules SFP (phase 9).
 - Comptes : pas de changement d'adresse, de suppression de compte ni de second facteur ; les courriers, envoyés depuis une adresse Gmail dédiée, peuvent arriver dans les indésirables. Sécurité : [docs/securite.md](docs/securite.md).
 - Éditeur conçu pour un écran d'au moins 1 024 px ; pas d'édition complète sur smartphone.
-- Le visuel de connexion attend les fichiers de référence (maquette et photo) : voir [docs/DESIGN.md](docs/DESIGN.md).
-
 ## Documentation
 
 [AGENTS.md](AGENTS.md) (règles de développement) · [Console](docs/cli.md) · [Feuille de route](docs/ROADMAP.md) · [Décisions](docs/DECISIONS.md) · [Design](docs/DESIGN.md) · [Protocoles](docs/protocols/README.md)

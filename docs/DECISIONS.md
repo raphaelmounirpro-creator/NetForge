@@ -197,9 +197,9 @@ Compteurs à fenêtre fixe dans la table `rate_limits` (incrément atomique), co
 
 Les tests de l'API démarrent une grappe `embedded-postgres` (port 54329, base recréée et migrée) ; les parcours de compte une pile isolée (PostgreSQL 54330, courrier 1026/8026, API 3100, interface 4174). `io_method=sync` : sous Windows, les processus `io_worker` de PostgreSQL 18 survivaient à l'arrêt du serveur et bloquaient le démarrage suivant (constaté le 2026-11-11).
 
-## D-047 — Visuel de connexion provisoire
+## D-047 — Visuel de connexion
 
-La photo de référence de la spécification n'est pas fournie : le visuel d'accueil (58 %) utilise un fond bleu nuit et une lueur ambre localisée, avec les textes prévus (« LE RÉSEAU PREND VIE », « Comprendre. Connecter. Maîtriser. »). À remplacer par le visuel validé ; voir DESIGN.
+D'abord provisoire (fond bleu nuit, lueur ambre), la photo de référence de la spécification n'étant pas fournie. Remplacé le 2026-11-11 par la photo fournie par le propriétaire, dont les marques visibles lui appartiennent selon sa déclaration (exception assumée à la consigne « retirer toute marque tierce »). Conversion en WebP sans dépendance ajoutée (canevas du navigateur, qualité 0,8) en trois largeurs ; image décorative, textes conservés ; contraste des textes assuré par un dégradé (ordinateur) ou un voile uniforme (bandeau mobile). Détail : DESIGN.
 
 ## D-048 — Services de production validés (2026-11-11)
 

@@ -119,7 +119,7 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | A-07 | Limites anti-abus partagées en PostgreSQL, proxys de confiance | 5 | disponible | A-01 | Deuxième instance et `X-Forwarded-For` falsifié sans effet (auth.e2e.test.ts) |
 | A-08 | Courrier : capture SMTP locale, fournisseur de production validé | 5 | disponible avec limites | A-02 | Capture locale et absence de faux succès vérifiées ; Gmail dédié en production, courrier réel reçu, mais classé en indésirables (expéditeur neuf, domaine partagé) |
 | A-09 | Projets privés avec révisions, import volontaire des projets locaux | 5 | disponible | A-05, E-06 | Conflit, isolation, relecture en base et depuis un navigateur vierge (projects.e2e.test.ts, accounts.spec.ts) |
-| A-10 | Page connexion/inscription, accès invité, mobile, clavier | 5 | disponible avec limites | A-01, S-06 | 360 px sans défilement, clavier, erreurs annoncées (accounts.spec.ts) ; photo de référence absente (D-047) |
+| A-10 | Page connexion/inscription, accès invité, mobile, clavier | 5 | disponible | A-01, S-06 | 360 px sans défilement, clavier, erreurs annoncées (accounts.spec.ts) ; photo du propriétaire intégrée (D-047), captures 1440/1024/360 |
 | A-11 | Déploiement Vercel vérifié (local, prévisualisation, production distingués) | 5 | disponible | S-07 | Local, prévisualisation protégée et production vérifiés séparément (santé, base, CSRF, cookies, en-têtes, navigateur réel) ; voir PROGRESS |
 
 ### Exercices et notes (phase 6)

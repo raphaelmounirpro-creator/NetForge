@@ -30,7 +30,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 | Isolation des utilisateurs | atteint (local) | `projects.e2e.test.ts` |
 | Sessions : déconnexion, expiration, révocation globale | atteint (local) | `auth.e2e.test.ts` (horloge contrôlée) |
 | Sauvegarde et relecture après rechargement et redémarrage | atteint (local) | relecture en base, redémarrage de l'API, navigateur vierge |
-| Page de connexion, accès invité, mobile, clavier | atteint, visuel provisoire | `accounts.spec.ts` (360 px, clavier), captures Edge 1440/360, sombre/clair |
+| Page de connexion, accès invité, mobile, clavier | atteint | `accounts.spec.ts` (360 px, clavier), captures Edge 1440/1024/360, sombre/clair ; photo du propriétaire (D-047) |
 | Courrier de validation réel en production | atteint, avec limite | courrier reçu par le propriétaire depuis l'adresse dédiée, lien de validation fonctionnel ; classé en indésirables |
 | Déploiement vérifié (prévisualisation, production) | atteint | deux prévisualisations protégées puis production : voir ci-dessous |
 

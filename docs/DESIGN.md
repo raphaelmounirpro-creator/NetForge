@@ -9,7 +9,7 @@ Source des jetons : [apps/web/src/styles/index.css](../apps/web/src/styles/index
 | Référence | État |
 |---|---|
 | Maquette « NetForge : laboratoire réseau et fibre.png » | **Non disponible** dans le dépôt (lien ChatGPT inaccessible). Consignes écrites appliquées. |
-| Photo « home-sunset.57ad0c3af150497b.jpg » | **Non disponible**. Remplacement visuel restant à faire pour l'accueil/connexion (phase 5) : déposer le fichier dans `apps/web/src/assets/` en retirant toute marque tierce. |
+| Photo « home-sunset.57ad0c3af150497b.jpg » | Remplacée par la photo fournie par le propriétaire le 2026-11-11 (salle technique vitrée au coucher du soleil, techniciens). Les marques visibles (« KORO » sur les tenues, visage à toque sur l'écran central) appartiennent au propriétaire, selon sa déclaration : conservées. Fichiers `apps/web/src/assets/connexion-{640,960,1376}.webp` (31, 58 et 95 Kio, au lieu de 700 Kio pour le JPEG d'origine). |
 
 ## Couleurs (contrastes mesurés WCAG 2.x)
 
@@ -68,7 +68,7 @@ Menus et confirmations complexes : à créer avec leur besoin.
 ## Connexion et inscription (phase 5)
 
 - Composition de la spécification §15.3 : visuel à gauche (58 %), panneau opaque à droite (42 %) sur ordinateur ; sous 1 024 px, le visuel devient un bandeau au-dessus du formulaire. Jetons dédiés `hero`, `on-hero`, `on-hero-muted` (bleu nuit dans les deux thèmes).
-- Visuel provisoire (D-047) : fond bleu nuit, lueur ambre localisée, textes « LE RÉSEAU PREND VIE », « Comprendre. Connecter. Maîtriser. », « Votre laboratoire réseau et fibre optique. ». **Remplacement restant à faire** : la photo de référence, recadrée sans marques tierces.
+- Visuel (D-047) : photo du propriétaire en plein cadre (`object-cover`, cadrée à 40 % horizontalement pour garder le soleil, le pont, les techniciens et la baie centrale), décorative (`alt=""`), choisie par le navigateur parmi trois largeurs (`srcset`, `sizes="(min-width: 1024px) 58vw, 100vw"`). Lisibilité : sur ordinateur, dégradé bleu nuit depuis le bas (opaque sous les textes, transparent en haut) ; sur le bandeau mobile, voile bleu nuit uniforme à 80 % (l'ambre de « LE RÉSEAU PREND VIE » tombait sur le ciel clair). Textes « LE RÉSEAU PREND VIE », « Comprendre. Connecter. Maîtriser. », « Votre laboratoire réseau et fibre optique. ».
 - Onglets « Connexion » / « Créer un compte » (indicateur ambre), champs à libellé persistant de 44 px de haut, bouton nommé « Afficher / Masquer le mot de passe », « Mot de passe oublié ? », accès invité « Explorer sans compte » et « Vos projets invités restent sur cet appareil. ». Erreurs : liées au champ (`aria-describedby`) ou au formulaire (`role="alert"`), précédées de « ✕ ».
 - En-tête : « Se connecter » n'apparaît que si l'API répond ; connecté, menu du compte (adresse, déconnexion, déconnexion de tous les appareils). Sous 640 px, la navigation passe sur une seconde ligne et le menu du compte n'affiche que son icône.
 
