@@ -1,0 +1,20 @@
+# Fichiers jamais envoyés à Vercel lors d'un déploiement depuis ce poste
+# (le build reconstruit tout à partir des sources et du fichier de verrouillage).
+node_modules
+**/node_modules
+**/dist
+*.tsbuildinfo
+coverage
+apps/api/src/generated
+apps/api/.local-db
+apps/web/test-results
+apps/web/playwright-report
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.log
+.vercel
+.git

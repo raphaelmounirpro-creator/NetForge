@@ -14,7 +14,7 @@ describe("loadConfig", () => {
       secureCookies: false,
       csrfSecret: CSRF,
       trustProxy: false,
-      mail: { smtpUrl: null, from: null },
+      mail: { smtp: null, from: null },
       auth: { verifyTokenTtlMinutes: 1440, resetTokenTtlMinutes: 30, resendMinSeconds: 60, sessionIdleMinutes: 60, sessionAbsoluteHours: 12 },
     });
   });
@@ -46,6 +46,22 @@ describe("loadConfig", () => {
     const b = loadConfig({ DATABASE_URL: SECRET_URL }).csrfSecret;
     expect(a).toHaveLength(43);
     expect(a).not.toBe(b);
+  });
+
+  it("déduit l'origine et les proxys de confiance sur Vercel, avec les règles de production", () => {
+    const vercel = { VERCEL: "1", DATABASE_URL: SECRET_URL, CSRF_SECRET: CSRF };
+    const production = loadConfig({ ...vercel, VERCEL_ENV: "production", VERCEL_PROJECT_PRODUCTION_URL: "netforge.exemple.test" });
+    expect([production.appOrigin, production.secureCookies, production.trustProxy, production.nodeEnv]).toEqual(["https://netforge.exemple.test", true, 1, "production"]);
+    const preview = loadConfig({ ...vercel, VERCEL_ENV: "preview", VERCEL_URL: "netforge-abc123.vercel.app" });
+    expect(preview.appOrigin).toBe("https://netforge-abc123.vercel.app");
+    expect(() => loadConfig({ VERCEL: "1", DATABASE_URL: SECRET_URL, VERCEL_ENV: "preview", VERCEL_URL: "x.vercel.app" })).toThrow(/CSRF_SECRET/);
+  });
+
+  it("accepte un serveur d'envoi en variables séparées (identifiants complets exigés)", () => {
+    const config = loadConfig({ DATABASE_URL: SECRET_URL, SMTP_HOST: "smtp.exemple.test", SMTP_USER: "envoi@exemple.test", SMTP_PASSWORD: "secret-applicatif", MAIL_FROM: "NetForge <envoi@exemple.test>" });
+    expect(config.mail.smtp).toEqual({ kind: "host", host: "smtp.exemple.test", port: 465, user: "envoi@exemple.test", password: "secret-applicatif" });
+    expect(() => loadConfig({ DATABASE_URL: SECRET_URL, SMTP_HOST: "smtp.exemple.test", MAIL_FROM: "x@y.z" })).toThrow(/SMTP_USER/);
+    expect(() => loadConfig({ DATABASE_URL: SECRET_URL, SMTP_HOST: "smtp.exemple.test", SMTP_PORT: "25", SMTP_USER: "a", SMTP_PASSWORD: "b", MAIL_FROM: "x@y.z" })).toThrow(/SMTP_PORT/);
   });
 
   it("exige l'expéditeur avec un serveur d'envoi et lit les proxys de confiance", () => {

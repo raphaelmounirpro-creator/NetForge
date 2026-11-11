@@ -2,6 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defaultClientConditions, defaultServerConditions } from "vite";
 import { defineConfig } from "vitest/config";
+import securityHeaders from "./security-headers.json" with { type: "json" };
 
 // Les paquets du monorepo exposent leurs sources TypeScript sous la condition
 // « source » : l'interface et ses tests les consomment sans build préalable.
@@ -31,7 +32,9 @@ export default defineConfig({
     // Même origine en développement : /api est relayé vers l'API NestJS locale.
     proxy,
   },
-  preview: { proxy },
+  // Aperçu du build de production avec les en-têtes de sécurité du déploiement (vercel.json) :
+  // les parcours de performance s'exécutent donc sous la même politique de contenu.
+  preview: { proxy, headers: securityHeaders },
   test: {
     environment: "node",
     // Les parcours navigateur (e2e/) relèvent de Playwright.

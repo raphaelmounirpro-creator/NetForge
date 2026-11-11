@@ -200,3 +200,7 @@ Les tests de l'API démarrent une grappe `embedded-postgres` (port 54329, base r
 ## D-047 — Visuel de connexion provisoire
 
 La photo de référence de la spécification n'est pas fournie : le visuel d'accueil (58 %) utilise un fond bleu nuit et une lueur ambre localisée, avec les textes prévus (« LE RÉSEAU PREND VIE », « Comprendre. Connecter. Maîtriser. »). À remplacer par le visuel validé ; voir DESIGN.
+
+## D-048 — Services de production validés (2026-11-11)
+
+Validés par le propriétaire le 2026-11-11, conditions vérifiées le même jour : hébergement sur le projet Vercel existant (formule Hobby, usage personnel non commercial ; dépassement : suspension, jamais de facturation), PostgreSQL Neon formule gratuite (sans carte bancaire ; 1 Go, 100 CU-heures par mois ; dépassement : suspension ou blocage des écritures), courrier par un compte Gmail dédié avec mot de passe d'application (500 envois par jour ; aucun domaine à acheter). Les secrets (connexion Neon, mot de passe d'application) sont saisis directement dans Vercel par le propriétaire ou injectés par l'intégration Neon ; ils ne transitent ni par le dépôt ni par les échanges. Déploiement : fonction unique `api/index.mjs` (NestJS construit) et interface statique sur la même origine, migrations appliquées à la fin du build, en-têtes de sécurité de `vercel.json` identiques à ceux de l'aperçu local (test de synchronisation), `.vercelignore` excluant données locales et fichiers d'environnement.

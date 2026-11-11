@@ -25,6 +25,7 @@
     "test:perf": "pnpm --filter @netforge/web test:perf",
     "perf:engine": "pnpm --filter @netforge/project build && pnpm --filter @netforge/engine perf",
     "build": "pnpm -r build",
+    "vercel-build": "pnpm build:packages && pnpm --filter @netforge/api build && pnpm --filter @netforge/web build && node apps/api/scripts/vercel-migrate.mjs",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {

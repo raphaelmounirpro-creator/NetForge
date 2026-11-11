@@ -42,9 +42,9 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 - Parcours réel par l'API locale (`curl`/Node) : inscription, courrier capturé par `pnpm mail:local`, validation, connexion, projet en base, déconnexion.
 - Inspection visuelle réelle (Edge) : connexion 1440 px (sombre) et 360 px (clair), erreur de politique, « Vérifiez votre adresse », confirmation, projets du compte. Défauts trouvés et corrigés : en-tête débordant de 192 px à 360 px, jeton de session à rafraîchir après connexion, cookie de session effacé puis reposé dans la même réponse, délai de renvoi qui bloquait un courrier d'un autre type, processus `io_worker` orphelins de PostgreSQL 18 sous Windows, test de session générant une erreur 401 dans la console à chaque visite.
 
-### Services externes à valider (conditions vérifiées le 2026-11-11)
+### Services externes (validés par le propriétaire le 2026-11-11, D-048)
 
-Voir le compte rendu de phase : Vercel Hobby (projet existant), PostgreSQL Neon Free, courrier par compte Gmail dédié ou Brevo gratuit sans domaine.
+Vercel Hobby (projet existant, usage personnel non commercial), PostgreSQL Neon formule gratuite, courrier par compte Gmail dédié. Configuration de déploiement prête et vérifiée en local (fonction émulée, CSP sur le build de production) ; déploiement en attente des actions du propriétaire (connexion Vercel, base Neon, identifiants Gmail).
 
 ## Phase 4 — Premier laboratoire FTTH : validée par le propriétaire (2026-11-11)
 

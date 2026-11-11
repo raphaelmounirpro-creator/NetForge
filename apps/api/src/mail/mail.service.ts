@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { createTransport, type Transporter } from "nodemailer";
-import { APP_CONFIG, type AppConfig } from "../config/app-config.js";
+import { APP_CONFIG, type AppConfig, type SmtpSettings } from "../config/app-config.js";
 import { renderMail, type MailKind, type MailParams } from "./templates.js";
 
 export interface OutgoingMail {
@@ -32,11 +32,15 @@ export class SmtpMailTransport extends MailTransport {
   private readonly transporter: Transporter;
 
   constructor(
-    smtpUrl: string,
+    smtp: SmtpSettings,
     private readonly from: string,
   ) {
     super();
-    this.transporter = createTransport({ url: smtpUrl, ...SMTP_TIMEOUTS });
+    // Port 465 : TLS implicite ; 587 : STARTTLS ; 1025 : boîte de développement locale, sans TLS.
+    this.transporter =
+      smtp.kind === "url"
+        ? createTransport({ url: smtp.url, ...SMTP_TIMEOUTS })
+        : createTransport({ host: smtp.host, port: smtp.port, secure: smtp.port === 465, auth: { user: smtp.user, pass: smtp.password }, ...SMTP_TIMEOUTS });
   }
 
   async send(mail: OutgoingMail): Promise<void> {
@@ -53,7 +57,7 @@ export class DisabledMailTransport extends MailTransport {
 }
 
 export function createMailTransport(config: AppConfig): MailTransport {
-  return config.mail.smtpUrl && config.mail.from ? new SmtpMailTransport(config.mail.smtpUrl, config.mail.from) : new DisabledMailTransport();
+  return config.mail.smtp && config.mail.from ? new SmtpMailTransport(config.mail.smtp, config.mail.from) : new DisabledMailTransport();
 }
 
 /**
