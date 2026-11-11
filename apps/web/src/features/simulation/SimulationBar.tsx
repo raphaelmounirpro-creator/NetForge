@@ -23,7 +23,13 @@ export function SimulationBar({ session, stale }: { session: SimulationSession; 
   const blocked = stale || session.phase !== "ready" || session.workerError || session.status === "interrupted";
   const playing = session.mode === "playing";
   const status =
-    session.status === "interrupted" ? t.interruptedBadge : session.phase === "loading" ? t.loading : t.mode[session.mode];
+    session.status === "interrupted"
+      ? t.interruptedBadge
+      : session.phase === "loading"
+        ? t.loading
+        : session.mode === "paused" && session.activity
+          ? t.pausedWaiting
+          : t.mode[session.mode];
 
   return (
     <div role="toolbar" aria-label={t.bar} className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border bg-surface px-3 py-2">

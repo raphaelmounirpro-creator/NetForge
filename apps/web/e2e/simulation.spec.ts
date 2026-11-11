@@ -133,6 +133,20 @@ test("routage statique : retour manquant identifié, correction puis réinitiali
   await expect(pings(page).getByText("✓ 2 envoyé(s), 2 reçu(s), 0 perdu(s) (0 % de perte)")).toBeVisible();
 });
 
+test("ping en attente : la pause est expliquée et la suite se calcule depuis les résultats", async ({ page }) => {
+  await importFixture(page, "routed.nfg.json");
+  await openSimulation(page);
+  await ping(page, "192.168.2.10", "1");
+  await showDock(page, "Pings");
+  await expect(pings(page)).toContainText("Séquence 1 : en attente de réponse");
+  await expect(bar(page)).toContainText("En pause · des échanges attendent d'être calculés");
+  const dock = page.getByRole("region", { name: "Résultats de la simulation" });
+  await expect(dock.getByRole("status")).toContainText("La simulation est en pause : la suite des échanges n'est pas encore calculée.");
+  await dock.getByRole("button", { name: "Terminer les échanges" }).click();
+  await expect(pings(page)).toContainText("Réponse de 192.168.2.10 : séquence 1");
+  await expect(dock.getByText("La simulation est en pause : la suite des échanges")).toBeHidden();
+});
+
 test("panne de câble : aucune transmission sur le câble coupé, échec expliqué", async ({ page }) => {
   await importFixture(page, "routed.nfg.json");
   await openSimulation(page);

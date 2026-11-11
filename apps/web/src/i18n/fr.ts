@@ -318,6 +318,8 @@ export const fr = {
     time: "Temps simulé",
     counters: "{processed} événement(s) traité(s) · {pending} en attente",
     mode: { paused: "En pause", playing: "En lecture", finishing: "Calcul en cours…" },
+    pausedWaiting: "En pause · des échanges attendent d'être calculés",
+    waitingHint: "La simulation est en pause : la suite des échanges n'est pas encore calculée. Terminez-les d'un coup ou avancez pas à pas (ou « Lecture » pour le temps réel).",
     interruptedBadge: "Interrompue",
     loading: "Chargement du moteur de simulation…",
     otherProject: "La simulation active concerne « {name} ». Une seule simulation fonctionne à la fois ; elle est conservée en pause.",

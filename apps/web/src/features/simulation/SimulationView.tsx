@@ -12,6 +12,7 @@ import { simulation, useIsStale } from "./services";
 import { SimulationBar } from "./SimulationBar";
 import { useSimulationStore, type SimulationSession } from "./store";
 import { TraceJournal } from "./TraceJournal";
+import { WaitingHint } from "./WaitingHint";
 import { useObservationStore, type DockTab } from "./observation";
 import { HOST_TIMING } from "@netforge/engine";
 
@@ -134,13 +135,18 @@ export function SimulationView({ projectId, project }: { projectId: string; proj
               }}
               className="h-full"
             >
-              {dock === "journal" ? (
-                <TraceJournal session={own} />
-              ) : dock === "pings" ? (
-                <PingResults session={own} />
-              ) : (
-                <ConsolePanel projectId={projectId} project={project} />
-              )}
+              <div className="flex h-full min-h-0 flex-col">
+                <WaitingHint session={own} />
+                <div className="min-h-0 flex-1">
+                  {dock === "journal" ? (
+                    <TraceJournal session={own} />
+                  ) : dock === "pings" ? (
+                    <PingResults session={own} />
+                  ) : (
+                    <ConsolePanel projectId={projectId} project={project} />
+                  )}
+                </div>
+              </div>
             </Tabs>
           </section>
         </>
