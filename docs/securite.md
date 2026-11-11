@@ -9,7 +9,7 @@ Fiches OWASP Cheat Sheet Series : [Authentication](https://cheatsheetseries.owas
 ## Comptes et mots de passe
 
 - Parcours : adresse e-mail + mot de passe, adresse validée avant tout accès privé (règle appliquée par l'API : aucune session n'est ouverte pour une adresse non validée).
-- Politique : 15 caractères au moins (pas de second facteur), 128 au plus, tous caractères (espaces, accents) ; aucune règle de composition ; refus d'un caractère répété, d'une suite de clavier ou d'alphabet, de l'adresse elle-même. Forme Unicode NFKC avant contrôle et hachage. Collage et gestionnaires autorisés (`autocomplete` adaptés).
+- Politique : 12 caractères au moins, 15 ou plus recommandés à l'utilisateur (indication sous le champ et dans le message d'erreur), 128 au plus, tous caractères (espaces, accents) ; aucune règle de composition ; refus d'un caractère répété, d'une suite de clavier ou d'alphabet, de l'adresse elle-même. Forme Unicode NFKC avant contrôle et hachage. Collage et gestionnaires autorisés (`autocomplete` adaptés).
 - Hachage : Argon2id natif de Node (`crypto.argon2`, OpenSSL ≥ 3.2), m = 19 Mio, t = 2, p = 1 (configuration minimale OWASP), sel de 16 octets, empreinte au format PHC. Jamais de mot de passe en clair, chiffré ou journalisé.
 - Adresses : espaces de bord retirés, NFC, comparaison sans casse (clé unique `email_key`), points et suffixes « + » conservés ; forme saisie conservée pour l'envoi.
 - Nouvelle inscription avec une adresse existante : jamais de remplacement du mot de passe ; le titulaire reçoit « un compte existe déjà » (ou un nouveau lien si le compte est en attente). Réponse publique identique.
@@ -87,6 +87,7 @@ Classes, notes et rôles formateur (phases 6 et 17) n'existent pas encore : leur
 ## Limites résiduelles
 
 - Pas de second facteur ; pas de comparaison avec des listes de mots de passe divulgués (service externe non retenu).
+- Minimum de 12 caractères (D-050), inférieur aux 15 que demandent OWASP et le NIST SP 800-63B-4 sans second facteur : 15 est seulement recommandé. Compensations : Argon2id, limites d'essais par adresse IP et par compte, refus des choix triviaux.
 - Pendant une panne du courrier, renvoi et récupération répondent `503` pour un compte existant et `202` pour une adresse inconnue : énumération possible pendant la panne seulement.
 - Pas encore de suppression de compte ni de changement d'adresse depuis l'interface (suppression en cascade prête en base).
 - Pas de journal d'audit des abus au-delà des journaux de l'API (sans adresse complète ni jeton).

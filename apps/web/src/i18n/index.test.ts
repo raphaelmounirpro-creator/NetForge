@@ -1,7 +1,18 @@
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_RECOMMENDED_LENGTH } from "@netforge/contracts";
 import { error, ISSUE_CODES, warning } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { fr } from "./fr";
 import { fill, formatIssue } from "./index";
+
+describe("textes de la politique de mot de passe", () => {
+  it("annoncent les longueurs appliquées par l'API : minimum, recommandation et maximum", () => {
+    expect(fr.account.passwordPolicy).toContain(`${String(PASSWORD_MIN_LENGTH)} caractères au moins`);
+    expect(fr.account.passwordPolicy).toContain(`${String(PASSWORD_RECOMMENDED_LENGTH)} ou plus recommandés`);
+    expect(fr.account.passwordPolicy).toContain(`${String(PASSWORD_MAX_LENGTH)} au plus`);
+    expect(fr.apiErrors["auth.password-too-short"]).toContain(`${String(PASSWORD_MIN_LENGTH)} caractères au moins`);
+    expect(fr.apiErrors["auth.password-too-short"]).toContain(`${String(PASSWORD_RECOMMENDED_LENGTH)} ou plus recommandés`);
+  });
+});
 
 describe("textes des problèmes métier", () => {
   it("fournit un texte français pour chaque code", () => {

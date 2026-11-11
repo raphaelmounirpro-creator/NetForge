@@ -342,12 +342,20 @@ describe("politique de mot de passe et d'adresse", () => {
   it("refuse les mots de passe trop courts, trop longs ou trivialement devinables", async () => {
     const browser = new Browser(test);
     const attempt = async (password: string) => code(await browser.post("/api/auth/register", { email: "eleve@exemple.test", password }));
-    expect(await attempt("quatorze carac")).toBe("auth.password-too-short");
+    expect(await attempt("onze caract")).toBe("auth.password-too-short");
+    // 11 caractères mais 14 octets en UTF-8 : la longueur se compte en caractères.
+    expect(await attempt("été à la me")).toBe("auth.password-too-short");
     expect(await attempt("x".repeat(129))).toBe("auth.password-too-long");
     expect(await attempt("aaaaaaaaaaaaaaaaaaaa")).toBe("auth.password-weak");
     expect(await attempt("123456789012345678")).toBe("auth.password-weak");
     expect(await attempt("eleve@exemple.test")).toBe("auth.password-weak");
     expect(test.mail.outbox).toHaveLength(0);
+  });
+
+  it("accepte 12 caractères, minimum retenu (D-050), accents compris", async () => {
+    await register(new Browser(test), "limite@exemple.test", "douze lettre");
+    await register(new Browser(test), "accents@exemple.test", "été à la mer");
+    expect(test.mail.outbox).toHaveLength(2);
   });
 
   it("compare les adresses sans tenir compte de la casse, sans retirer points ni suffixe « + »", async () => {

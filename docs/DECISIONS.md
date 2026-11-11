@@ -175,7 +175,7 @@ Les pannes sont des données du projet (D-035), injectées et retirées par des 
 
 ## D-041 — Comptes : e-mail et mot de passe, Argon2id natif
 
-Parcours de la spécification §14 : inscription, validation explicite de l'adresse avec le mot de passe de l'inscription (reprise possible contre un compte précréé par un tiers), connexion, récupération. Hachage Argon2id par `crypto.argon2` de Node (OpenSSL ≥ 3.2, Node ≥ 24.7) : aucune dépendance compilée ni script d'installation. Paramètres OWASP (19 Mio, 2 passes) ; politique de 15 à 128 caractères sans règle de composition. Détail : [securite.md](securite.md).
+Parcours de la spécification §14 : inscription, validation explicite de l'adresse avec le mot de passe de l'inscription (reprise possible contre un compte précréé par un tiers), connexion, récupération. Hachage Argon2id par `crypto.argon2` de Node (OpenSSL ≥ 3.2, Node ≥ 24.7) : aucune dépendance compilée ni script d'installation. Paramètres OWASP (19 Mio, 2 passes) ; politique de 12 à 128 caractères sans règle de composition (15 à l'origine, abaissé par D-050). Détail : [securite.md](securite.md).
 
 ## D-042 — Sessions opaques en base et CSRF signé lié à la session
 
@@ -214,3 +214,7 @@ Validés par le propriétaire le 2026-11-11, conditions vérifiées le même jou
 - **Installation sous Linux** : `@embedded-postgres/linux-x64` autorisé dans `allowBuilds` après lecture de son script (recréation de liens symboliques internes au paquet, sans réseau), nécessaire aux tests d'API de la CI.
 - **Liaison locale** : `vercel link` crée `.vercel/` (ignoré) et un `.env.local` contenant un jeton OIDC temporaire, supprimé car inutile ; l'ajout automatique de `.env*` au `.gitignore` a été annulé, il aurait ignoré les fichiers `.env.example`.
 - **Courrier** : Gmail dédié par `SMTP_HOST`/`SMTP_PORT=465`/`SMTP_USER`/`SMTP_PASSWORD` ; premier courrier reçu en indésirables (voir securite.md).
+
+## D-050 — Mot de passe : 12 caractères acceptés, 15 recommandés (2026-11-11)
+
+Décision du propriétaire : 15 caractères minimum est jugé trop contraignant pour les élèves. L'API accepte 12 caractères (`PASSWORD_MIN_LENGTH`) ; l'interface recommande 15 ou plus (`PASSWORD_RECOMMENDED_LENGTH`) sous le champ et dans le message d'erreur, un test vérifiant que ces textes suivent les constantes. Écart assumé : OWASP (fiche « Authentication », consultée le 2026-11-11) et le NIST SP 800-63B-4 jugent faible un mot de passe de moins de 15 caractères sans second facteur. Le reste de la politique est inchangé (128 au plus, longueur en caractères Unicode après NFKC, choix triviaux refusés). Les comptes existants ne sont pas touchés.

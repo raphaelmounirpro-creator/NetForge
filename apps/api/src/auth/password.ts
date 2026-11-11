@@ -49,9 +49,10 @@ export async function verifyPassword(password: string, phc: string): Promise<boo
 const SEQUENCES = ["0123456789012345678901234567890123456789", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz", "azertyuiopqsdfghjklmwxcvbnazertyuiop", "qwertyuiopasdfghjklzxcvbnmqwertyuiop"];
 
 /**
- * Politique de mot de passe (OWASP « Authentication », 2026-11-11) : sans
- * second facteur, 15 caractères au moins ; jusqu'à 128 (phrases de passe) ;
- * tous caractères admis, espaces compris ; aucune règle de composition.
+ * Politique de mot de passe : 12 caractères au moins, par décision du
+ * propriétaire (D-050), quand OWASP et le NIST SP 800-63B-4 demandent 15 sans
+ * second facteur ; l'interface recommande 15 ou plus. Jusqu'à 128 (phrases de
+ * passe) ; tous caractères admis, espaces compris ; aucune règle de composition.
  * Refus des choix trivialement devinables : un seul caractère répété, suite
  * de clavier ou d'alphabet, l'adresse e-mail elle-même. La comparaison avec
  * des listes de mots de passe divulgués (service externe) n'est pas faite.

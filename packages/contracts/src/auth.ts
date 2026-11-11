@@ -8,14 +8,18 @@ import { z } from "zod";
 
 /** Longueur maximale d'une adresse e-mail (RFC 5321 : chemin de 256 octets, adresse utile de 254). */
 export const EMAIL_MAX_LENGTH = 254;
-/** Politique de mot de passe (docs/securite.md) : longueur seule, aucune règle de composition. */
-export const PASSWORD_MIN_LENGTH = 15;
+/**
+ * Politique de mot de passe (docs/securite.md, D-050) : longueur seule, aucune règle de
+ * composition. 12 caractères acceptés (choix du propriétaire), 15 ou plus recommandés.
+ */
+export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_RECOMMENDED_LENGTH = 15;
 export const PASSWORD_MAX_LENGTH = 128;
 /** Secret de 32 octets encodé en base64url (43 caractères). */
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
 const email = z.string().max(EMAIL_MAX_LENGTH * 4);
-/** Taille bornée avant traitement ; la politique (15 à 128 caractères) est vérifiée par l'API. */
+/** Taille bornée avant traitement ; la politique (12 à 128 caractères) est vérifiée par l'API. */
 const password = z.string().max(PASSWORD_MAX_LENGTH * 8);
 
 export const credentialsRequestSchema = z.strictObject({ email, password });

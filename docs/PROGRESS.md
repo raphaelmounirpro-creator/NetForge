@@ -36,7 +36,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ### Vérifications exécutées (2026-11-11, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
 
-- `pnpm check` (après les corrections du déploiement) : lint, typecheck, **306 tests** (format 102, moteur 101, interface 59, contrats 2, API 42 sur PostgreSQL embarqué réel) et builds réussis.
+- `pnpm check` (après les corrections du déploiement et D-050) : lint, typecheck, **308 tests** (format 102, moteur 101, interface 60, contrats 2, API 43 sur PostgreSQL embarqué réel) et builds réussis ; `pnpm test:e2e:accounts` relancé après D-050 : 4 parcours réussis.
 - `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **23 parcours** réussis ; `pnpm test:e2e:accounts` : **4 parcours de compte** réussis sur pile isolée (PostgreSQL, courrier, API, interface).
 - `pnpm test:perf` : inchangé (calcul 100 équipements et tempête sans tâche longue).
 - Parcours réel par l'API locale (`curl`/Node) : inscription, courrier capturé par `pnpm mail:local`, validation, connexion, projet en base, déconnexion.
@@ -50,6 +50,7 @@ Services validés par le propriétaire : Vercel Hobby (projet `netforge` existan
 - **Prévisualisation** (protégée par l'authentification Vercel, interrogée par `vercel curl`) puis **production** (adresse publique, `curl` ordinaire) : `/api/health/ready` 200 avec la base ; `/api/auth/session` 200 sans compte, `Cache-Control: no-store`, cookie `__Host-nf_pre; Path=/; HttpOnly; SameSite=Lax; Secure` sans `Domain` ; écriture depuis une autre origine sans jeton → 403 `csrf.invalid` ; même origine avec jeton → 401 `auth.invalid-credentials` (CSRF et origine `https://netforge-amber.vercel.app` acceptés) ; route d'API inconnue → 404 `request.not-found` ; pages avec CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP ; routes de l'application servies par `index.html` ; ressources en cache immuable. Fonction exécutée à Frankfurt (`x-vercel-id` … `fra1`).
 - **Navigateur réel sur la production** (Edge sans interface) : exercice lancé, ping simulé dans le worker, export téléchargé, vue Optique, page de connexion ; aucune erreur ni violation de la politique de contenu dans la console.
 - **Parcours réel du propriétaire** : inscription avec sa propre adresse, courrier reçu, validation et connexion réussies. Compte conservé (pas une donnée de test).
+- **Changement demandé par le propriétaire** : mot de passe de 12 caractères au moins, 15 recommandés (D-050).
 - **Défauts trouvés et corrigés** : build exécuté deux fois (Vercel relançait le script `vercel-build`, renommé `build:vercel`) ; script d'installation Linux de PostgreSQL embarqué non autorisé (nécessaire à la CI ; lu puis autorisé) ; `vercel link` ajoutait `.env*` au `.gitignore`, ce qui aurait ignoré les `.env.example` (ajout annulé).
 
 ### Limites connues
