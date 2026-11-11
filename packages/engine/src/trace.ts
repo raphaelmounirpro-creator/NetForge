@@ -11,6 +11,8 @@ export const TRACE_CODES = [
   "command.ping",
   "command.link-down",
   "command.link-up",
+  "command.clear-arp",
+  "command.clear-mac",
   // Couche liaison
   "eth.transmit",
   "eth.no-link",

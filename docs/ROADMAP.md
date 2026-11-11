@@ -55,8 +55,8 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | E-08 | Navigation principale, onglets de projets, vues Topologie/Simulation/Configuration | 1–2 | disponible avec limites | S-06 | État conservé entre vues ; fermeture sûre ; vue Simulation (phase 2). Parcours/Ressources absents faute de contenu |
 | E-09 | Liste structurée des équipements/liens et alternative clavier du canevas | 1 | disponible | E-01 | Ajout, sélection, liaison, configuration, suppression et déplacement sans souris |
 | E-10 | Tests Playwright des parcours front essentiels | 1 | disponible avec limites | E-05 | 8 parcours ; exécution CI après le push de fin de projet |
-| E-11 | Annotations libres sur le canevas | 3 | prévu | E-01 | Texte affiché comme texte, exporté, sans effet sur le réseau |
-| E-12 | Mini-carte et glisser-déposer depuis la palette | 3 | prévu (reporté de la phase 2, D-028) | M-11 | Navigation dans un grand projet ; le scénario de 100 équipements reste utilisable sans |
+| E-11 | Annotations libres sur le canevas | 3 | disponible | E-01 | Texte affiché comme texte, exporté, sans effet sur le réseau (format v3 ; annotations.test.ts, e2e « notes libres ») |
+| E-12 | Mini-carte et glisser-déposer depuis la palette | 3 | disponible | M-11 | Glisser-déposer et recentrage par la mini-carte (e2e) ; mini-carte masquée sous 640 px de canevas, le clavier garde zoom, ajustement et liste |
 | E-13 | Compatibilité des connectiques (cuivre/fibre, modules) | 4 | prévu | F-01 | Lien entre connectiques incompatibles refusé avec explication |
 | E-14 | Routes statiques des routeurs (format v2, migration v1 → v2) | 2 | disponible | E-03 | Destination réseau, doublon et prochain saut validés ; sous-onglet Routes et vue Configuration |
 | E-15 | Avertissement de boucle de commutation | 2 | disponible | E-02 | Cycle de switches signalé (topology.test.ts, e2e « boucle de commutation ») |
@@ -81,13 +81,13 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 
 | ID | Exigence | Phase | Statut | Dépend | Critère vérifiable |
 |---|---|---|---|---|---|
-| O-01 | Pas à pas, progression continue, filtres, inspection | 3 | disponible avec limites | M-10 | Pas à pas, lecture continue et filtres (équipement, catégorie) disponibles en phase 2 ; inspection des trames et regroupement par échange en phase 3 |
-| O-02 | Animations issues des événements, arrêt en pause, mouvement réduit | 3 | prévu | O-01 | Aucune animation sans événement moteur |
-| O-03 | Inspecteur limité aux champs modélisés, correspondance OSI documentée | 3 | prévu | O-01 | Aucun octet inventé |
-| O-04 | Explications débutant et technique générées depuis les faits du moteur | 3 | prévu | M-10 | Échec expliqué sans IA externe |
-| O-05 | CLI originale à modes, aide, historique, complétion (xterm.js) | 3 | prévu | M-07 | Même résultat par CLI et formulaire |
-| O-06 | Outils PC : ping, configuration IP, table ARP | 3 | prévu | M-06 | Sorties issues du moteur |
-| O-07 | Exercice local guidé (observer, hypothèse, mesure, correction) | 3 | prévu | O-04 | Exercice terminé avec explication |
+| O-01 | Pas à pas, progression continue, filtres, inspection | 2–3 | disponible | M-10 | Suivi d'un écho de bout en bout : journal filtré par échange, inspecteur, chemin en surbrillance (e2e « suivre un échange ») |
+| O-02 | Animations issues des événements, arrêt en pause, mouvement réduit | 3 | disponible | O-01 | Une trame animée par décision « eth.transmit » ; croix « perdu » sur abandon ; arrêt en pause ; rendu statique avec mouvement réduit (animation.test.ts) |
+| O-03 | Inspecteur limité aux champs modélisés, correspondance OSI documentée | 3 | disponible | O-01 | Couches Ethernet/ARP/IPv4/ICMP avec leur couche OSI ; aucun octet inventé (docs/protocols/README.md) |
+| O-04 | Explications débutant et technique générées depuis les faits du moteur | 3 | disponible | M-10 | Deux gabarits par code de trace ; « Pourquoi ? » mène à la décision qui explique un écho en échec (e2e) |
+| O-05 | CLI originale à modes, aide, historique, complétion | 3 | disponible | M-07 | Même document par console et formulaire (cli.test.ts) ; console React accessible plutôt que xterm.js (D-031) ; [référence](cli.md) |
+| O-06 | Outils PC : ping, configuration IP, table ARP | 3 | disponible avec limites | M-06 | `ping`, `ipconfig`, `arp -a`/`-d` ; sorties issues du moteur ; traceroute reporté (phase 14) |
+| O-07 | Exercice local guidé (observer, hypothèse, mesure, correction) | 3 | disponible | O-04 | « Le retour manquant » terminé de bout en bout ; plusieurs corrections acceptées (exercise.test.ts, e2e) |
 
 ### FTTH (phase 4 puis phase 9)
 

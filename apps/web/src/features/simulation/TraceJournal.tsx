@@ -3,20 +3,35 @@ import { Button } from "../../components/ui/Button";
 import { compareNames, fill, messages } from "../../i18n";
 import {
   TRACE_CATEGORIES,
+  formatExchange,
   formatSimTime,
   formatTrace,
   isLossOrError,
   traceCategory,
+  type ExplanationLevel,
   type NameIndex,
   type TraceCategory,
 } from "../../i18n/simulation";
+import { useLabLayout } from "../lab/layout";
+import { LevelToggle } from "./Inspector";
+import { useObservationStore } from "./observation";
 import { JOURNAL_LIMIT, type JournalEntry, type SimulationSession } from "./store";
 
 const t = messages.simulation;
 /** Lignes rendues d'emblée : le rendu reste court même quand le moteur produit beaucoup de décisions. */
 const RENDER_STEP = 100;
 
-const Row = memo(function Row({ item, names }: { item: JournalEntry; names: NameIndex }) {
+const Row = memo(function Row({
+  item,
+  names,
+  level,
+  selected,
+}: {
+  item: JournalEntry;
+  names: NameIndex;
+  level: ExplanationLevel;
+  selected: boolean;
+}) {
   const { entry } = item;
   const category = traceCategory(entry.code);
   // Perte ou erreur : rouge, mais aussi symbole et texte (la couleur n'est jamais seule).
@@ -25,12 +40,21 @@ const Row = memo(function Row({ item, names }: { item: JournalEntry; names: Name
     <li
       className={`grid grid-cols-[6.75rem_minmax(0,1fr)] gap-x-3 border-b border-border py-1.5 pr-3 text-xs [contain-intrinsic-size:auto_2rem] [content-visibility:auto] ${
         error ? "border-l-4 border-l-danger bg-danger/10 pl-2" : "pl-3"
-      }`}
+      } ${selected ? "outline-2 -outline-offset-2 outline-accent" : ""}`}
       data-code={entry.code}
       data-severity={error ? "error" : "normal"}
     >
       <span className="font-mono text-text-muted">{formatSimTime(entry.time)}</span>
-      <span className={`break-words ${error ? "font-medium text-danger" : "text-text"}`}>
+      <button
+        type="button"
+        aria-pressed={selected}
+        title={t.inspect}
+        onClick={() => {
+          useObservationStore.getState().inspect(item.key);
+          useLabLayout.getState().openProperties();
+        }}
+        className={`text-left break-words hover:underline ${error ? "font-medium text-danger" : "text-text"}`}
+      >
         {error && (
           <span aria-hidden="true" className="mr-1 font-bold">
             ✕
@@ -40,8 +64,8 @@ const Row = memo(function Row({ item, names }: { item: JournalEntry; names: Name
         <span className={`mr-2 inline-block rounded-sm border px-1 font-medium ${error ? "border-danger text-danger" : "border-border text-accent-text"}`}>
           {t.categories[category]}
         </span>
-        {formatTrace(entry, names)}
-      </span>
+        {formatTrace(entry, names, level)}
+      </button>
     </li>
   );
 });
@@ -58,22 +82,23 @@ export function TraceJournal({ session }: { session: SimulationSession }) {
   const [hidden, setHidden] = useState<ReadonlySet<TraceCategory>>(() => new Set());
   const [renderLimit, setRenderLimit] = useState(RENDER_STEP);
   const [lossesOnly, setLossesOnly] = useState(false);
+  const level = useObservationStore((state) => state.level);
+  const exchange = useObservationStore((state) => state.exchange);
+  const inspected = useObservationStore((state) => state.inspected);
   const names = session.names;
   // Rendu différé et interruptible : un lot volumineux ne bloque jamais le fil de l'interface.
   const journal = useDeferredValue(session.journal);
-  const devices = useMemo(
-    () => Object.values(session.devices).sort((a, b) => compareNames(a.name, b.name)),
-    [session.devices],
-  );
+  const devices = useMemo(() => Object.values(session.devices).sort((a, b) => compareNames(a.name, b.name)), [session.devices]);
   const entries = useMemo(
     () =>
       journal.filter(
         (item) =>
+          (exchange === null || item.entry.exchange === exchange) &&
           (device === "" || item.entry.deviceId === device) &&
           !hidden.has(traceCategory(item.entry.code)) &&
           (!lossesOnly || isLossOrError(item.entry)),
       ),
-    [journal, device, hidden, lossesOnly],
+    [journal, exchange, device, hidden, lossesOnly],
   );
   const shown = entries.length > renderLimit ? entries.slice(-renderLimit) : entries;
 
@@ -95,6 +120,7 @@ export function TraceJournal({ session }: { session: SimulationSession }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-3 py-2 text-xs">
+        <LevelToggle level={level} />
         <span className="flex items-center gap-2">
           <label htmlFor={filterId} className="text-text-muted">
             {t.filterDevice}
@@ -118,17 +144,17 @@ export function TraceJournal({ session }: { session: SimulationSession }) {
         <fieldset className="flex flex-wrap items-center gap-1">
           <legend className="sr-only">{t.filters}</legend>
           {TRACE_CATEGORIES.map((category) => {
-            const shown = !hidden.has(category);
+            const visible = !hidden.has(category);
             return (
               <button
                 key={category}
                 type="button"
-                aria-pressed={shown}
+                aria-pressed={visible}
                 onClick={() => {
                   toggle(category);
                 }}
                 className={`min-h-7 rounded-sm border px-2 transition-colors duration-(--duration-fast) ${
-                  shown ? "border-accent-text text-text" : "border-border text-text-muted line-through"
+                  visible ? "border-accent-text text-text" : "border-border text-text-muted line-through"
                 }`}
               >
                 {t.categories[category]}
@@ -149,6 +175,20 @@ export function TraceJournal({ session }: { session: SimulationSession }) {
           ✕ {t.lossesOnly}
         </button>
       </div>
+      {exchange !== null && (
+        <p className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-signal/10 px-3 py-1 text-xs text-text">
+          <span>{fill(t.following, { exchange: formatExchange(exchange), count: entries.length })}</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              useObservationStore.getState().follow(null);
+            }}
+          >
+            {t.stopFollowing}
+          </Button>
+        </p>
+      )}
       {session.journalHidden > 0 && (
         <p className="shrink-0 border-b border-border px-3 py-1 text-xs text-text-muted">
           {fill(t.journalTrimmed, { count: session.journalHidden.toLocaleString("fr-FR"), max: JOURNAL_LIMIT.toLocaleString("fr-FR") })}
@@ -182,7 +222,7 @@ export function TraceJournal({ session }: { session: SimulationSession }) {
             </li>
           )}
           {shown.map((item) => (
-            <Row key={item.key} item={item} names={names} />
+            <Row key={item.key} item={item} names={names} level={level} selected={item.key === inspected} />
           ))}
         </ol>
       )}

@@ -24,7 +24,7 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 | Paquet | Rôle | Règles |
 |---|---|---|
 | `packages/engine` | Moteur à événements discrets, protocoles, adaptateur Worker | Dépend de `@netforge/project` et de Zod uniquement. Aucune dépendance à React, NestJS, DOM, IndexedDB. Pas de `Date.now()` ni `Math.random()` dans la logique simulée (générateur `Prng` à graine). Temps en nanosecondes entières (`SimTime`). Décisions = codes stables (`trace.ts`) + paramètres, sans texte. L'adaptateur (`host.ts`) reçoit l'horloge réelle en paramètre et ne s'en sert que pour découper le calcul. |
-| `packages/project` | Format `.nfg.json`, catalogue, IPv4, validation, commandes d'édition | Fonctions pures. Toute modification d'un projet passe par une commande (formulaires, future CLI). Problèmes = codes stables + paramètres ; texte dans `apps/web/src/i18n`. Nouvelle version du format = migration explicite testée. |
+| `packages/project` | Format `.nfg.json`, catalogue, IPv4, validation, commandes d'édition, interpréteur de la console | Fonctions pures. Toute modification d'un projet passe par une commande (formulaires et console : mêmes commandes, équivalence testée). Problèmes = codes stables + paramètres ; texte dans `apps/web/src/i18n`. Nouvelle version du format = migration explicite testée. |
 | `packages/contracts` | Schémas Zod des contrats d'API | Source unique des contrats HTTP validés à l'exécution. |
 | `apps/web` | Client React/Vite | Exprime des intentions et affiche les résultats du moteur ; ne décide jamais d'un résultat réseau. Zustand (`features/lab/store.ts`) : document du projet + état de session (sélection, vue, zoom, historique). Simulation : `features/simulation` (Worker, client corrélé, projection des lots du moteur, une seule simulation active). Stockage : `features/storage` (IndexedDB, révisions, verrou d'onglet). |
 | `apps/api` | NestJS + Prisma | Logique métier dans les services, jamais dans les contrôleurs. Configuration validée au démarrage (`loadConfig`). |
@@ -53,6 +53,7 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 - Textes d'interface uniquement dans `apps/web/src/i18n/fr.ts` ; aucun `dangerouslySetInnerHTML`.
 - Commentaires en français, uniquement pour expliquer une décision utile.
 - Toute simplification pédagogique est documentée dans `docs/protocols/` ; tout nouveau code de trace reçoit un gabarit dans `apps/web/src/i18n/fr.ts` (vérifié par `i18n/simulation.test.ts` sur des traces réelles).
+- Exercices : format et critères dans `packages/engine/src/exercise.ts` (validés au chargement) ; contenu pédagogique dans `apps/web/src/features/exercises/catalog` (données, pas textes d'interface).
 - Scénarios de référence : `packages/engine/src/scenarios.ts`. Les projets des parcours navigateur (`apps/web/e2e/fixtures`) en sont générés (`node apps/web/e2e/fixtures/generate.mjs`) ; `src/fixtures.test.ts` vérifie leur synchronisation.
 - Décisions structurantes : `docs/DECISIONS.md`. Identité visuelle : `docs/DESIGN.md` (jetons uniquement, palette Tailwind par défaut désactivée).
 - Dépendances : versions exactes ; pnpm applique un délai minimal de publication — ne pas l'exempter, choisir une version plus ancienne. Scripts d'installation autorisés un par un dans `allowBuilds` après lecture.

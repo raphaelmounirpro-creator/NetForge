@@ -1,7 +1,8 @@
 import { getModel, type DeviceModelId } from "@netforge/project";
-import { Monitor, Network, Router, type LucideIcon } from "lucide-react";
+import { Monitor, Network, Router, StickyNote, type LucideIcon } from "lucide-react";
 import { messages } from "../../i18n";
-import { addDeviceAtViewCenter } from "./actions";
+import { addDeviceAtViewCenter, addNoteAtViewCenter } from "./actions";
+import { DRAG_TYPE } from "./topology/TopologyCanvas";
 import { useLabStore, type OpenProject } from "./store";
 
 const t = messages.palette;
@@ -16,18 +17,26 @@ const ENTRIES: ReadonlyArray<{ model: DeviceModelId; label: string; hint: string
 export function Palette({ projectId, project }: { projectId: string; project: OpenProject }) {
   const editable = project.access === "editor";
   const selectedId = project.selection?.kind === "device" ? project.selection.id : null;
+  const selectedNote = project.selection?.kind === "annotation" ? project.selection.id : null;
+  const notes = project.document.layout.annotations;
   return (
     <div className="flex h-full min-h-0 flex-col gap-5 overflow-y-auto p-4">
       <section aria-labelledby="palette-add">
         <h2 id="palette-add" className="text-xs font-semibold tracking-[0.12em] text-text-muted uppercase">
           {t.title}
         </h2>
+        <p className="mt-1 text-xs text-text-muted">{t.dragHint}</p>
         <ul className="mt-3 flex flex-col gap-2">
           {ENTRIES.map(({ model, label, hint, icon: Icon }) => (
             <li key={model}>
               <button
                 type="button"
                 disabled={!editable}
+                draggable={editable}
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(DRAG_TYPE, model);
+                  event.dataTransfer.effectAllowed = "copy";
+                }}
                 onClick={() => {
                   addDeviceAtViewCenter(projectId, model);
                 }}
@@ -42,6 +51,26 @@ export function Palette({ projectId, project }: { projectId: string; project: Op
             </li>
           ))}
         </ul>
+      </section>
+
+      <section aria-labelledby="palette-annotate">
+        <h2 id="palette-annotate" className="text-xs font-semibold tracking-[0.12em] text-text-muted uppercase">
+          {t.annotate}
+        </h2>
+        <button
+          type="button"
+          disabled={!editable}
+          onClick={() => {
+            addNoteAtViewCenter(projectId);
+          }}
+          className="mt-3 flex w-full items-center gap-3 rounded-md border border-border bg-surface px-3 py-2 text-left transition-colors duration-(--duration-fast) hover:border-accent-text disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <StickyNote aria-hidden="true" size={20} className="shrink-0 text-text-muted" />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-text">{t.addNote}</span>
+            <span className="block text-xs text-text-muted">{t.addNoteHint}</span>
+          </span>
+        </button>
       </section>
 
       <section aria-labelledby="palette-devices" className="min-h-0">
@@ -72,6 +101,34 @@ export function Palette({ projectId, project }: { projectId: string; project: Op
                 </li>
               );
             })}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="palette-notes">
+        <h2 id="palette-notes" className="text-xs font-semibold tracking-[0.12em] text-text-muted uppercase">
+          {t.notesTitle}
+        </h2>
+        {notes.length === 0 ? (
+          <p className="mt-3 text-sm text-text-muted">{t.noNotes}</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-1">
+            {notes.map((note) => (
+              <li key={note.id}>
+                <button
+                  type="button"
+                  aria-current={note.id === selectedNote ? "true" : undefined}
+                  onClick={() => {
+                    useLabStore.getState().select(projectId, { kind: "annotation", id: note.id });
+                  }}
+                  className={`w-full truncate rounded-sm border px-2.5 py-1.5 text-left text-sm transition-colors duration-(--duration-fast) ${
+                    note.id === selectedNote ? "border-accent-text bg-surface-raised text-text" : "border-transparent text-text hover:border-border"
+                  }`}
+                >
+                  {note.text}
+                </button>
+              </li>
+            ))}
           </ul>
         )}
       </section>

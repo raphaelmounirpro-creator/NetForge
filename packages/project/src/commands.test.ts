@@ -22,7 +22,7 @@ describe("projet", () => {
   it("crée un projet vide au format courant", () => {
     const doc = emptyProject();
     expect(doc.format).toBe("netforge-project");
-    expect(doc.schemaVersion).toBe(2);
+    expect(doc.schemaVersion).toBe(3);
     expect(doc.topology).toEqual({ devices: [], links: [] });
   });
 

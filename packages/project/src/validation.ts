@@ -105,6 +105,11 @@ function checkIntegrity(doc: NfgDocument): Issue[] {
   for (const deviceId of Object.keys(doc.layout.devices)) {
     if (!devices.has(deviceId)) issues.push(error("layout.unknown-device", { deviceId }));
   }
+  const annotationIds = new Set<string>();
+  for (const annotation of doc.layout.annotations) {
+    if (annotationIds.has(annotation.id)) issues.push(error("annotation.duplicate-id", { annotationId: annotation.id }));
+    annotationIds.add(annotation.id);
+  }
   return issues;
 }
 

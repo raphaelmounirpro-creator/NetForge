@@ -27,12 +27,20 @@ function migrateV1toV2(doc: Record<string, unknown>): Record<string, unknown> {
   return { ...doc, schemaVersion: 2, configurations: migrated };
 }
 
+/** Version 2 → 3 : ajout des annotations libres (liste vide). */
+function migrateV2toV3(doc: Record<string, unknown>): Record<string, unknown> {
+  const layout = doc["layout"];
+  if (!isRecord(layout)) return { ...doc, schemaVersion: 3 };
+  return { ...doc, schemaVersion: 3, layout: { ...layout, annotations: layout["annotations"] ?? [] } };
+}
+
 /**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
  */
 const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Record<string, unknown>>> = {
   1: migrateV1toV2,
+  2: migrateV2toV3,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

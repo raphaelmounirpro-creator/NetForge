@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLabLayout } from "../features/lab/layout";
 import { Button } from "../components/ui/Button";
 import { Dialog } from "../components/ui/Dialog";
 import { Notice } from "../components/ui/Notice";
@@ -17,15 +18,15 @@ import { ShortcutsDialog } from "../features/lab/ShortcutsDialog";
 import { useLabStore, type LabView } from "../features/lab/store";
 import { TopologyCanvas } from "../features/lab/topology/TopologyCanvas";
 import { useLabShortcuts } from "../features/lab/useLabShortcuts";
+import { ExercisePanel } from "../features/exercises/ExercisePanel";
 import { NewProjectDialog } from "../features/projects/NewProjectDialog";
-import { RuntimePanel } from "../features/simulation/RuntimePanel";
+import { SimulationSidePanel } from "../features/simulation/SimulationSidePanel";
 import { SimulationActions } from "../features/simulation/SimulationActions";
 import { SimulationView } from "../features/simulation/SimulationView";
 import { useIsStale } from "../features/simulation/services";
 import { useSimulationStore } from "../features/simulation/store";
 
 const t = messages.lab;
-const WIDE_LAYOUT = 1024;
 
 export function LabPage() {
   const activeId = useLabStore((state) => state.activeId);
@@ -35,8 +36,7 @@ export function LabPage() {
   const [closing, setClosing] = useState<string | null>(null);
   const closingName = useLabStore((state) => (closing ? state.projects[closing]?.document.metadata.name : undefined)) ?? "";
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(() => window.innerWidth >= WIDE_LAYOUT);
-  const [propertiesOpen, setPropertiesOpen] = useState(() => window.innerWidth >= WIDE_LAYOUT);
+  const { paletteOpen, propertiesOpen, togglePalette, toggleProperties } = useLabLayout();
   useLabShortcuts(activeId);
   const session = useSimulationStore((state) => (activeId && state.session?.projectId === activeId ? state.session : null));
   const stale = useIsStale(activeId ?? "");
@@ -78,12 +78,8 @@ export function LabPage() {
                 project={project}
                 paletteOpen={paletteOpen}
                 propertiesOpen={propertiesOpen}
-                onTogglePalette={() => {
-                  setPaletteOpen((value) => !value);
-                }}
-                onToggleProperties={() => {
-                  setPropertiesOpen((value) => !value);
-                }}
+                onTogglePalette={togglePalette}
+                onToggleProperties={toggleProperties}
                 onShowShortcuts={() => {
                   setShortcutsOpen(true);
                 }}
@@ -117,13 +113,17 @@ export function LabPage() {
               {propertiesOpen && (
                 <aside
                   aria-label={project.view === "simulation" ? messages.simulation.runtime.title : messages.properties.title}
-                  className="w-[22rem] shrink-0 animate-panel-in-right border-l border-border bg-surface"
+                  className="flex w-[22rem] shrink-0 animate-panel-in-right flex-col border-l border-border bg-surface"
                 >
-                  {project.view === "simulation" ? (
-                    <RuntimePanel projectId={activeId} session={session} selection={project.selection} disabled={simulationBlocked} />
-                  ) : (
-                    <PropertiesPanel projectId={activeId} project={project} />
-                  )}
+                  {/* Guide d'exercice en tête du panneau : le canevas garde toute sa hauteur. */}
+                  <ExercisePanel projectId={activeId} project={project} />
+                  <div className="min-h-0 flex-1">
+                    {project.view === "simulation" ? (
+                      <SimulationSidePanel projectId={activeId} session={session} selection={project.selection} disabled={simulationBlocked} />
+                    ) : (
+                      <PropertiesPanel projectId={activeId} project={project} />
+                    )}
+                  </div>
                 </aside>
               )}
             </div>

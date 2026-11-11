@@ -31,6 +31,7 @@ export const simCommandSchema = z.discriminatedUnion("type", [
     count: z.int().min(1).max(20).optional(),
   }),
   z.strictObject({ type: z.literal("set-link"), linkId: identifier, up: z.boolean() }),
+  z.strictObject({ type: z.literal("clear-table"), deviceId: identifier, table: z.enum(["arp", "mac"]) }),
 ]);
 
 const base = { v: z.literal(PROTOCOL_VERSION), id: z.int().min(1).max(Number.MAX_SAFE_INTEGER) };

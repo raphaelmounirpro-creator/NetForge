@@ -1,4 +1,5 @@
-import { addDevice, disconnect, removeDevice, type DeviceModelId, type NfgDocument, type Position } from "@netforge/project";
+import { addAnnotation, addDevice, disconnect, removeAnnotation, removeDevice, type DeviceModelId, type NfgDocument, type Position } from "@netforge/project";
+import { messages } from "../../i18n";
 import { downloadText } from "../storage/files";
 import { projectService } from "./services";
 import { DEFAULT_VIEWPORT, useLabStore, type Viewport } from "./store";
@@ -41,12 +42,26 @@ function freeSpot(doc: NfgDocument, start: Position): Position {
 }
 
 export function addDeviceAtViewCenter(projectId: string, model: DeviceModelId): void {
+  const project = useLabStore.getState().projects[projectId];
+  if (project) addDeviceAt(projectId, model, viewCenter(project.viewport));
+}
+
+/** Ajoute un équipement à une position de la topologie (glisser-déposer depuis la palette). */
+export function addDeviceAt(projectId: string, model: DeviceModelId, position: Position): void {
+  const state = useLabStore.getState();
+  const id = newEntityId();
+  const result = state.apply(projectId, (doc) => addDevice(doc, { id, model, position: freeSpot(doc, position) }));
+  if (result?.ok) state.select(projectId, { kind: "device", id });
+}
+
+/** Ajoute une note au centre de la vue et la sélectionne pour la rédiger. */
+export function addNoteAtViewCenter(projectId: string): void {
   const state = useLabStore.getState();
   const project = state.projects[projectId];
   if (!project) return;
   const id = newEntityId();
-  const result = state.apply(projectId, (doc) => addDevice(doc, { id, model, position: freeSpot(doc, viewCenter(project.viewport)) }));
-  if (result?.ok) state.select(projectId, { kind: "device", id });
+  const result = state.apply(projectId, (doc) => addAnnotation(doc, { id, text: messages.palette.defaultNote, position: viewCenter(project.viewport) }));
+  if (result?.ok) state.select(projectId, { kind: "annotation", id });
 }
 
 export function deleteSelection(projectId: string): void {
@@ -54,7 +69,11 @@ export function deleteSelection(projectId: string): void {
   const selection = state.projects[projectId]?.selection;
   if (!selection) return;
   state.apply(projectId, (doc) =>
-    selection.kind === "device" ? removeDevice(doc, { deviceId: selection.id }) : disconnect(doc, { linkId: selection.id }),
+    selection.kind === "device"
+      ? removeDevice(doc, { deviceId: selection.id })
+      : selection.kind === "link"
+        ? disconnect(doc, { linkId: selection.id })
+        : removeAnnotation(doc, { id: selection.id }),
   );
 }
 

@@ -5,6 +5,7 @@ import { ThemeToggle } from "./features/theme/ThemeToggle";
 import { messages } from "./i18n";
 import { LabPage } from "./pages/LabPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { ParcoursPage } from "./pages/ParcoursPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 
 const { app, nav } = messages;
@@ -12,11 +13,13 @@ const { app, nav } = messages;
 const NAV_ITEMS = [
   { to: "/projets", label: nav.projects },
   { to: "/laboratoire", label: nav.lab },
+  { to: "/parcours", label: nav.courses },
 ] as const;
 
 function CurrentPage({ pathname }: { pathname: string }) {
   if (pathname === "/laboratoire") return <LabPage />;
   if (pathname === "/projets") return <ProjectsPage />;
+  if (pathname === "/parcours") return <ParcoursPage />;
   if (pathname === "/") return null;
   return <NotFoundPage />;
 }

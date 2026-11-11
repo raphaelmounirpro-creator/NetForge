@@ -151,7 +151,7 @@ describe("import", () => {
   it("remplace un projet ouvert de façon annulable", async () => {
     const id = await createWithPc();
     const original = project(id).document;
-    const replacement = { ...original, topology: { devices: [], links: [] }, configurations: {}, layout: { devices: {} } };
+    const replacement = { ...original, topology: { devices: [], links: [] }, configurations: {}, layout: { devices: {}, annotations: [] } };
     await service.importReplace(replacement);
     expect(project(id).document.topology.devices).toHaveLength(0);
     useLabStore.getState().undo(id);

@@ -224,6 +224,16 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return storeAndOpen(copy, null, []);
   }
 
+  /** Crée un nouveau projet à partir d'un document (exercice) : nouvel identifiant, nom donné. */
+  async function createFrom(document: NfgDocument, name: string): Promise<ImportOutcome> {
+    const now = deps.now();
+    const copy: NfgDocument = {
+      ...document,
+      metadata: { ...document.metadata, id: deps.newId(), name: name.slice(0, LIMITS.maxProjectNameLength), createdAt: now, updatedAt: now },
+    };
+    return storeAndOpen(copy, null, []);
+  }
+
   async function storeAndOpen(document: NfgDocument, expectedRevision: number | null, warnings: Issue[]): Promise<ImportOutcome> {
     try {
       const outcome = await deps.repository.save(document, expectedRevision);
@@ -295,6 +305,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     takeOver,
     reloadStored,
     saveAsCopy,
+    createFrom,
     importText,
     importReplace,
     remove,

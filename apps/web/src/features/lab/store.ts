@@ -11,7 +11,7 @@ export type SaveStatus = "saved" | "pending" | "saving" | "error" | "conflict";
 export type Access = "editor" | "readonly";
 export type LabView = "topology" | "simulation" | "configuration";
 export type Tool = "select" | "link";
-export type Selection = { kind: "device"; id: string } | { kind: "link"; id: string } | null;
+export type Selection = { kind: "device"; id: string } | { kind: "link"; id: string } | { kind: "annotation"; id: string } | null;
 
 export interface Viewport {
   x: number;
@@ -109,7 +109,9 @@ function sanitizeSelection(document: NfgDocument, selection: Selection): Selecti
   const exists =
     selection.kind === "device"
       ? document.topology.devices.some((device) => device.id === selection.id)
-      : document.topology.links.some((link) => link.id === selection.id);
+      : selection.kind === "link"
+        ? document.topology.links.some((link) => link.id === selection.id)
+        : document.layout.annotations.some((annotation) => annotation.id === selection.id);
   return exists ? selection : null;
 }
 

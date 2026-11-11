@@ -267,6 +267,16 @@ export class Simulation {
 
     const device = this.network.devices.get(command.deviceId);
     if (!device) return reject("command.unknown-device", { deviceId: command.deviceId });
+    if (command.type === "clear-table") {
+      // Un switch n'a qu'une table MAC ; un PC ou un routeur, qu'un cache ARP.
+      if ((command.table === "mac") !== (device.kind === "switch")) {
+        return reject("command.wrong-table", { deviceId: device.id, deviceName: device.name, table: command.table });
+      }
+      const normalized: SimCommand = { type: "clear-table", deviceId: device.id, table: command.table };
+      this.schedule(this.clock, { type: "command", command: normalized, sessionId: null });
+      this.log.push({ time: this.clock, command: normalized });
+      return { ok: true, sessionId: null };
+    }
     if (device.kind !== "pc") return reject("command.not-a-pc", { deviceId: device.id, deviceName: device.name });
     const destination = command.destination.trim();
     const invalid = this.invalidDestination(device, destination);
@@ -554,6 +564,10 @@ export class Simulation {
       this.setLink(command.linkId, command.up);
       return;
     }
+    if (command.type === "clear-table") {
+      this.clearTable(command.deviceId, command.table);
+      return;
+    }
     const session = sessionId ? this.sessions.get(sessionId) : undefined;
     if (!session) return;
     const device = this.device(session.deviceId);
@@ -564,6 +578,21 @@ export class Simulation {
       exchange: session.id,
     });
     this.sendEcho(session);
+  }
+
+  /**
+   * Vide une table apprise. Les temporisations déjà programmées restent : à
+   * leur échéance, elles ne trouvent plus d'entrée (ou une entrée réapprise
+   * plus tard, dont l'échéance est alors recalculée).
+   */
+  private clearTable(deviceId: string, table: "arp" | "mac"): void {
+    const device = this.device(deviceId);
+    const state = this.state(deviceId);
+    const target = table === "arp" ? state.arp : state.macTable;
+    const count = target.size;
+    target.clear();
+    this.dirtyDevices.add(deviceId);
+    this.emit(table === "arp" ? "command.clear-arp" : "command.clear-mac", { count }, { device });
   }
 
   /** Identifiant ICMP tiré du générateur à graine, unique parmi les pings actifs de l'équipement. */

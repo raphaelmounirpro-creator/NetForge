@@ -3,6 +3,7 @@
  * validation et commandes d'édition. Indépendant de React et du stockage.
  */
 export * from "./catalog.js";
+export * from "./cli.js";
 export * from "./commands.js";
 export * from "./io.js";
 export * from "./ipv4.js";

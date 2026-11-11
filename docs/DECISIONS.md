@@ -128,3 +128,23 @@ E-12 était prévue en phase 2 « pour le scénario de 100 équipements ». La m
 ## D-029 — Mesures de performance séparées des parcours fonctionnels
 
 `pnpm test:perf` (Playwright, configuration `e2e/playwright.perf.config.ts`, build de production servi par `vite preview`, une mesure à la fois) mesure séparément le calcul du moteur dans le Worker, l'intégration des lots et les tâches longues du fil principal (rendu compris) sur le scénario de 100 équipements et sur une tempête de diffusion ; `pnpm perf:engine` mesure le moteur seul dans Node. Les seuils, tirés d'une première mesure sur le poste de référence avec une marge, sont consignés dans `docs/PROGRESS.md`. Ces mesures dépendent de la machine : elles ne font pas partie de `pnpm test:e2e` ni de la CI.
+
+## D-030 — Explications à deux niveaux produites depuis les faits du moteur
+
+Chaque code de trace a deux gabarits français : débutant (ce qui se passe) et technique (mécanisme, valeurs, référence RFC vérifiée). Les deux sont remplis avec les mêmes paramètres du moteur ; aucune IA ni aucun texte libre n'intervient. « Pourquoi ? » sur un écho en échec suit son échange et inspecte la première perte ou erreur rencontrée, à défaut le constat du ping.
+
+## D-031 — Console : interpréteur pur et composant React plutôt que xterm.js
+
+L'interpréteur (`packages/project/src/cli.ts`) est pur et renvoie des intentions : les modifications passent par les commandes métier des formulaires (équivalence testée), les demandes d'exécution par le moteur. L'affichage est un composant React (journal `role="log"`, champ natif) : accessible aux lecteurs d'écran, sans dépendance de 300 ko. xterm.js, envisagé dans la feuille de route, n'est pas nécessaire tant que la console ne gère ni couleurs ANSI ni plein écran. Tab ne complète que sur une ligne non vide, pour ne pas piéger le focus.
+
+## D-032 — Animations : couche visuelle indépendante du temps simulé
+
+Les trames sont animées à partir des seules décisions `eth.transmit` reçues, un « saut » visuel (500 ms) par événement moteur, les copies d'une inondation partant ensemble. Si l'affichage prend plus de 2,5 s de retard, les animations non commencées sont abandonnées : le moteur n'est jamais ralenti et le journal reste complet. En pause, le mouvement s'arrête (un pas à pas anime seulement son propre lot) ; avec `prefers-reduced-motion`, les trames du dernier lot sont affichées immobiles, avec leur sens.
+
+## D-033 — Exercices : format validé, critères comportementaux, progression locale
+
+Format `netforge-exercise` v1 (Zod, `packages/engine/src/exercise.ts`) : énoncé, objectif, topologie initiale (validée comme un `.nfg.json`), étapes (observer, hypothèse, mesure, correction, nouveau test, explication), indices et pénalité. La correction rejoue des critères comportementaux dans des simulations neuves (graine fixe, événements bornés) : toute configuration qui produit le comportement attendu est acceptée. La progression est enregistrée sur l'appareil et relue comme une donnée externe. Entraînement local seulement : le score n'est pas une note vérifiée (phase 6). Le contenu pédagogique des exercices vit avec eux (`apps/web/src/features/exercises/catalog`), pas dans les textes d'interface.
+
+## D-034 — Format `.nfg.json` v3 : annotations
+
+`layout.annotations` (identifiant, texte de 280 caractères au plus, position ; 200 au plus). Migration v2 → v3 (liste vide), testée avec la chaîne v1 → v3. Les annotations font partie de la disposition : l'empreinte du réseau simulé (D-022) les ignore, donc les modifier ne demande jamais de réinitialisation. Texte rendu par Konva comme du texte, jamais interprété.

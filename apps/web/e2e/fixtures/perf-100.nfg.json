@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "models": {
     "catalog": 1
   },
@@ -3338,6 +3338,7 @@
         "x": 2845,
         "y": 620
       }
-    }
+    },
+    "annotations": []
   }
 }

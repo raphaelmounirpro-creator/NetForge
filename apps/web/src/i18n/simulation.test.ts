@@ -206,7 +206,7 @@ describe("formats", () => {
 
   it("explique chaque refus de commande", () => {
     for (const code of COMMAND_ERROR_CODES) {
-      expect(formatCommandError(code, { max: 20, deviceName: "SW1", destination: "x", reason: "format" })).not.toMatch(/\{\w+\}/);
+      expect(formatCommandError(code, { max: 20, deviceName: "SW1", destination: "x", reason: "format", table: "arp" })).not.toMatch(/\{\w+\}/);
     }
     expect(formatCommandError("command.invalid-destination", { destination: "224.0.0.1", reason: "multicast" })).toBe(
       "« 224.0.0.1 » ne peut pas être pingée : plage multicast 224.0.0.0/4.",

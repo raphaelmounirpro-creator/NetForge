@@ -2,7 +2,7 @@
 
 Laboratoire web pédagogique de simulation de réseaux pour la formation de techniciens télécom : cuivre, Ethernet/IP, fibre optique, FTTH et réseaux d'entreprise.
 
-> **État actuel : phase 2 (moteur LAN et routage statique).** Le laboratoire invité permet de construire et configurer un réseau (PC, switches, routeurs, adressage IPv4, routes statiques), puis de le **simuler** : ping, ARP, commutation, routage, coupure de câble, pas à pas, journal des décisions expliquées en français et tables observables (MAC, ARP, routage). Enregistrement automatique dans le navigateur, export/import `.nfg.json`. Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
+> **État actuel : phase 3 (observation, console et premier exercice).** En plus du moteur de la phase 2 : inspecteur des décisions et des trames, explications débutant et technique, animation des trames, console des équipements, outils PC et un premier exercice guidé (page Parcours). Le laboratoire invité permet de construire et configurer un réseau (PC, switches, routeurs, adressage IPv4, routes statiques), puis de le **simuler** : ping, ARP, commutation, routage, coupure de câble, pas à pas, journal des décisions expliquées en français et tables observables (MAC, ARP, routage). Enregistrement automatique dans le navigateur, export/import `.nfg.json`. Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Prérequis
 
@@ -39,9 +39,11 @@ Ouvre http://localhost:5173 (redirigé vers `/laboratoire`). Aucun compte, aucun
 2. **Relier** : outil de liaison (touche L) puis clic sur deux équipements, ou formulaire « Relier un port libre » de l'onglet Interfaces des propriétés.
 3. **Configurer** : adresse IPv4 et masque (`255.255.255.0` ou `24`) par port, passerelle par défaut des PC, **routes statiques** des routeurs (sous-onglet Routes : réseau de destination, masque, prochain saut). Les erreurs bloquent ; les incohérences possibles (adresse en double, passerelle hors réseau, boucle de switches) sont signalées sans bloquer, pour les exercices de dépannage.
 4. **Vue Configuration** : plan d'adressage, liens et routes statiques en tableaux, utilisables entièrement au clavier.
-5. **Vue Simulation** : choisir un PC source et une adresse de destination puis « Lancer le ping » ; observer avec « Événement suivant » (pas à pas), « Lecture » (temps réel, ×10 ou ×100) ou « Terminer les échanges ». Le journal explique chaque décision du moteur (filtres par équipement et catégorie) ; l'onglet Pings donne les résultats ; le panneau « État d'exécution » montre les tables de l'équipement inspecté. « Couper le câble » simule une panne sans modifier le projet. Modifier le réseau pendant une simulation demande une réinitialisation.
-6. **Enregistrement** automatique dans ce navigateur (« Enregistré localement »). Ce stockage n'est pas une sauvegarde garantie : exportez vos projets (`.nfg.json`) depuis la barre d'outils ou la page Projets.
-7. **Plusieurs onglets** : un seul onglet modifie un projet ; les autres passent en lecture seule et peuvent « Prendre la main ».
+5. **Vue Simulation** : choisir un PC source et une adresse de destination puis « Lancer le ping » ; observer avec « Événement suivant » (pas à pas), « Lecture » (temps réel, ×10 ou ×100) ou « Terminer les échanges ». Le journal explique chaque décision du moteur (niveau débutant ou technique, filtres) ; cliquer une décision l'ouvre dans l'onglet « Inspection » (contexte, cause, unité de données par couche) ; « Suivre cet échange » isole un écho de bout en bout ; « Pourquoi ? » sur un écho en échec mène à la décision qui l'explique. Les trames sont animées sur les câbles (immobiles si le système demande moins d'animations). L'onglet Console donne la console des équipements ([référence](docs/cli.md)). « Couper le câble » simule une panne sans modifier le projet. Modifier le réseau pendant une simulation demande une réinitialisation.
+6. **Parcours** : exercices guidés (observer, hypothèse, mesure, correction, nouveau test, explication) ; chaque exercice crée son propre projet, avec un guide en tête du panneau de droite.
+7. **Notes** : « Ajouter une note » dans la palette ; glisser un équipement de la palette vers le canevas ; mini-carte en haut à droite du canevas.
+8. **Enregistrement** automatique dans ce navigateur (« Enregistré localement »). Ce stockage n'est pas une sauvegarde garantie : exportez vos projets (`.nfg.json`) depuis la barre d'outils ou la page Projets.
+9. **Plusieurs onglets** : un seul onglet modifie un projet ; les autres passent en lecture seule et peuvent « Prendre la main ».
 
 Raccourcis : Ctrl+Z / Ctrl+Y, V (sélection), L (liaison), Suppr, flèches (déplacement), + / − / 0 (zoom), Échap. Liste complète : bouton « Raccourcis clavier » du laboratoire.
 
@@ -108,15 +110,15 @@ docs/               Suivi, feuille de route, décisions, design, protocoles
 
 ## Limites actuelles
 
-- Simulation : Ethernet, ARP, IPv4, ICMP et routage statique, à un niveau pédagogique simplifié documenté dans [docs/protocols](docs/protocols/README.md). Pas encore d'animations de paquets, d'inspecteur, de CLI, d'outils PC ni d'exercices (phase 3) ; pas de VLAN, STP, DHCP ni routage dynamique.
+- Simulation : Ethernet, ARP, IPv4, ICMP et routage statique, à un niveau pédagogique simplifié documenté dans [docs/protocols](docs/protocols/README.md). Pas de traceroute, de VLAN, de STP, de DHCP ni de routage dynamique ; un seul exercice embarqué, noté localement (notes vérifiées : phase 6).
 - Pas de comptes ni de déploiement.
 - Éditeur conçu pour un écran d'au moins 1 024 px ; pas d'édition complète sur smartphone.
-- Une seule connectique (cuivre RJ45) ; pas encore d'annotations ni de mini-carte.
+- Une seule connectique (cuivre RJ45).
 - Le visuel de connexion attend les fichiers de référence (maquette et photo) : voir [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Documentation
 
-[AGENTS.md](AGENTS.md) (règles de développement) · [Feuille de route](docs/ROADMAP.md) · [Décisions](docs/DECISIONS.md) · [Design](docs/DESIGN.md) · [Protocoles](docs/protocols/README.md)
+[AGENTS.md](AGENTS.md) (règles de développement) · [Console](docs/cli.md) · [Feuille de route](docs/ROADMAP.md) · [Décisions](docs/DECISIONS.md) · [Design](docs/DESIGN.md) · [Protocoles](docs/protocols/README.md)
 
 ## Licence
 

@@ -18,6 +18,12 @@ export type SimCommand =
       readonly type: "set-link";
       readonly linkId: string;
       readonly up: boolean;
+    }
+  | {
+      /** Vide une table apprise : cache ARP (PC, routeur) ou table MAC (switch). */
+      readonly type: "clear-table";
+      readonly deviceId: string;
+      readonly table: "arp" | "mac";
     };
 
 export const COMMAND_ERROR_CODES = [
@@ -26,6 +32,7 @@ export const COMMAND_ERROR_CODES = [
   "command.invalid-destination",
   "command.invalid-count",
   "command.unknown-link",
+  "command.wrong-table",
   "command.too-many-pings",
   "command.interrupted",
 ] as const;

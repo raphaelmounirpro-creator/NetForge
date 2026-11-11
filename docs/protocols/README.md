@@ -30,14 +30,16 @@ Niveau : absent | pédagogique simplifié | sous-ensemble détaillé
 
 Règles : ne citer que des références publiques effectivement consultées ; ne jamais revendiquer une conformité normative non vérifiée ; HTTPS, IPsec et assimilés simulés ne sont jamais présentés comme une cryptographie réelle.
 
-## Unités de données réellement modélisées
+## Unités de données réellement modélisées et couches OSI
+
+Correspondance pédagogique utilisée par l'inspecteur de la vue Simulation (`pduLayers` dans apps/web/src/i18n/simulation.ts).
 
 La trace (et l'inspecteur prévu en phase 3) n'affiche que ces champs ; aucun octet n'est inventé.
 
-| Unité | Champs | Transporte |
-|---|---|---|
-| Trame Ethernet | MAC source, MAC destination (EtherType déduit du contenu ; taille calculée) | ARP ou IPv4 |
-| ARP | opération, MAC et IP de l'émetteur, MAC et IP de la cible | — |
-| IPv4 | source, destination, TTL, identification | ICMP |
-| ICMP écho | type, identifiant, séquence, longueur des données | — |
-| ICMP erreur | type, code, en-tête IP et identifiant/séquence de l'écho d'origine | — |
+| Unité | Couche OSI (pédagogique) | Champs | Transporte |
+|---|---|---|---|
+| Trame Ethernet | 2 · liaison | MAC source, MAC destination (EtherType déduit du contenu ; taille calculée) | ARP ou IPv4 |
+| ARP | entre 2 et 3 · résolution d'adresse | opération, MAC et IP de l'émetteur, MAC et IP de la cible | — |
+| IPv4 | 3 · réseau | source, destination, TTL, identification (protocole transporté : ICMP) | ICMP |
+| ICMP écho | 3 · contrôle et diagnostic | type, identifiant, séquence, longueur des données | — |
+| ICMP erreur | 3 · contrôle et diagnostic | type, code, en-tête IP et identifiant/séquence de l'écho d'origine | — |

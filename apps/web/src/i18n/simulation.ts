@@ -1,5 +1,7 @@
 import {
   BROADCAST_MAC,
+  frameBytes,
+  isIcmpError,
   NANOSECONDS_PER_MICROSECOND,
   NANOSECONDS_PER_MILLISECOND,
   NANOSECONDS_PER_SECOND,
@@ -7,6 +9,7 @@ import {
   type HostErrorCode,
   type PingAttemptView,
   type PingView,
+  type Pdu,
   type TraceCode,
   type TraceEntry,
   type TraceParams,
@@ -149,6 +152,8 @@ const MAC_PATTERN = /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/;
 const TIME_PARAMS = new Set(["expiresAt", "arrival", "departure"]);
 const DURATION_PARAMS = new Set(["rtt", "waited", "minRtt", "maxRtt", "avgRtt"]);
 
+export type ExplanationLevel = "beginner" | "technical";
+
 function templateKey(entry: TraceEntry): keyof typeof messages.trace {
   const params = entry.params;
   switch (entry.code) {
@@ -167,8 +172,17 @@ function templateKey(entry: TraceEntry): keyof typeof messages.trace {
   }
 }
 
-/** Phrase française expliquant une décision du moteur. */
-export function formatTrace(entry: TraceEntry, names: NameIndex): string {
+/** Gabarit technique : même clé que le niveau débutant, sauf bilan sans réponse. */
+function technicalTemplate(entry: TraceEntry): string {
+  if (entry.code === "ping.done" && entry.params["received"] === 0) return messages.traceTechnical["ping.done.none"];
+  return messages.traceTechnical[templateKey(entry)];
+}
+
+/**
+ * Phrase française expliquant une décision du moteur, au niveau débutant
+ * (ce qui se passe) ou technique (mécanisme, valeurs, référence).
+ */
+export function formatTrace(entry: TraceEntry, names: NameIndex, level: ExplanationLevel = "beginner"): string {
   const values: Record<string, string | number> = {};
   for (const [key, value] of Object.entries(entry.params)) {
     if (value === null) continue;
@@ -192,8 +206,100 @@ export function formatTrace(entry: TraceEntry, names: NameIndex): string {
     values["limit"] = limitText(params);
     if (typeof params["pendingEvents"] === "number") values["pendingEvents"] = params["pendingEvents"].toLocaleString("fr-FR");
   }
-  const template: string = messages.trace[templateKey(entry)];
+  const template: string = level === "technical" ? technicalTemplate(entry) : messages.trace[templateKey(entry)];
   return fill(template, values);
+}
+
+/** Libellé d'un échange : « écho n° 2 du ping 1 » ou « ping 1 ». */
+export function formatExchange(exchange: string): string {
+  const echo = /^ping-(\d+)#(\d+)$/.exec(exchange);
+  if (echo) return fill(t.exchangeEcho, { session: echo[1] ?? "", sequence: echo[2] ?? "" });
+  const session = /^ping-(\d+)$/.exec(exchange);
+  return session ? fill(t.exchangePing, { session: session[1] ?? "" }) : exchange;
+}
+
+export interface PduLayer {
+  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted";
+  readonly title: string;
+  readonly osi: string;
+  readonly fields: ReadonlyArray<readonly [label: string, value: string]>;
+}
+
+/**
+ * Couches d'une unité de données, de la plus basse à la plus haute, avec les
+ * seuls champs modélisés par le moteur (docs/protocols/README.md).
+ */
+export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
+  const f = t.fields;
+  const v = t.values;
+  const layer = (id: PduLayer["id"], fields: PduLayer["fields"]): PduLayer => ({ id, title: t.layers[id].title, osi: t.layers[id].osi, fields });
+  switch (pdu.kind) {
+    case "ethernet":
+      return [
+        layer("ethernet", [
+          [f.macSource, names.mac(pdu.source)],
+          [f.macDestination, names.mac(pdu.destination)],
+          [f.etherType, pdu.payload.kind === "arp" ? v.etherTypeArp : v.etherTypeIpv4],
+          [f.size, fill(v.bytes, { bytes: frameBytes(pdu) })],
+        ]),
+        ...pduLayers(pdu.payload, names),
+      ];
+    case "arp":
+      return [
+        layer("arp", [
+          [f.operation, pdu.operation === "request" ? v.arpRequest : v.arpReply],
+          [f.senderMac, names.mac(pdu.senderMac)],
+          [f.senderIp, pdu.senderIp],
+          [f.targetMac, names.mac(pdu.targetMac)],
+          [f.targetIp, pdu.targetIp],
+        ]),
+      ];
+    case "ipv4":
+      return [
+        layer("ipv4", [
+          [f.ipSource, pdu.source],
+          [f.ipDestination, pdu.destination],
+          [f.ttl, String(pdu.ttl)],
+          [f.identification, String(pdu.identification)],
+          [f.protocol, v.protocolIcmp],
+        ]),
+        ...pduLayers(pdu.payload, names),
+      ];
+    case "icmp": {
+      if (!isIcmpError(pdu)) {
+        return [
+          layer("icmp", [
+            [f.type, pdu.type === "echo-request" ? v.echoRequest : v.echoReply],
+            [f.code, "0"],
+            [f.identifier, String(pdu.identifier)],
+            [f.sequence, String(pdu.sequence)],
+            [f.data, fill(v.data, { bytes: pdu.dataLength })],
+          ]),
+        ];
+      }
+      const quoted = pdu.original;
+      return [
+        layer("icmp", [
+          [f.type, pdu.type === "destination-unreachable" ? v.unreachable : v.timeExceeded],
+          [f.code, `${String(pdu.code)} (${icmpText(pdu.type, pdu.code)})`],
+        ]),
+        layer("quoted", [
+          [f.ipSource, quoted.source],
+          [f.ipDestination, quoted.destination],
+          [f.ttl, String(quoted.ttl)],
+          [f.identification, String(quoted.identification)],
+          [
+            f.type,
+            fill(v.echo, {
+              type: quoted.echo.type === "echo-request" ? v.echoRequest : v.echoReply,
+              identifier: quoted.echo.identifier,
+              sequence: quoted.echo.sequence,
+            }),
+          ],
+        ]),
+      ];
+    }
+  }
 }
 
 function limitText(params: TraceParams): string {
@@ -210,6 +316,7 @@ export function diagnosticText(diagnostic: { code: string; limit: number }): str
 export function formatCommandError(code: HostErrorCode, params: TraceParams): string {
   const values: Record<string, string | number> = {};
   for (const [key, value] of Object.entries(params)) if (typeof value === "string" || typeof value === "number") values[key] = value;
+  if (code === "command.wrong-table" && typeof params["table"] === "string") values["table"] = params["table"].toUpperCase();
   if (code === "command.invalid-destination") {
     const reason = params["reason"];
     values["reasonText"] =

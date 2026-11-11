@@ -1,11 +1,13 @@
-import { connectDevices, getModel, moveDevice, type NfgDocument } from "@netforge/project";
+import { connectDevices, DEVICE_MODELS, getModel, moveAnnotation, moveDevice, type DeviceModelId, type NfgDocument } from "@netforge/project";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Layer, Line, Stage, Text } from "react-konva";
+import { memo, useEffect, useId, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type KeyboardEvent } from "react";
+import { Label, Layer, Line, Stage, Tag, Text } from "react-konva";
 import { fill, messages } from "../../../i18n";
-import { deleteSelection, newEntityId, zoomBy } from "../actions";
+import { addDeviceAt, deleteSelection, newEntityId, zoomBy } from "../actions";
 import { useLabStore, type OpenProject } from "../store";
+import { PacketLayer } from "../../simulation/PacketLayer";
 import { DeviceNode } from "./DeviceNode";
+import { Minimap } from "./Minimap";
 import { useThemeColors } from "./useThemeColors";
 
 const t = messages.canvas;
@@ -13,6 +15,9 @@ const PORT_LABEL_DISTANCE = 56;
 const KEY_STEP = 10;
 const KEY_STEP_LARGE = 50;
 const WHEEL_ZOOM = 1.1;
+/** Type de donnée du glisser-déposer depuis la palette (identifiant de modèle). */
+export const DRAG_TYPE = "application/x-netforge-model";
+const NOTE_WIDTH = 220;
 
 /** Libellé secondaire d'un équipement : première adresse configurée. */
 function deviceDetail(doc: NfgDocument, deviceId: string): string | null {
@@ -34,10 +39,12 @@ interface TopologyCanvasProps {
   mode?: "edit" | "simulate";
   /** État des câbles calculé par le moteur (vue Simulation). */
   linkStates?: Readonly<Record<string, boolean>> | undefined;
+  /** Câbles empruntés par l'échange suivi (vue Simulation). */
+  highlightLinks?: ReadonlySet<string> | undefined;
 }
 
 /** Mémoïsé : la vue Simulation reçoit des lots fréquents qui ne concernent pas le canevas. */
-export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project, mode = "edit", linkStates }: TopologyCanvasProps) {
+export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project, mode = "edit", linkStates, highlightLinks }: TopologyCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const helpId = useId();
   const colors = useThemeColors();
@@ -127,14 +134,35 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
       store().setLinkSource(projectId, null);
       return;
     }
-    if (!editable || selection?.kind !== "device") return;
+    if (!editable || (selection?.kind !== "device" && selection?.kind !== "annotation")) return;
     const step = event.shiftKey ? KEY_STEP_LARGE : KEY_STEP;
     const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
     const move = moves[event.key];
-    const current = doc.layout.devices[selection.id];
-    if (!move || !current) return;
+    if (!move) return;
+    if (selection.kind === "device") {
+      const current = doc.layout.devices[selection.id];
+      if (!current) return;
+      event.preventDefault();
+      store().apply(projectId, (latest) => moveDevice(latest, { deviceId: selection.id, position: { x: current.x + move[0], y: current.y + move[1] } }));
+      return;
+    }
+    const note = doc.layout.annotations.find((item) => item.id === selection.id);
+    if (!note) return;
     event.preventDefault();
-    store().apply(projectId, (latest) => moveDevice(latest, { deviceId: selection.id, position: { x: current.x + move[0], y: current.y + move[1] } }));
+    store().apply(projectId, (latest) => moveAnnotation(latest, { id: selection.id, position: { x: note.x + move[0], y: note.y + move[1] } }));
+  };
+
+  // Glisser-déposer depuis la palette : l'équipement est placé sous le pointeur.
+  const acceptsDrop = editable && !simulate;
+  const handleDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+    const model = event.dataTransfer.getData(DRAG_TYPE);
+    if (!acceptsDrop || !model || !(model in DEVICE_MODELS)) return;
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    addDeviceAt(projectId, model as DeviceModelId, {
+      x: (event.clientX - rect.left - viewport.x) / viewport.scale,
+      y: (event.clientY - rect.top - viewport.y) / viewport.scale,
+    });
   };
 
   const empty = doc.topology.devices.length === 0;
@@ -155,6 +183,13 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
         }
         handleKeyDown(event);
       }}
+      onDragOver={(event) => {
+        if (acceptsDrop && event.dataTransfer.types.includes(DRAG_TYPE)) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDrop={handleDrop}
       className="relative h-full min-h-0 w-full overflow-hidden bg-canvas focus-visible:outline-offset-[-2px]"
       style={{
         backgroundImage: `radial-gradient(${colors.border} 1px, transparent 1px)`,
@@ -187,6 +222,7 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
               if (!posA || !posB) return null;
               const selected = selection?.kind === "link" && selection.id === link.id;
               const down = linkStates?.[link.id] === false;
+              const followed = highlightLinks?.has(link.id) ?? false;
               const select = () => {
                 store().select(projectId, { kind: "link", id: link.id });
               };
@@ -194,8 +230,8 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
                 <Line
                   key={link.id}
                   points={[posA.x, posA.y, posB.x, posB.y]}
-                  stroke={selected ? colors.accent : down ? colors.danger : colors["border-strong"]}
-                  strokeWidth={selected ? 3 : 2}
+                  stroke={selected ? colors.accent : down ? colors.danger : followed ? colors.signal : colors["border-strong"]}
+                  strokeWidth={selected ? 3 : followed ? 4 : 2}
                   dash={down ? [8, 6] : []}
                   hitStrokeWidth={14}
                   onClick={select}
@@ -251,6 +287,29 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
                 />
               );
             })}
+            {doc.layout.annotations.map((note) => {
+              const selected = selection?.kind === "annotation" && selection.id === note.id;
+              const select = () => {
+                store().select(projectId, { kind: "annotation", id: note.id });
+              };
+              return (
+                <Label
+                  key={note.id}
+                  x={note.x}
+                  y={note.y}
+                  draggable={editable}
+                  onClick={select}
+                  onTap={select}
+                  onDragEnd={(event) => {
+                    const node = event.target;
+                    store().apply(projectId, (latest) => moveAnnotation(latest, { id: note.id, position: { x: node.x(), y: node.y() } }));
+                  }}
+                >
+                  <Tag fill={colors.surface} stroke={selected ? colors.accent : colors.border} strokeWidth={selected ? 2 : 1} cornerRadius={6} />
+                  <Text text={note.text} width={NOTE_WIDTH} padding={8} fontSize={13} lineHeight={1.3} fill={colors.text} />
+                </Label>
+              );
+            })}
             {doc.topology.devices.map((device) => {
               const position = doc.layout.devices[device.id];
               if (!position) return null;
@@ -276,8 +335,19 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
               );
             })}
           </Layer>
+          {simulate && <PacketLayer positionOf={positionOf} colors={colors} />}
         </Stage>
       )}
+      <Minimap
+        doc={doc}
+        viewport={viewport}
+        canvas={size}
+        colors={colors}
+        selectedId={selection?.kind === "device" ? selection.id : null}
+        onNavigate={(next) => {
+          store().setViewport(projectId, next);
+        }}
+      />
       {empty && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
           <div className="max-w-sm rounded-lg border border-border bg-surface p-5 text-center">

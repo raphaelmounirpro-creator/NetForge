@@ -11,6 +11,7 @@ import {
   type LinkEndpoint,
   type NfgDocument,
   type Position,
+  type Annotation,
   type StaticRoute,
 } from "./schema.js";
 import { validateDocument } from "./validation.js";
@@ -74,7 +75,7 @@ export function createProject(params: { id: string; name: string; now: string })
       metadata: { id: params.id, name, description: "", createdAt: params.now, updatedAt: params.now },
       topology: { devices: [], links: [] },
       configurations: {},
-      layout: { devices: {} },
+      layout: { devices: {}, annotations: [] },
     },
   };
 }
@@ -115,7 +116,7 @@ export function addDevice(
     ...doc,
     topology: { ...doc.topology, devices: [...doc.topology.devices, device] },
     configurations: { ...doc.configurations, [device.id]: emptyConfig() },
-    layout: { devices: { ...doc.layout.devices, [device.id]: clampPosition(params.position) } },
+    layout: { ...doc.layout, devices: { ...doc.layout.devices, [device.id]: clampPosition(params.position) } },
   });
 }
 
@@ -138,7 +139,7 @@ export function moveDevice(doc: NfgDocument, params: { deviceId: string; positio
   if (!findDevice(doc, params.deviceId)) return deviceNotFound(params.deviceId);
   return commit(doc, {
     ...doc,
-    layout: { devices: { ...doc.layout.devices, [params.deviceId]: clampPosition(params.position) } },
+    layout: { ...doc.layout, devices: { ...doc.layout.devices, [params.deviceId]: clampPosition(params.position) } },
   });
 }
 
@@ -154,7 +155,7 @@ export function removeDevice(doc: NfgDocument, params: { deviceId: string }): Co
       links: doc.topology.links.filter((link) => link.endpoints.every((end) => end.deviceId !== params.deviceId)),
     },
     configurations,
-    layout: { devices: positions },
+    layout: { ...doc.layout, devices: positions },
   });
 }
 
@@ -352,4 +353,49 @@ export function removeStaticRoute(
   }
   const staticRoutes = config.staticRoutes.filter((route) => !matches(route));
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, staticRoutes } } });
+}
+
+// ---------------------------------------------------------------- Annotations
+
+function normalizeAnnotationText(text: string): string | null {
+  const trimmed = text.trim();
+  return trimmed.length > 0 && trimmed.length <= LIMITS.maxAnnotationLength ? trimmed : null;
+}
+
+function annotationNotFound(annotationId: string): CommandResult {
+  return fail(error("annotation.not-found", { annotationId }));
+}
+
+function withAnnotations(doc: NfgDocument, annotations: Annotation[]): NfgDocument {
+  return { ...doc, layout: { ...doc.layout, annotations } };
+}
+
+/** Ajoute une annotation libre : texte affiché sur le canevas, sans effet sur le réseau simulé. */
+export function addAnnotation(doc: NfgDocument, params: { id: string; text: string; position: Position }): CommandResult {
+  if (doc.layout.annotations.length >= LIMITS.maxAnnotations) return fail(error("annotation.too-many", { max: LIMITS.maxAnnotations }));
+  const text = normalizeAnnotationText(params.text);
+  if (text === null) return fail(error("annotation.invalid-text", { max: LIMITS.maxAnnotationLength }));
+  const position = clampPosition(params.position);
+  return commit(doc, withAnnotations(doc, [...doc.layout.annotations, { id: params.id, text, x: position.x, y: position.y }]));
+}
+
+export function editAnnotation(doc: NfgDocument, params: { id: string; text: string }): CommandResult {
+  if (!doc.layout.annotations.some((item) => item.id === params.id)) return annotationNotFound(params.id);
+  const text = normalizeAnnotationText(params.text);
+  if (text === null) return fail(error("annotation.invalid-text", { max: LIMITS.maxAnnotationLength }));
+  return commit(doc, withAnnotations(doc, doc.layout.annotations.map((item) => (item.id === params.id ? { ...item, text } : item))));
+}
+
+export function moveAnnotation(doc: NfgDocument, params: { id: string; position: Position }): CommandResult {
+  if (!doc.layout.annotations.some((item) => item.id === params.id)) return annotationNotFound(params.id);
+  const position = clampPosition(params.position);
+  return commit(
+    doc,
+    withAnnotations(doc, doc.layout.annotations.map((item) => (item.id === params.id ? { ...item, x: position.x, y: position.y } : item))),
+  );
+}
+
+export function removeAnnotation(doc: NfgDocument, params: { id: string }): CommandResult {
+  if (!doc.layout.annotations.some((item) => item.id === params.id)) return annotationNotFound(params.id);
+  return commit(doc, withAnnotations(doc, doc.layout.annotations.filter((item) => item.id !== params.id)));
 }

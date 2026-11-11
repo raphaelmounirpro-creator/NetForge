@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Button } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Notice";
 import { Tabs } from "../../components/ui/Tabs";
@@ -6,15 +6,16 @@ import { fill, formatIssue, messages } from "../../i18n";
 import { diagnosticText } from "../../i18n/simulation";
 import type { OpenProject } from "../lab/store";
 import { TopologyCanvas } from "../lab/topology/TopologyCanvas";
+import { ConsolePanel } from "./ConsolePanel";
 import { PingResults } from "./PingResults";
 import { simulation, useIsStale } from "./services";
 import { SimulationBar } from "./SimulationBar";
 import { useSimulationStore, type SimulationSession } from "./store";
 import { TraceJournal } from "./TraceJournal";
+import { useObservationStore, type DockTab } from "./observation";
 import { HOST_TIMING } from "@netforge/engine";
 
 const t = messages.simulation;
-type DockTab = "journal" | "pings";
 
 function Banners({ session, stale }: { session: SimulationSession; stale: boolean }) {
   const reset = (
@@ -73,7 +74,8 @@ function Banners({ session, stale }: { session: SimulationSession; stale: boolea
 export function SimulationView({ projectId, project }: { projectId: string; project: OpenProject }) {
   const session = useSimulationStore((state) => state.session);
   const stale = useIsStale(projectId);
-  const [dock, setDock] = useState<DockTab>("journal");
+  const dock = useObservationStore((state) => state.dock);
+  const exchange = useObservationStore((state) => state.exchange);
 
   // Premier passage sur la vue : chargement automatique si aucune simulation n'existe.
   useEffect(() => {
@@ -81,6 +83,18 @@ export function SimulationView({ projectId, project }: { projectId: string; proj
   }, [projectId]);
 
   const own = session?.projectId === projectId ? session : null;
+  // Échange suivi : câbles empruntés par ses trames, mis en évidence sur le canevas.
+  const journal = own?.journal;
+  const highlighted = useMemo(() => {
+    if (!journal || exchange === null) return undefined;
+    const links = new Set<string>();
+    for (const item of journal) {
+      if (item.entry.exchange === exchange && item.entry.code === "eth.transmit" && typeof item.entry.params["linkId"] === "string") {
+        links.add(item.entry.params["linkId"]);
+      }
+    }
+    return links;
+  }, [journal, exchange]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -100,7 +114,7 @@ export function SimulationView({ projectId, project }: { projectId: string; proj
         {own && <Banners session={own} stale={stale} />}
       </div>
       <div className="relative min-h-0 flex-1">
-        <TopologyCanvas projectId={projectId} project={project} mode="simulate" linkStates={own?.links} />
+        <TopologyCanvas projectId={projectId} project={project} mode="simulate" linkStates={own?.links} highlightLinks={highlighted} />
       </div>
       {own && (
         <>
@@ -112,12 +126,21 @@ export function SimulationView({ projectId, project }: { projectId: string; proj
               tabs={[
                 { id: "journal", label: t.journal },
                 { id: "pings", label: t.pings },
+                { id: "console", label: messages.console.tab },
               ]}
               selected={dock}
-              onSelect={setDock}
+              onSelect={(tab) => {
+                useObservationStore.getState().setDock(tab);
+              }}
               className="h-full"
             >
-              {dock === "journal" ? <TraceJournal session={own} /> : <PingResults session={own} />}
+              {dock === "journal" ? (
+                <TraceJournal session={own} />
+              ) : dock === "pings" ? (
+                <PingResults session={own} />
+              ) : (
+                <ConsolePanel projectId={projectId} project={project} />
+              )}
             </Tabs>
           </section>
         </>

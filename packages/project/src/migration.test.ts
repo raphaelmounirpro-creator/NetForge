@@ -34,16 +34,16 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 2", () => {
+describe("migration du format version 1 → 3", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(2);
+    expect(result.document.schemaVersion).toBe(3);
     expect(result.document.configurations["pc1"]).toEqual({ ...versionOne.configurations.pc1, staticRoutes: [] });
     expect(result.document.configurations["r1"]).toEqual({ ...versionOne.configurations.r1, staticRoutes: [] });
     expect(result.document.topology).toEqual(versionOne.topology);
-    expect(result.document.layout).toEqual(versionOne.layout);
+    expect(result.document.layout).toEqual({ ...versionOne.layout, annotations: [] });
     expect(result.document.metadata).toEqual(versionOne.metadata);
   });
 
@@ -67,6 +67,23 @@ describe("migration du format version 1 → 2", () => {
 
   it("refuse une version 2 sans liste de routes (champ obligatoire)", () => {
     expect(errorCodes({ ...versionOne, schemaVersion: 2 })).toEqual(["import.schema", "import.schema"]);
+  });
+
+  it("migre un fichier version 2 en ajoutant des annotations vides", () => {
+    const versionTwo = {
+      ...versionOne,
+      schemaVersion: 2,
+      configurations: Object.fromEntries(Object.entries(versionOne.configurations).map(([id, config]) => [id, { ...config, staticRoutes: [] }])),
+    };
+    const result = parseNfgValue(versionTwo);
+    expect(result.ok && result.document.layout).toEqual({ ...versionOne.layout, annotations: [] });
+  });
+
+  it("refuse une version 3 sans liste d'annotations", () => {
+    const migrated = parseNfgValue(versionOne);
+    if (!migrated.ok) throw new Error("migration attendue");
+    const { annotations: _removed, ...layout } = migrated.document.layout;
+    expect(errorCodes({ ...migrated.document, layout })).toEqual(["import.schema"]);
   });
 
   it("refuse des routes statiques sur un PC dans un fichier importé", () => {

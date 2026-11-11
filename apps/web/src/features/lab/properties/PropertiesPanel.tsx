@@ -1,6 +1,8 @@
 import {
   disconnect,
+  editAnnotation,
   getModel,
+  removeAnnotation,
   removeDevice,
   renameDevice,
   renameProject,
@@ -239,6 +241,36 @@ function LinkProperties({ projectId, project, linkId }: { projectId: string; pro
   );
 }
 
+function AnnotationProperties({ projectId, project, annotationId }: { projectId: string; project: OpenProject; annotationId: string }) {
+  const note = project.document.layout.annotations.find((item) => item.id === annotationId);
+  if (!note) return null;
+  const editable = project.access === "editor";
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      <h2 className="text-base font-semibold text-text">{t.noteTitle}</h2>
+      <SingleFieldForm
+        key={note.text}
+        label={t.noteText}
+        hint={t.noteHint}
+        initial={note.text}
+        disabled={!editable}
+        onApply={(text) => useLabStore.getState().apply(projectId, (doc) => editAnnotation(doc, { id: note.id, text }))}
+      />
+      <Button
+        variant="danger"
+        size="sm"
+        disabled={!editable}
+        className="self-start"
+        onClick={() => {
+          useLabStore.getState().apply(projectId, (doc) => removeAnnotation(doc, { id: note.id }));
+        }}
+      >
+        {t.deleteNote}
+      </Button>
+    </div>
+  );
+}
+
 /** Panneau de droite : propriétés de la sélection, partagé par les deux vues. */
 export function PropertiesPanel({ projectId, project }: { projectId: string; project: OpenProject }) {
   const { selection, document: doc } = project;
@@ -251,6 +283,8 @@ export function PropertiesPanel({ projectId, project }: { projectId: string; pro
         <DeviceProperties key={device.id} projectId={projectId} project={project} device={device} issues={deviceIssues(warnings, device.id)} />
       ) : selection?.kind === "link" ? (
         <LinkProperties projectId={projectId} project={project} linkId={selection.id} />
+      ) : selection?.kind === "annotation" ? (
+        <AnnotationProperties projectId={projectId} project={project} annotationId={selection.id} />
       ) : (
         <ProjectProperties projectId={projectId} project={project} />
       )}

@@ -10,9 +10,55 @@ Détail des preuves : commits `6b49de3` à `aff43fc`. Limites restantes : Docker
 
 Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests unitaires seulement ; éditeur prévu pour ≥ 1 024 px.
 
-## Phase active : 2 — Moteur LAN puis routage statique
+## Phase active : 3 — Observation, CLI et premier exercice
 
 **État : terminée localement, en attente de validation du propriétaire.**
+
+### Périmètre retenu
+
+- Dépend de : phase 2 (moteur, trace structurée, vue Simulation).
+- Inclus : inspecteur des décisions et des unités de données (champs modélisés uniquement, correspondance OSI) ; explications à deux niveaux (débutant, technique) produites depuis les faits du moteur ; suivi d'un échange de bout en bout et « Pourquoi ? » sur un écho en échec ; animation des trames issues des événements du moteur (arrêt en pause, rendu statique avec mouvement réduit) ; console d'équipement originale (modes, aide, historique, complétion, erreurs pédagogiques) utilisant les mêmes commandes métier que les formulaires ; outils PC minimaux (ping, configuration IP, table ARP) ; effacement des tables ARP/MAC ; premier exercice local guidé (observer, hypothèse, mesure, correction, nouveau test, explication) dans une page Parcours ; annotations libres (format v3) ; mini-carte et glisser-déposer depuis la palette (reportés de la phase 2).
+- Exclus : traceroute et autres outils PC (phase 14) ; éditeur d'exercices et notes vérifiées côté serveur (phase 6) ; comptes (phase 5).
+- Scénarios d'acceptation : suivre un écho de bout en bout (journal filtré, inspecteur, animation) ; expliquer l'échec d'un ping au niveau débutant et technique ; configurer une adresse et une route par la console puis par le formulaire et obtenir le même projet ; terminer l'exercice guidé avec plusieurs corrections valides acceptées.
+- Données : exercice embarqué validé à l'exécution (Zod), progression locale à l'appareil.
+
+### Critères de sortie (spécification §10, §13, §15.5 et §17)
+
+| Critère | État | Preuve |
+|---|---|---|
+| Suivre un échange de bout en bout | atteint | « Suivre cet échange » : journal filtré, chemin en cyan sur le canevas, inspecteur, cause remontable ; e2e « suivre un échange » |
+| Expliquer un échec | atteint | « Pourquoi ? » mène à la décision fautive ; deux niveaux d'explication pour chaque code ; e2e « expliquer un échec » ; `simulation.test.ts` (toutes les phrases sur des traces réelles) |
+| Même comportement par CLI et formulaire | atteint | `cli.test.ts` : documents identiques (adresse, route, configuration PC), mêmes refus ; e2e « console » (adresse saisie à la console visible dans le formulaire) |
+| Terminer un exercice local guidé | atteint | « Le retour manquant » : observer, hypothèse, mesure, correction par la console, nouveau test, explication, score 80/100 ; progression conservée au rechargement (e2e) ; corrections multiples acceptées (`exercise.test.ts`) |
+| Inspecteur limité aux champs modélisés, couches OSI | atteint | couches Ethernet, ARP, IPv4, ICMP, datagramme recopié ; [docs/protocols](protocols/README.md) |
+| Animer uniquement les échanges réels, arrêt en pause, mouvement réduit | atteint | une animation par décision `eth.transmit`, croix sur abandon (`animation.test.ts`) ; arrêt en pause ; rendu immobile avec `prefers-reduced-motion` (D-032) |
+| CLI originale à modes, aide, historique, complétion, erreurs pédagogiques | atteint | [docs/cli.md](cli.md) ; 18 tests de l'interpréteur ; e2e |
+| Outils PC minimaux | atteint avec limite | `ping`, `ipconfig`, `arp -a`/`-d` ; traceroute reporté |
+| Annotations (E-11), mini-carte et glisser-déposer (E-12) | atteint | format v3 (`annotations.test.ts`, migrations) ; e2e « notes libres » et « glisser-déposer » |
+| Interface fluide | atteint | mesures inchangées : aucune tâche longue pendant le calcul (100 équipements et tempête) |
+
+### Vérifications exécutées (2026-11-11, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- `pnpm check` : lint, typecheck, **215 tests** (format 85, moteur 76, interface 46, contrats 2, API 6) et builds réussis.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **19 parcours réussis** (phase 1 : 8, phase 2 : 5, phase 3 : 6).
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:perf` : seuils respectés, 3 essais (calcul 4–7 ms, aucune tâche longue pendant le calcul ; import : une tâche de 65–95 ms).
+- Inspection visuelle réelle (captures Edge) : inspecteur, niveau technique, échange suivi, animation en cours de saut, « Pourquoi ? », console, page Parcours, guide d'exercice, notes et mini-carte ; thèmes sombre et clair ; 1440 et 1024 px ; aucun défilement horizontal, aucune erreur console. Défauts corrigés : guide d'exercice qui écrasait le canevas (déplacé dans le panneau droit), mini-carte trop envahissante sur un canevas étroit (masquée sous 640 px), invite de console non annoncée (désormais dans le nom accessible du champ).
+
+### Limites connues
+
+- Un seul exercice embarqué ; correction locale, non vérifiée par un serveur (phase 6).
+- Pas de traceroute ni de ping depuis un routeur ; console disponible seulement dans la vue Simulation.
+- Une note ajoutée au centre de la vue peut recouvrir un équipement (déplaçable à la souris ou aux flèches).
+- Bundle web : 908 kB (274 kB gzip) + Worker 145 kB ; la correction des exercices embarque le moteur côté interface. Avertissement Vite conservé.
+- Docker Compose toujours non testé ; CI jamais exécutée (pas de push).
+
+### Prochaine action
+
+Validation de la phase 3 par le propriétaire, puis phase 4 (premier laboratoire FTTH : bilan optique, photomètre, pannes simples, exercice de dépannage).
+
+## Phase 2 — Moteur LAN puis routage statique : validée par le propriétaire (2026-11-11)
+
+Commits `5332c15` et `b599f4b` (pertes et erreurs en rouge, demandé pendant la validation). Détail ci-dessous.
 
 ### Périmètre retenu
 

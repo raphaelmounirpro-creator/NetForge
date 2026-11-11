@@ -2,7 +2,9 @@ import type { PlaybackSpeed } from "@netforge/engine";
 import { fill, messages } from "../../i18n";
 import { useLabStore } from "../lab/store";
 import { SimulationClient, type Reply, type WorkerPort } from "./client";
+import { useConsoleStore } from "./consoleStore";
 import { networkFingerprint } from "./fingerprint";
+import { useObservationStore } from "./observation";
 import { useSimulationStore } from "./store";
 
 /** Graine fixe : la même session donne toujours la même trace (affichée dans la vue). */
@@ -19,6 +21,7 @@ export interface SimulationController {
   finish: () => Promise<Reply>;
   ping: (deviceId: string, destination: string, count: number) => Promise<Reply>;
   setLink: (linkId: string, up: boolean) => Promise<Reply>;
+  clearTable: (deviceId: string, table: "arp" | "mac") => Promise<Reply>;
   /** Arrête la simulation (projet fermé). */
   stop: () => void;
   /** Changement de projet actif : la simulation d'un autre projet est mise en pause. */
@@ -34,7 +37,14 @@ export function createSimulationController(createWorker: () => WorkerPort): Simu
       // Mesures de performance séparées : calcul dans le Worker, puis intégration côté interface.
       performance.mark("nf:engine-compute", { detail: update.computeMs });
       performance.mark("nf:update-start");
+      // Nouveau chargement ou réinitialisation : les décisions inspectées n'existent plus.
+      if (update.full) {
+        useObservationStore.getState().reset();
+        useConsoleStore.getState().forgetWatches();
+      }
       store().applyUpdate(update);
+      const session = store().session;
+      if (session) useConsoleStore.getState().syncPings(session);
       performance.measure("nf:update-apply", "nf:update-start");
     },
     onFailure: () => {
@@ -70,6 +80,7 @@ export function createSimulationController(createWorker: () => WorkerPort): Simu
     ping: (deviceId, destination, count) =>
       whenLoaded(() => client.request({ type: "command", command: { type: "ping", deviceId, destination, count } })),
     setLink: (linkId, up) => whenLoaded(() => client.request({ type: "command", command: { type: "set-link", linkId, up } })),
+    clearTable: (deviceId, table) => whenLoaded(() => client.request({ type: "command", command: { type: "clear-table", deviceId, table } })),
     stop: () => {
       client.terminate();
       store().clear();

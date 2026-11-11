@@ -1,5 +1,8 @@
+import { Button } from "../../components/ui/Button";
 import { fill, messages } from "../../i18n";
 import { pingAttemptText, pingSummary } from "../../i18n/simulation";
+import { useLabLayout } from "../lab/layout";
+import { explainEcho } from "./observation";
 import type { SimulationSession } from "./store";
 
 const t = messages.simulation;
@@ -24,9 +27,29 @@ export function PingResults({ session }: { session: SimulationSession }) {
             ) : (
               <ol className="mt-1 space-y-0.5 font-mono text-xs">
                 {view.attempts.map((attempt) => (
-                  <li key={attempt.sequence} data-status={attempt.status} className={attempt.status === "reply" ? "text-text" : attempt.status === "pending" ? "text-text-muted" : "text-danger"}>
-                    {attempt.status === "reply" ? "✓ " : attempt.status === "pending" ? "… " : "✗ "}
-                    {pingAttemptText(attempt)}
+                  <li
+                    key={attempt.sequence}
+                    data-status={attempt.status}
+                    className={`flex flex-wrap items-center gap-x-2 ${attempt.status === "reply" ? "text-text" : attempt.status === "pending" ? "text-text-muted" : "text-danger"}`}
+                  >
+                    <span>
+                      {attempt.status === "reply" ? "✓ " : attempt.status === "pending" ? "… " : "✗ "}
+                      {pingAttemptText(attempt)}
+                    </span>
+                    {attempt.status !== "reply" && attempt.status !== "pending" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="font-sans"
+                        aria-label={fill(t.whyLabel, { sequence: attempt.sequence })}
+                        onClick={() => {
+                          explainEcho(session, view.id, attempt.sequence);
+                          useLabLayout.getState().openProperties();
+                        }}
+                      >
+                        {t.why}
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ol>

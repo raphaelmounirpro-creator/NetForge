@@ -3,14 +3,14 @@ import { CATALOG_VERSION, DEVICE_MODEL_IDS } from "./catalog.js";
 import { isIpv4Address } from "./ipv4.js";
 
 /**
- * Format d'échange .nfg.json, version 2 (version 1 + routes statiques).
+ * Format d'échange .nfg.json, version 3 (v2 : routes statiques ; v3 : annotations).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -23,6 +23,8 @@ export const LIMITS = {
   maxDescriptionLength: 2000,
   maxCoordinate: 1_000_000,
   maxStaticRoutes: 64,
+  maxAnnotations: 200,
+  maxAnnotationLength: 280,
 } as const;
 
 // Les noms réservés des objets JavaScript sont exclus : ces identifiants
@@ -100,6 +102,17 @@ export const nfgDocumentSchema = z.strictObject({
   configurations: z.record(idSchema, deviceConfigSchema),
   layout: z.strictObject({
     devices: z.record(idSchema, z.strictObject({ x: coordinateSchema, y: coordinateSchema })),
+    /** Annotations libres : du texte affiché sur le canevas, sans effet sur le réseau. */
+    annotations: z
+      .array(
+        z.strictObject({
+          id: idSchema,
+          text: z.string().trim().min(1).max(LIMITS.maxAnnotationLength),
+          x: coordinateSchema,
+          y: coordinateSchema,
+        }),
+      )
+      .max(LIMITS.maxAnnotations),
   }),
 });
 
@@ -110,3 +123,4 @@ export type LinkEndpoint = Link["endpoints"][number];
 export type DeviceConfig = NfgDocument["configurations"][string];
 export type StaticRoute = DeviceConfig["staticRoutes"][number];
 export type Position = NfgDocument["layout"]["devices"][string];
+export type Annotation = NfgDocument["layout"]["annotations"][number];

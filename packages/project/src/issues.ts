@@ -40,6 +40,10 @@ export const ISSUE_CODES = [
   "config.gateway-not-supported",
   "layout.missing",
   "layout.unknown-device",
+  "annotation.not-found",
+  "annotation.invalid-text",
+  "annotation.too-many",
+  "annotation.duplicate-id",
   // IPv4
   "ipv4.invalid-address",
   "ipv4.invalid-mask",
