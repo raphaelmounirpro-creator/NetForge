@@ -1,54 +1,11 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { PASSWORD, confirm, freshPage, lastLink, register, signIn, uniqueEmail } from "./accountHelpers";
 
 /*
  * Parcours de compte sur une pile réelle isolée : interface, API, PostgreSQL,
  * boîte de courrier locale (aucun courrier réellement envoyé).
  */
-const MAIL = "http://localhost:8026/messages";
-const PASSWORD = "une phrase de passe pour les essais";
 const NEW_PASSWORD = "une toute nouvelle phrase de passe";
-let counter = 0;
-const uniqueEmail = () => `eleve-${String(Date.now())}-${String((counter += 1))}@exemple.test`;
-
-async function lastLink(to: string, path: string): Promise<string> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const { messages } = (await (await fetch(MAIL)).json()) as { messages: { to: string; text: string }[] };
-    const link = messages.find((mail) => mail.to.includes(to) && mail.text.includes(path))?.text.match(/https?:\/\/\S+#t=[A-Za-z0-9_-]{43}/)?.[0];
-    if (link) return link;
-    await new Promise((resolve) => setTimeout(resolve, 150));
-  }
-  throw new Error(`aucun lien ${path} pour ${to}`);
-}
-
-async function register(page: Page, email: string): Promise<void> {
-  await page.goto("/inscription");
-  await page.getByLabel("Adresse e-mail").fill(email);
-  await page.getByLabel("Mot de passe", { exact: true }).fill(PASSWORD);
-  await page.getByRole("button", { name: "Créer mon compte" }).click();
-  await expect(page.getByRole("heading", { name: "Vérifiez votre adresse e-mail" })).toBeVisible();
-}
-
-async function confirm(page: Page, email: string): Promise<void> {
-  await page.goto(await lastLink(email, "/confirmer-email"));
-  // Le jeton est retiré de l'adresse affichée dès la lecture.
-  await expect(page).toHaveURL(/\/confirmer-email$/);
-  await page.getByLabel("Mot de passe", { exact: true }).fill(PASSWORD);
-  await page.getByRole("button", { name: "Confirmer mon adresse" }).click();
-  await expect(page.getByText("Adresse e-mail validée. Vous pouvez vous connecter.")).toBeVisible();
-}
-
-async function signIn(page: Page, email: string, password = PASSWORD): Promise<void> {
-  await page.goto("/connexion");
-  await page.getByLabel("Adresse e-mail").fill(email);
-  await page.getByLabel("Mot de passe", { exact: true }).fill(password);
-  await page.getByRole("tabpanel").getByRole("button", { name: "Se connecter" }).click();
-  await expect(page).toHaveURL(/\/projets$/);
-  await expect(page.getByRole("button", { name: `Compte ${email}` })).toBeVisible();
-}
-
-async function freshPage(browser: Browser): Promise<Page> {
-  return (await browser.newContext({ locale: "fr-FR", viewport: { width: 1440, height: 900 } })).newPage();
-}
 
 test("inscription, validation par courrier, connexion, projet du compte relu depuis un autre navigateur", async ({ page, browser }) => {
   const email = uniqueEmail();

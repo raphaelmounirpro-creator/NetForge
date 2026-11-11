@@ -1,4 +1,4 @@
-import type { Issue, NfgDocument } from "@netforge/project";
+import { parseNfgValue, type Issue, type NfgDocument } from "@netforge/project";
 import { z } from "zod";
 import { sameDecibel, sameNetwork, measurementConformity, type Criterion, type Exercise, type ExerciseStep, type ObservationCheck } from "./exercise.js";
 import { analyzeOptics, measurePower, type OpticalStatus } from "./optics.js";
@@ -93,6 +93,46 @@ function publicStep(step: ExerciseStep): PublicStep {
     case "debrief":
       return { kind: "debrief", title: step.title, points: 0 };
   }
+}
+
+const shortText = z.string().min(1).max(3000);
+const publicStepSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("observe"), title: shortText, instruction: shortText, points: z.literal(0) }),
+  z.strictObject({
+    kind: z.literal("hypothesis"),
+    title: shortText,
+    question: shortText,
+    choices: z.array(z.strictObject({ id: identifier, text: shortText })).min(2).max(6),
+    points: z.int().min(0).max(100),
+  }),
+  z.strictObject({ kind: z.literal("measure"), title: shortText, question: shortText, answerKind: z.enum(["network", "decibel"]), points: z.int().min(0).max(100) }),
+  z.strictObject({ kind: z.literal("fix"), title: shortText, instruction: shortText, points: z.int().min(0).max(100) }),
+  z.strictObject({ kind: z.literal("retest"), title: shortText, instruction: shortText, points: z.int().min(0).max(100) }),
+  z.strictObject({ kind: z.literal("debrief"), title: shortText, points: z.literal(0) }),
+]);
+
+const publicExerciseSchema = z.strictObject({
+  id: identifier,
+  revision: z.int().min(1),
+  title: shortText,
+  summary: shortText,
+  level: z.enum(["beginner", "intermediate", "advanced"]),
+  objective: shortText,
+  statement: shortText,
+  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics"])).max(6),
+  project: z.unknown(),
+  steps: z.array(publicStepSchema).min(1).max(12),
+  hintCount: z.int().min(0).max(5),
+  hintPenalty: z.int().min(0).max(100),
+  maxScore: z.int().min(0),
+});
+
+/** Relit la partie publique reçue de l'API (donnée externe), projet initial compris. */
+export function parsePublicExercise(raw: unknown): PublicExercise | null {
+  const parsed = publicExerciseSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const project = parseNfgValue(parsed.data.project);
+  return project.ok ? { ...parsed.data, project: project.document } : null;
 }
 
 export function publicExercise(exercise: Exercise): PublicExercise {

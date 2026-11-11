@@ -62,6 +62,15 @@ En production : compte Gmail dédié à NetForge, mot de passe d'application (va
 - **Entrées** : contrats Zod stricts, corps limité (taille maximale d'un projet + 64 Kio), contenu de projet validé et migré comme un import, requêtes paramétrées (Prisma), erreurs internes masquées (`server.unavailable`).
 - **Données** : un compte ne contient que l'adresse, l'empreinte du mot de passe et des dates ; projets privés par défaut ; suppression en cascade des sessions, jetons et projets avec le compte.
 
+## Évaluations notées (phase 6, D-051)
+
+- **Note calculée par le serveur seul** : corps de soumission strict (projet et réponses) ; un champ `score`, `result` ou des points déclarés sont refusés (400) ; la note est calculée par le moteur exécuté dans l'API et enregistrée une seule fois, par une écriture conditionnelle (tentative ouverte, même nombre d'indices).
+- **Critères privés** : critères, choix justes, réponses attendues, retours, bilans et indices non demandés ne quittent jamais le serveur avant la note ; l'élève reçoit la partie publique, relue par le client comme donnée externe. La topologie initiale, simulée dans le navigateur, reste lisible.
+- **Indices** : délivrés un par un par l'API et comptés en base (incrément atomique) ; la pénalité ne dépend pas du navigateur.
+- **Droits** : compte vérifié ; exercice et publications visibles du seul auteur (autre compte → 404) ; tentative visible de son seul élève ; fermeture par l'auteur seul ; code de publication non devinable (60 bits).
+- **Bornes** : taille du corps (projet maximal), 120 équipements, 240 liens, 24 contrôles et 100 000 événements par contrôle ; dépassement → diagnostic sans note. 30 tentatives commencées par heure et 30 soumissions par quart d'heure par compte (PostgreSQL).
+- **Données** : une tentative relie un compte, un instantané, le nombre d'indices, les dates, la note, les versions et l'empreinte de la soumission (le projet soumis n'est pas conservé). Suppression en cascade avec le compte.
+
 ## Critères vérifiables (spécification §14.7)
 
 | Cas | Résultat | Preuve |
@@ -81,8 +90,11 @@ En production : compte Gmail dédié à NetForge, mot de passe d'application (va
 | Accès aux projets d'un autre compte | refus côté API | `projects.e2e.test.ts` |
 | Consultation après déconnexion | projets du compte fermés, aucune donnée privée en cache (aucun service worker) | `accounts.spec.ts` |
 | Panne ou absence du courrier | aucun faux succès, aucun compte créé | `auth.e2e.test.ts` |
+| Score déclaré par le navigateur | refusé, note recalculée par le serveur | `exercises.e2e.test.ts` |
+| Critères, réponses, retours, bilans, indices non demandés | absents de toute réponse destinée à l'élève | `exercises.e2e.test.ts` ; `evaluations.spec.ts` |
+| Exercice, publication ou tentative d'un autre compte | 404, fermeture refusée | `exercises.e2e.test.ts` |
 
-Classes, notes et rôles formateur (phases 6 et 17) n'existent pas encore : leurs contrôles d'accès seront ajoutés avec eux.
+Classes et rôles formateur (phase 17) n'existent pas encore : leurs contrôles d'accès seront ajoutés avec eux.
 
 ## Limites résiduelles
 

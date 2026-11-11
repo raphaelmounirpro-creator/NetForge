@@ -1,4 +1,4 @@
-import { parseIpv4Input, parseNfgValue, type Issue, type NfgDocument } from "@netforge/project";
+import { idSchema, parseIpv4Input, parseNfgValue, type Issue, type NfgDocument } from "@netforge/project";
 import { z } from "zod";
 import { analyzeOptics, CONFORMITY_TOLERANCE_DB, type OpticalStatus, type PowerMeasurement } from "./optics.js";
 import { createSimulation } from "./simulation.js";
@@ -21,19 +21,21 @@ export const EXERCISE_VERSION = 2;
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const identifier = z.string().regex(/^[a-z0-9-]{1,64}$/);
+/** Référence à un équipement du projet : même forme que les identifiants du format .nfg.json. */
+const deviceRef = idSchema;
 const ipv4 = z.string().max(15);
 
 export const criterionSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("ping-succeeds"), from: identifier, to: ipv4 }),
-  z.strictObject({ kind: z.literal("ping-fails"), from: identifier, to: ipv4 }),
+  z.strictObject({ kind: z.literal("ping-succeeds"), from: deviceRef, to: ipv4 }),
+  z.strictObject({ kind: z.literal("ping-fails"), from: deviceRef, to: ipv4 }),
   /** Le bilan optique (pannes comprises) de chaque chemin vers cet ONT est dans les limites de réception. */
-  z.strictObject({ kind: z.literal("optical-service"), ont: identifier }),
+  z.strictObject({ kind: z.literal("optical-service"), ont: deviceRef }),
 ]);
 export type Criterion = z.infer<typeof criterionSchema>;
 
 const pingCheckSchema = z.strictObject({
   kind: z.literal("ping-observed"),
-  from: identifier,
+  from: deviceRef,
   to: ipv4,
   outcome: z.enum(["success", "failure"]),
 });
@@ -42,7 +44,7 @@ export type PingCheck = z.infer<typeof pingCheckSchema>;
 /** Une mesure au photomètre a été faite à ce port, avec ce résultat comparé au bilan prévisionnel. */
 const powerCheckSchema = z.strictObject({
   kind: z.literal("power-measured"),
-  deviceId: identifier,
+  deviceId: deviceRef,
   portId: z.string().regex(/^[a-z]{1,8}\d{0,3}$/),
   direction: z.enum(["downstream", "upstream"]),
   outcome: z.enum(["conform", "deviation"]),

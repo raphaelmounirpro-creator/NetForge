@@ -12,7 +12,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 6 — Exercices éditables et notes vérifiées
 
-**État : en cours (démarrée le 2026-11-12).**
+**État : terminée en local le 2026-11-12, en attente de validation du propriétaire.** Tous les critères de la phase sont vérifiés localement (moteur, API sur PostgreSQL réel, parcours navigateur). Non déployée : la mise en production (migration additive sur Neon, puis déploiement) attend l'accord du propriétaire.
 
 ### Périmètre retenu
 
@@ -28,14 +28,33 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ### Scénarios d'acceptation (spécification §13 et §17)
 
-| Critère | État | Preuve prévue |
+| Critère | État | Preuve |
 |---|---|---|
-| Exercice créé dans l'éditeur puis joué | ouvert | parcours navigateur |
-| Plusieurs solutions valides acceptées | ouvert | deux corrections différentes notées au maximum (moteur et API) |
-| Score falsifié côté client rejeté | ouvert | soumission portant un score refusée ; note recalculée par le serveur |
-| Critères privés jamais envoyés au navigateur | ouvert | inspection de toutes les réponses destinées à l'élève |
-| Diagnostic clair d'une limite d'évaluation | ouvert | tempête de diffusion soumise : diagnostic, aucune note enregistrée |
-| Versionnement des évaluations | ouvert | republication sans effet sur les tentatives passées |
+| Exercice créé dans l'éditeur puis joué | atteint | `evaluations.spec.ts` : création depuis le projet ouvert, hypothèse, critère, indice, enregistrement, essai en entraînement, publication, passage par un élève avec correction à la console, note 30/30 |
+| Plusieurs solutions valides acceptées | atteint | route exacte et route par défaut notées au maximum : `evaluation.test.ts` (moteur) et `exercises.e2e.test.ts` (deux élèves, API) |
+| Score falsifié côté client rejeté | atteint | corps portant `score`, `result` ou des points refusés (400) sans consommer la tentative ; note recalculée par le serveur (20/70 pour un projet non corrigé) et enregistrée avec les versions |
+| Critères privés jamais envoyés au navigateur | atteint | toutes les réponses destinées à l'élève inspectées (évaluation, tentative, indice, note) : ni critères, bonnes réponses, retours, bilan avant la note, ni indices non demandés ; page de l'élève sans critère (parcours navigateur) |
+| Diagnostic clair d'une limite d'évaluation | atteint | boucle de commutation soumise : 422 `evaluation.limit-exceeded` (limite, maximum, étape), aucune note, tentative intacte ; message français dans le panneau |
+| Versionnement des évaluations | atteint | nouvelle révision republiée : instantanés distincts (révision, empreinte), note passée inchangée ; version du correcteur, du moteur et empreinte de la soumission enregistrées |
+
+### Vérifications exécutées (2026-11-12, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- `pnpm check` : lint, typecheck, **343 tests** (format 102, moteur 117, interface 69, contrats 2, API 53 sur PostgreSQL embarqué réel) et builds réussis.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **23 parcours** réussis ; `pnpm test:e2e:accounts` : **5 parcours** réussis (4 de compte + l'évaluation de bout en bout), pile isolée arrêtée proprement.
+- Inspection visuelle réelle (Edge, 1440 et 360 px) : Parcours, éditeur, publications, page de l'évaluation, panneau du laboratoire, confirmation, résultat. Défauts trouvés et corrigés : contrôle de retest par défaut vers la passerelle du poste (réussi sans rien corriger), bilan affiché vide avant la note, « À retenir » répété dans le résultat, libellé « Contrôle du moteur » en double, police à chasse fixe sur les champs de texte libre ; sélecteur ambigu « Indice 1 » / « Retirer l'indice 1 ».
+- Défauts trouvés par les tests et corrigés : configuration vide d'un équipement ajouté comptée comme un changement d'adressage ; références d'équipement des exercices plus strictes que les identifiants de projet (projets importés refusés).
+
+### Limites connues
+
+- Exercice local ou évaluation : la topologie initiale (pannes optiques comprises) est envoyée au navigateur, qui exécute la simulation ; un élève déterminé peut lire ces données. Seuls les critères, réponses, retours, bilans et indices non demandés restent sur le serveur (spécification §13).
+- L'étape « observer » n'est pas notée en évaluation (démarche invérifiable après coup) ; une hypothèse se joue en une réponse (pas de second essai) ; une correction n'est accordée que si tous ses critères passent.
+- L'auteur ne voit que le nombre de tentatives de ses publications, pas les notes ni les élèves (phase 17).
+- Les fonctions « simulation » et « console » ne sont pas contrôlées : elles ne modifient pas le projet.
+- Mise en production non faite (accord du propriétaire requis).
+
+### Prochaine action
+
+Validation de la phase 6 par le propriétaire ; sur accord, déploiement (migration additive `exercises`, `publications`, `attempts` sur Neon, puis production) et vérification distante.
 
 ## Phase 5 — Comptes, projets privés et déploiement : validée par le propriétaire (2026-11-12)
 

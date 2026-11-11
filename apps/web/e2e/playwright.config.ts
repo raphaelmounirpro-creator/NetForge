@@ -19,7 +19,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   // Mesures de performance et parcours de compte : configurations dédiées (perf, accounts).
-  testIgnore: ["**/perf.spec.ts", "**/accounts.spec.ts"],
+  testIgnore: ["**/perf.spec.ts", "**/accounts.spec.ts", "**/evaluations.spec.ts"],
   projects: [
     {
       name: "chromium",

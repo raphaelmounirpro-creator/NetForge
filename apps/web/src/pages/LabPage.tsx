@@ -18,6 +18,7 @@ import { ShortcutsDialog } from "../features/lab/ShortcutsDialog";
 import { useLabStore, type LabView } from "../features/lab/store";
 import { TopologyCanvas } from "../features/lab/topology/TopologyCanvas";
 import { useLabShortcuts } from "../features/lab/useLabShortcuts";
+import { EvaluationPanel } from "../features/evaluations/EvaluationPanel";
 import { ExercisePanel } from "../features/exercises/ExercisePanel";
 import { OpticsPathsList } from "../features/optics/OpticsPathsList";
 import { OpticsSidePanel } from "../features/optics/OpticsSidePanel";
@@ -125,6 +126,7 @@ export function LabPage() {
                 >
                   {/* Guide d'exercice en tête du panneau : le canevas garde toute sa hauteur. */}
                   <ExercisePanel projectId={activeId} project={project} />
+                  <EvaluationPanel projectId={activeId} project={project} />
                   <div className="min-h-0 flex-1">
                     {project.view === "simulation" ? (
                       <SimulationSidePanel projectId={activeId} session={session} selection={project.selection} disabled={simulationBlocked} />

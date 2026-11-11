@@ -1,6 +1,6 @@
 import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setInterfaceIpv4, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
-import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, publicExercise, type EvaluationAnswer } from "./evaluation.js";
+import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
 import { ftthScenario, performanceScenario, switchLoopScenario, twoRoutersScenario } from "./scenarios.js";
 
@@ -87,6 +87,13 @@ describe("partie publique d'un exercice évalué", () => {
     expect(view.hintCount).toBe(2);
     expect(view.steps.map((step) => step.kind)).toEqual(["observe", "hypothesis", "measure", "fix", "retest", "debrief"]);
     expect(view.steps[1]).toEqual({ kind: "hypothesis", title: "Hypothèse", question: "Où est le défaut ?", choices: [{ id: "retour", text: "La route de retour sur R2" }, { id: "passerelle", text: "La passerelle de PC1" }], points: 10 });
+  });
+
+  it("se relit côté client comme une donnée externe (aller-retour JSON), et refuse une forme altérée", () => {
+    const view = publicExercise(exercise);
+    expect(parsePublicExercise(JSON.parse(JSON.stringify(view)))).toEqual(view);
+    expect(parsePublicExercise({ ...view, steps: [{ kind: "fix", title: "x", instruction: "y", points: 1, criteria: [] }] })).toBeNull();
+    expect(parsePublicExercise({ ...view, project: { format: "autre" } })).toBeNull();
   });
 
   it("annonce le barème évalué : l'étape « observer » n'est pas notée", () => {

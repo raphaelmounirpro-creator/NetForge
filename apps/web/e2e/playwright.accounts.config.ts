@@ -11,7 +11,7 @@ const isCi = Boolean(process.env["CI"]);
 
 export default defineConfig({
   testDir: ".",
-  testMatch: "accounts.spec.ts",
+  testMatch: ["accounts.spec.ts", "evaluations.spec.ts"],
   timeout: 60_000,
   workers: 1,
   retries: isCi ? 1 : 0,

@@ -1,4 +1,5 @@
 import { parseExercise, type Exercise } from "@netforge/engine";
+import { findTried } from "../tried";
 import { connecteurSale } from "./connecteurSale";
 import { retourManquant } from "./retourManquant";
 
@@ -20,6 +21,7 @@ export const invalidExercises: readonly string[] = RAW.flatMap((raw) => {
   return [id];
 });
 
+/** Exercice embarqué, ou exercice du compte essayé par son auteur sur cet appareil. */
 export function findExercise(id: string): Exercise | undefined {
-  return exercises.find((exercise) => exercise.id === id);
+  return exercises.find((exercise) => exercise.id === id) ?? findTried(id);
 }

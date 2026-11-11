@@ -126,10 +126,10 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 
 | ID | Exigence | Phase | Statut | Dépend | Critère vérifiable |
 |---|---|---|---|---|---|
-| X-01 | Éditeur d'exercices (énoncé, topologie, fonctions autorisées, barème, indices) | 6 | prévu | O-07 | Exercice créé et joué |
-| X-02 | Critères comportementaux acceptant plusieurs solutions | 6 | prévu | X-01 | Deux configurations valides acceptées |
-| X-03 | Évaluation serveur bornée et versionnée | 6 | prévu | X-02, A-05 | Score client falsifié rejeté |
-| X-04 | Critères privés jamais envoyés au navigateur | 6 | prévu | X-03 | Vérifié dans les réponses API |
+| X-01 | Éditeur d'exercices (énoncé, topologie, fonctions autorisées, barème, indices) | 6 | disponible avec limites | O-07 | Exercice créé, essayé, publié et passé (evaluations.spec.ts) ; compte requis, pas d'édition en invité ni d'échange de fichiers d'exercice |
+| X-02 | Critères comportementaux acceptant plusieurs solutions | 6 | disponible | X-01 | Route exacte et route par défaut notées au maximum (evaluation.test.ts, exercises.e2e.test.ts) |
+| X-03 | Évaluation serveur bornée et versionnée | 6 | disponible | X-02, A-05 | Score déclaré refusé, note recalculée ; limites → diagnostic sans note ; versions et empreintes enregistrées (exercises.e2e.test.ts) |
+| X-04 | Critères privés jamais envoyés au navigateur | 6 | disponible | X-03 | Toutes les réponses destinées à l'élève inspectées (exercises.e2e.test.ts) ; topologie initiale publique par nature (simulation dans le navigateur) |
 
 ### Familles du produit (section 16)
 

@@ -5,6 +5,7 @@ import { Notice } from "../components/ui/Notice";
 import { fill, messages } from "../i18n";
 import { exercises, invalidExercises } from "../features/exercises/catalog";
 import { startExercise } from "../features/exercises/progress";
+import { ParcoursSections } from "../features/evaluations/ParcoursSections";
 
 const t = messages.exercises;
 
@@ -62,6 +63,7 @@ export function ParcoursPage() {
           </li>
         ))}
       </ul>
+      <ParcoursSections />
     </div>
   );
 }

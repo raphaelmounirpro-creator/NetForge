@@ -87,4 +87,5 @@ CSS uniquement, aucune bibliothèque d’animation. `prefers-reduced-motion: red
 ## Mise en page
 
 - Connexion (phase 5) : 58 % visuel / 42 % formulaire sur ordinateur ; formulaire prioritaire sur mobile.
+- Exercices et évaluations (phase 6) : éditeur en une colonne (max. 56 rem) par sections titrées (présentation, topologie, fonctions autorisées, étapes, indices, publications) ; une carte par étape avec titre « Étape n · type » et boutons monter, descendre, supprimer ; problèmes de validation listés en tête dans un avertissement. Champs de texte libre en police courante, valeurs techniques (adresses, nombres) en chasse fixe. Page élève sobre : règles, avis « notée par le serveur », bouton principal unique. Panneau « Évaluation en cours » dans le laboratoire, au-dessus des propriétés (bordure ambre comme le guide d'exercice) ; résultat par étape précédé de ✓, ✕ ou – (la couleur ne porte jamais seule le statut).
 - Vérifications réelles : phase 0 à 1440, 768 et 360 px ; phase 1 (laboratoire) à 1440 et 1024 px en thèmes sombre et clair, sans défilement horizontal. L’éditeur complet sur smartphone n’est pas promis.
