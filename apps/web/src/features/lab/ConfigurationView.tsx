@@ -18,6 +18,9 @@ export function ConfigurationView({ projectId, project }: { projectId: string; p
   const { document: doc, selection } = project;
   const warnings = useMemo(() => validateDocument(doc).filter((issue) => issue.severity === "warning"), [doc]);
   const select = useLabStore.getState().select;
+  const routes = doc.topology.devices.flatMap((device) =>
+    (doc.configurations[device.id]?.staticRoutes ?? []).map((route) => ({ device, route })),
+  );
 
   return (
     <div className="h-full overflow-auto p-4">
@@ -125,6 +128,34 @@ export function ConfigurationView({ projectId, project }: { projectId: string; p
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section aria-labelledby="config-routes" className="mt-8">
+        <h2 id="config-routes" className="text-base font-semibold text-text">
+          {t.routesTitle}
+        </h2>
+        {routes.length === 0 ? (
+          <p className="mt-2 text-sm text-text-muted">{t.emptyRoutes}</p>
+        ) : (
+          <table className="mt-3 w-full min-w-[30rem] border-collapse text-sm">
+            <thead>
+              <tr>
+                <th scope="col" className={head}>{t.routeColumns.router}</th>
+                <th scope="col" className={head}>{t.routeColumns.destination}</th>
+                <th scope="col" className={head}>{t.routeColumns.nextHop}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {routes.map(({ device, route }) => (
+                <tr key={`${device.id}-${route.destination}-${String(route.prefixLength)}`}>
+                  <th scope="row" className={`${cell} font-medium text-text`}>{device.name}</th>
+                  <td className={`${cell} font-mono text-text`}>{route.destination}/{route.prefixLength}</td>
+                  <td className={`${cell} font-mono text-text`}>{route.nextHop}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}

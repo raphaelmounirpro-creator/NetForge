@@ -27,11 +27,18 @@ export function LabToolbar(props: LabToolbarProps) {
   const { projectId, project } = props;
   const editable = project.access === "editor";
   const topology = project.view === "topology";
+  // Le zoom sert aussi à la vue Simulation, qui affiche le même canevas.
+  const canvasView = project.view !== "configuration";
   const store = useLabStore.getState;
 
   return (
     <div role="toolbar" aria-label={t.toolbar} className="flex items-center gap-0.5">
-      <IconButton label={props.paletteOpen ? t.hidePalette : t.showPalette} pressed={props.paletteOpen} icon={<PanelLeft size={ICON} />} onClick={props.onTogglePalette} />
+      <IconButton
+        label={project.view === "simulation" ? (props.paletteOpen ? t.hideActions : t.showActions) : props.paletteOpen ? t.hidePalette : t.showPalette}
+        pressed={props.paletteOpen}
+        icon={<PanelLeft size={ICON} />}
+        onClick={props.onTogglePalette}
+      />
       <Separator />
       {topology && (
         <>
@@ -42,7 +49,7 @@ export function LabToolbar(props: LabToolbarProps) {
       )}
       <IconButton label={t.undo} disabled={!editable || project.past.length === 0} icon={<Undo2 size={ICON} />} onClick={() => { store().undo(projectId); }} />
       <IconButton label={t.redo} disabled={!editable || project.future.length === 0} icon={<Redo2 size={ICON} />} onClick={() => { store().redo(projectId); }} />
-      {topology && (
+      {canvasView && (
         <>
           <Separator />
           <IconButton label={t.zoomOut} icon={<ZoomOut size={ICON} />} onClick={() => { zoomBy(projectId, 1 / ZOOM_STEP); }} />

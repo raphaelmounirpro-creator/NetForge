@@ -1,9 +1,24 @@
 /**
  * Point d'entrée public du moteur NetForge.
  *
- * Phase 0 : seul le socle du temps simulé est en place. La file d'événements,
- * le générateur pseudo-aléatoire et les protocoles arrivent en phase 2.
+ * Moteur à événements discrets : horloge virtuelle en nanosecondes, file
+ * d'événements stable, générateur pseudo-aléatoire à graine, Ethernet,
+ * ARP, IPv4, ICMP et routage statique. Aucune dépendance au DOM ni à React.
  */
-export const ENGINE_VERSION = "0.0.0";
+/** Version du moteur : change dès que la trace produite pour un même scénario peut changer. */
+export const ENGINE_VERSION = "0.2.0";
 
+export * from "./commands.js";
+export * from "./host.js";
+export * from "./mac.js";
+export * from "./parameters.js";
+export * from "./pdu.js";
+export * from "./prng.js";
+export * from "./protocol.js";
+export * from "./queue.js";
+export * from "./routing.js";
+export * from "./scenarios.js";
+export * from "./simulation.js";
 export * from "./time.js";
+export * from "./trace.js";
+export * from "./views.js";

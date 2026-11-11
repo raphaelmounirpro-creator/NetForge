@@ -61,7 +61,7 @@ Menus et confirmations complexes : à créer avec leur besoin.
 - Barre des projets ouverts (liste de boutons + fermeture), puis onglets de vue (Topologie, Configuration) avec la barre d’outils à droite : palette, sélection/liaison, annuler/rétablir, zoom, état d’enregistrement, export, raccourcis, propriétés.
 - Colonnes : palette (240 px, ajout + liste structurée des équipements), centre (canevas ou tableaux), propriétés (352 px). Sous 1 024 px, palette et propriétés sont repliées par défaut et un message signale que l’édition est prévue pour un écran plus large.
 - Canevas Konva : fond `canvas` avec grille de points suivant le zoom ; équipements 56 px (cadre `surface`, pictogramme original au trait, nom et première adresse en dessous) ; liens `border-strong`, sélection ambre (épaisseur et couleur), source du mode liaison en pointillés ambre ; noms de ports à 56 px du centre. Couleurs lues depuis les jetons (y compris `light-dark()`) via une sonde CSS.
-- Pas de barre de simulation tant que le moteur n’existe pas (phase 2).
+- Vue Simulation (phase 2) : palette remplacée par « Actions de simulation » (ping, pannes de câble), propriétés remplacées par « État d’exécution » (sélecteur d’équipement, listes compactes sur deux lignes), barre de simulation sous le canevas puis volet Journal / Pings (16 rem). États toujours doublés d’un symbole et d’un texte : « ● Actif » / « ✕ Inactif », « ● en service » / « ✕ coupé » ; câble coupé en pointillé rouge avec libellé « ✕ coupé » sur le canevas. Catégories du journal en étiquettes texte (Ethernet, Commutation, ARP, IP, ICMP et ping, Commandes).
 
 ## Mouvement
 

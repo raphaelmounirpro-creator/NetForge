@@ -52,34 +52,36 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | E-05 | Sauvegarde automatique IndexedDB, états visibles, récupération | 1 | disponible | E-01 | Rechargement sans perte ; quota et stockage indisponible signalés |
 | E-06 | Export/import `.nfg.json` versionné, validé, atomique, migrations | 1 | disponible | S-01 | Import invalide sans perte ; version future refusée ; aller-retour identique |
 | E-07 | Édition concurrente entre onglets | 1 | disponible | E-05 | Un onglet éditeur (Web Locks) + contrôle de révision ; conflit explicite |
-| E-08 | Navigation principale, onglets de projets, vues Topologie/Configuration | 1 | disponible avec limites | S-06 | État conservé entre vues ; fermeture sûre. Vue Simulation ajoutée avec le moteur (phase 2) |
+| E-08 | Navigation principale, onglets de projets, vues Topologie/Simulation/Configuration | 1–2 | disponible avec limites | S-06 | État conservé entre vues ; fermeture sûre ; vue Simulation (phase 2). Parcours/Ressources absents faute de contenu |
 | E-09 | Liste structurée des équipements/liens et alternative clavier du canevas | 1 | disponible | E-01 | Ajout, sélection, liaison, configuration, suppression et déplacement sans souris |
 | E-10 | Tests Playwright des parcours front essentiels | 1 | disponible avec limites | E-05 | 8 parcours ; exécution CI après le push de fin de projet |
 | E-11 | Annotations libres sur le canevas | 3 | prévu | E-01 | Texte affiché comme texte, exporté, sans effet sur le réseau |
-| E-12 | Mini-carte et glisser-déposer depuis la palette | 2 | prévu | M-11 | Utile au scénario de 100 équipements |
+| E-12 | Mini-carte et glisser-déposer depuis la palette | 3 | prévu (reporté de la phase 2, D-028) | M-11 | Navigation dans un grand projet ; le scénario de 100 équipements reste utilisable sans |
 | E-13 | Compatibilité des connectiques (cuivre/fibre, modules) | 4 | prévu | F-01 | Lien entre connectiques incompatibles refusé avec explication |
+| E-14 | Routes statiques des routeurs (format v2, migration v1 → v2) | 2 | disponible | E-03 | Destination réseau, doublon et prochain saut validés ; sous-onglet Routes et vue Configuration |
+| E-15 | Avertissement de boucle de commutation | 2 | disponible | E-02 | Cycle de switches signalé (topology.test.ts, e2e « boucle de commutation ») |
 
 ### Moteur (phase 2)
 
 | ID | Exigence | Phase | Statut | Dépend | Critère vérifiable |
 |---|---|---|---|---|---|
-| M-01 | Horloge virtuelle, file d'événements stable, PRNG à graine | 2 | prévu | S-08 | Même entrée + même graine = même trace |
-| M-02 | Pause, reprise, réinitialisation, prochain événement, lots | 2 | prévu | M-01 | Réinitialisation vide caches et paquets, conserve la configuration |
-| M-03 | Limites d'événements/file/calcul avec diagnostic | 2 | prévu | M-01 | Interruption propre expliquée |
-| M-04 | Ethernet, apprentissage et vieillissement MAC, destination inconnue | 2 | prévu | M-01 | Tables observables, expiration en temps virtuel |
-| M-05 | ARP avec cache et expiration | 2 | prévu | M-04 | Réutilisation avant expiration |
-| M-06 | IPv4 et ICMP écho (unions discriminées réelles) | 2 | prévu | M-05 | Ping même sous-réseau |
-| M-07 | Routage statique, passerelle, TTL | 2 | prévu | M-06 | Destination distante, échec sans route, retour manquant identifiable |
-| M-08 | Lien déconnecté | 2 | prévu | M-04 | Aucune transmission |
-| M-09 | Adaptateur Web Worker : messages typés, validés, versionnés, par lots | 2 | prévu | M-01 | Interface fluide pendant le calcul |
-| M-10 | Trace structurée avec codes de raison stables | 2 | prévu | M-01 | Chaque décision porte événement, instant, équipement, raison |
-| M-11 | Scénario de performance de 100 équipements, mesures séparées | 2 | prévu | M-09 | Seuils chiffrés issus d'une première mesure |
+| M-01 | Horloge virtuelle, file d'événements stable, PRNG à graine | 2 | disponible | S-08 | Même entrée + même graine = même trace (determinism.test.ts : rejeu, ordre du document, graines) |
+| M-02 | Pause, reprise, réinitialisation, prochain événement, lots | 2 | disponible | M-01 | Réinitialisation vide caches et paquets, conserve la configuration (host.test.ts, e2e « lecture continue ») |
+| M-03 | Limites d'événements/file/calcul avec diagnostic | 2 | disponible | M-01 | Interruption propre expliquée (tempête de diffusion : unitaire et e2e ; budget de calcul : host.test.ts) |
+| M-04 | Ethernet, apprentissage et vieillissement MAC, destination inconnue | 2 | disponible | M-01 | Tables observables, expiration en temps virtuel ([fiche](protocols/ethernet-commutation.md)) |
+| M-05 | ARP avec cache et expiration | 2 | disponible | M-04 | Réutilisation avant expiration ([fiche](protocols/arp.md)) |
+| M-06 | IPv4 et ICMP écho (unions discriminées réelles) | 2 | disponible | M-05 | Ping même sous-réseau ([fiche](protocols/icmp-ping.md)) |
+| M-07 | Routage statique, passerelle, TTL | 2 | disponible | M-06 | Destination distante, échec sans route, retour manquant identifiable ([fiche](protocols/ipv4-routage.md) ; format v2) |
+| M-08 | Lien déconnecté | 2 | disponible | M-04 | Aucune transmission (câble absent, ou coupé pendant la simulation) |
+| M-09 | Adaptateur Web Worker : messages typés, validés, versionnés, par lots | 2 | disponible | M-01 | Interface fluide pendant le calcul (aucune tâche longue du fil principal mesurée sur le build de production, D-026) |
+| M-10 | Trace structurée avec codes de raison stables | 2 | disponible | M-01 | Chaque décision porte événement, cause, instant, équipement, port, échange, raison et unité de données ; texte français pour chaque code |
+| M-11 | Scénario de performance de 100 équipements, mesures séparées | 2 | disponible | M-09 | Seuils chiffrés issus d'une première mesure (`pnpm test:perf`, `pnpm perf:engine`, docs/PROGRESS.md) |
 
 ### Observation, CLI et premier exercice (phase 3)
 
 | ID | Exigence | Phase | Statut | Dépend | Critère vérifiable |
 |---|---|---|---|---|---|
-| O-01 | Pas à pas, progression continue, filtres, inspection | 3 | prévu | M-10 | Suivi d'un échange de bout en bout |
+| O-01 | Pas à pas, progression continue, filtres, inspection | 3 | disponible avec limites | M-10 | Pas à pas, lecture continue et filtres (équipement, catégorie) disponibles en phase 2 ; inspection des trames et regroupement par échange en phase 3 |
 | O-02 | Animations issues des événements, arrêt en pause, mouvement réduit | 3 | prévu | O-01 | Aucune animation sans événement moteur |
 | O-03 | Inspecteur limité aux champs modélisés, correspondance OSI documentée | 3 | prévu | O-01 | Aucun octet inventé |
 | O-04 | Explications débutant et technique générées depuis les faits du moteur | 3 | prévu | M-10 | Échec expliqué sans IA externe |

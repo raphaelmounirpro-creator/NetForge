@@ -31,6 +31,7 @@ export const ISSUE_CODES = [
   "link.same-device",
   "link.port-in-use",
   "link.no-free-port",
+  "topology.switch-loop",
   // Configurations et disposition
   "config.missing",
   "config.unknown-device",
@@ -49,6 +50,15 @@ export const ISSUE_CODES = [
   "gateway.without-address",
   "gateway.outside-subnet",
   "gateway.is-own-address",
+  // Routes statiques
+  "config.routes-not-supported",
+  "route.not-found",
+  "route.too-many",
+  "route.not-network-address",
+  "route.duplicate",
+  "route.invalid-next-hop",
+  "route.next-hop-is-own-address",
+  "route.next-hop-not-connected",
 ] as const;
 
 export type IssueCode = (typeof ISSUE_CODES)[number];

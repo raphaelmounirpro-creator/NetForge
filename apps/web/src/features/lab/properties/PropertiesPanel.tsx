@@ -18,10 +18,11 @@ import { fill, formatIssue, messages } from "../../../i18n";
 import { useLabStore, type OpenProject } from "../store";
 import { ConnectForm } from "./ConnectForm";
 import { Ipv4Form } from "./Ipv4Form";
+import { RoutesTab } from "./RoutesTab";
 import { SingleFieldForm } from "./SingleFieldForm";
 
 const t = messages.properties;
-type DeviceTab = "general" | "interfaces";
+type DeviceTab = "general" | "interfaces" | "routes";
 
 function findLinkOnPort(doc: NfgDocument, deviceId: string, portId: string) {
   return doc.topology.links.find((link) => link.endpoints.some((end) => end.deviceId === deviceId && end.portId === portId));
@@ -189,6 +190,7 @@ function DeviceProperties({ projectId, project, device, issues }: { projectId: s
         tabs={[
           { id: "general", label: t.general },
           { id: "interfaces", label: t.interfaces },
+          ...(getModel(device.model).kind === "router" ? [{ id: "routes" as const, label: t.routes }] : []),
         ]}
         selected={tab}
         onSelect={setTab}
@@ -196,6 +198,8 @@ function DeviceProperties({ projectId, project, device, issues }: { projectId: s
       >
         {tab === "general" ? (
           <GeneralTab projectId={projectId} project={project} device={device} />
+        ) : tab === "routes" ? (
+          <RoutesTab projectId={projectId} project={project} device={device} />
         ) : (
           <InterfacesTab projectId={projectId} project={project} device={device} />
         )}

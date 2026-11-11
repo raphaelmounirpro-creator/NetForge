@@ -1,8 +1,14 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    // Build : les paquets internes sont résolus vers leur dist (exécutable par Node).
+    "customConditions": [],
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
     "declaration": true,
     "sourceMap": true
   },
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/test-support/**"]
 }

@@ -32,17 +32,18 @@ export function useLabShortcuts(projectId: string | null): void {
       } else if (command || event.altKey) {
         return;
       } else if (event.key === "Delete" || event.key === "Backspace") {
-        if (!editable || !project.selection) return;
+        // La vue Simulation observe le réseau : on n'y supprime rien au clavier.
+        if (!editable || !project.selection || project.view === "simulation") return;
         event.preventDefault();
         deleteSelection(projectId);
       } else if (event.key === "Escape") {
         state.select(projectId, null);
         state.setLinkSource(projectId, null);
-      } else if (project.view !== "topology") {
+      } else if (project.view === "configuration") {
         return;
-      } else if (key === "v") {
+      } else if (key === "v" && project.view === "topology") {
         state.setTool(projectId, "select");
-      } else if (key === "l" && editable) {
+      } else if (key === "l" && editable && project.view === "topology") {
         state.setTool(projectId, project.tool === "link" ? "select" : "link");
       } else if (event.key === "+" || event.key === "=") {
         zoomBy(projectId, ZOOM_STEP);

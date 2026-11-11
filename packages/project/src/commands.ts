@@ -7,9 +7,11 @@ import {
   LIMITS,
   NFG_FORMAT,
   type Device,
+  type DeviceConfig,
   type LinkEndpoint,
   type NfgDocument,
   type Position,
+  type StaticRoute,
 } from "./schema.js";
 import { validateDocument } from "./validation.js";
 
@@ -38,6 +40,10 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
   const errors = introduced.filter((issue) => issue.severity === "error");
   if (errors.length > 0) return fail(...errors);
   return { ok: true, document: after, warnings: introduced };
+}
+
+function emptyConfig(): DeviceConfig {
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [] };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -108,7 +114,7 @@ export function addDevice(
   return commit(doc, {
     ...doc,
     topology: { ...doc.topology, devices: [...doc.topology.devices, device] },
-    configurations: { ...doc.configurations, [device.id]: { interfaces: {}, defaultGateway: null } },
+    configurations: { ...doc.configurations, [device.id]: emptyConfig() },
     layout: { devices: { ...doc.layout.devices, [device.id]: clampPosition(params.position) } },
   });
 }
@@ -258,7 +264,7 @@ export function setInterfaceIpv4(
   if (params.ipv4 && !isIpv4Address(params.ipv4.address)) {
     return fail(error("ipv4.invalid-address", { value: params.ipv4.address }));
   }
-  const config = doc.configurations[device.id] ?? { interfaces: {}, defaultGateway: null };
+  const config = doc.configurations[device.id] ?? emptyConfig();
   const { [params.portId]: _previous, ...otherInterfaces } = config.interfaces;
   const interfaces = params.ipv4 ? { ...otherInterfaces, [params.portId]: { ipv4: params.ipv4 } } : otherInterfaces;
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, interfaces } } });
@@ -276,9 +282,74 @@ export function setDefaultGateway(
   // Chaîne vide ou null : la passerelle est retirée.
   const gateway = params.gateway?.trim() || null;
   if (gateway !== null && !isIpv4Address(gateway)) return fail(error("ipv4.invalid-address", { value: gateway }));
-  const config = doc.configurations[device.id] ?? { interfaces: {}, defaultGateway: null };
+  const config = doc.configurations[device.id] ?? emptyConfig();
   return commit(doc, {
     ...doc,
     configurations: { ...doc.configurations, [device.id]: { ...config, defaultGateway: gateway } },
   });
+}
+
+// ---------------------------------------------------------------- Routes statiques
+
+/**
+ * Analyse une saisie de route : réseau de destination, masque (préfixe ou
+ * notation décimale) et prochain saut. Partagée par les formulaires et la future CLI.
+ */
+export function parseRouteInput(
+  destinationText: string,
+  maskText: string,
+  nextHopText: string,
+): { ok: true; route: StaticRoute } | { ok: false; errors: Issue[] } {
+  const errors: Issue[] = [];
+  const destination = destinationText.trim();
+  const nextHop = nextHopText.trim();
+  if (parseIpv4(destination) === null) errors.push(error("ipv4.invalid-address", { value: destination }));
+  const prefixLength = parsePrefixOrMask(maskText);
+  if (prefixLength === null) errors.push(error("ipv4.invalid-mask", { value: maskText.trim() }));
+  if (parseIpv4(nextHop) === null) errors.push(error("ipv4.invalid-address", { value: nextHop }));
+  if (errors.length > 0 || prefixLength === null) return { ok: false, errors };
+  return { ok: true, route: { destination, prefixLength, nextHop } };
+}
+
+function routesNotSupported(device: Device): CommandResult {
+  return fail(error("config.routes-not-supported", { deviceId: device.id, deviceName: device.name }));
+}
+
+/** Ajoute une route statique à un routeur (doublons et incohérences refusés par la validation). */
+export function addStaticRoute(doc: NfgDocument, params: { deviceId: string; route: StaticRoute }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "router") return routesNotSupported(device);
+  for (const value of [params.route.destination, params.route.nextHop]) {
+    if (!isIpv4Address(value)) return fail(error("ipv4.invalid-address", { value }));
+  }
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  if (config.staticRoutes.length >= LIMITS.maxStaticRoutes) {
+    return fail(error("route.too-many", { deviceId: device.id, deviceName: device.name, max: LIMITS.maxStaticRoutes }));
+  }
+  const staticRoutes = [...config.staticRoutes, { ...params.route }];
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, staticRoutes } } });
+}
+
+/** Retire la route identifiée par sa destination et sa longueur de préfixe. */
+export function removeStaticRoute(
+  doc: NfgDocument,
+  params: { deviceId: string; destination: string; prefixLength: number },
+): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  const matches = (route: StaticRoute) => route.destination === params.destination && route.prefixLength === params.prefixLength;
+  if (!config.staticRoutes.some(matches)) {
+    return fail(
+      error("route.not-found", {
+        deviceId: device.id,
+        deviceName: device.name,
+        destination: params.destination,
+        prefixLength: params.prefixLength,
+      }),
+    );
+  }
+  const staticRoutes = config.staticRoutes.filter((route) => !matches(route));
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, staticRoutes } } });
 }

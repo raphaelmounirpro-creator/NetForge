@@ -4,6 +4,13 @@ import { fr } from "./fr";
 /** Messages de la langue active. Une seule langue (français) pour l'instant. */
 export const messages = fr;
 
+/**
+ * Tri des noms à la française, nombres compris (PC2 avant PC10). Un seul
+ * comparateur partagé : localeCompare avec options en recrée un à chaque appel.
+ */
+const nameCollator = new Intl.Collator("fr", { numeric: true });
+export const compareNames = (a: string, b: string): number => nameCollator.compare(a, b);
+
 /** Remplit un gabarit « Texte {nom} » avec les paramètres fournis. */
 export function fill(template: string, params: Readonly<Record<string, string | number>> = {}): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) => {

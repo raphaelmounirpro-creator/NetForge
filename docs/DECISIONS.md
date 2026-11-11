@@ -96,3 +96,35 @@ Avec une seule connectique (RJ45), la règle « même connectique » était touj
 ## D-021 — Tests navigateur Playwright
 
 Playwright 1.64 (`apps/web/e2e`). En CI : Chromium installé par Playwright. En local, `PLAYWRIGHT_CHANNEL=msedge` (ou `chrome`) réutilise un navigateur déjà installé, sans téléchargement.
+
+## D-022 — Modification du projet pendant la simulation : réinitialisation demandée
+
+La vue Simulation compare l'empreinte du réseau chargé dans le moteur (topologie et configurations, clés triées) à celle du projet. Déplacer un symbole, zoomer ou renommer le projet ne la change pas. Toute autre modification met la simulation en pause, bloque ses commandes et demande « Réinitialiser avec la nouvelle configuration » : le moteur n'est jamais modifié en cours d'exécution et aucun événement devenu invalide n'est repris. La réinitialisation recharge la configuration actuelle (même graine).
+
+## D-023 — Moteur fondé sur `@netforge/project`, adresses MAC dérivées
+
+Le moteur lit le format et le catalogue du paquet `project` (une seule définition des ports, de l'IPv4 et de la validation) ; il refuse un document comportant des erreurs. Le projet ne stocke pas d'adresse MAC : chaque port reçoit une adresse administrée localement dérivée de son identifiant (stable d'une session à l'autre ; collisions résolues dans un ordre trié). La graine de simulation n'est pas enregistrée dans le projet (contrairement à ce qu'envisageait D-016) : elle est fixe dans l'interface (1) et affichée ; elle reste un paramètre du moteur pour les tests et les futures évaluations.
+
+## D-024 — Format `.nfg.json` v2 : routes statiques
+
+Première migration réelle : la v2 ajoute `staticRoutes` (destination, préfixe, prochain saut ; 64 au plus) à chaque configuration. Les fichiers v1 sont migrés à l'import comme à la lecture d'IndexedDB (liste vide), sans modifier la valeur d'origine ; une version 2 sans la liste est refusée. Les routes ne se configurent que sur un routeur ; le prochain saut hors des réseaux connectés est un avertissement (route inactive), pas une erreur, pour permettre les exercices de dépannage.
+
+## D-025 — Commandes appliquées à l'instant courant
+
+Une commande (ping, coupure de câble) est validée puis programmée à l'instant simulé courant ; l'adaptateur traite aussitôt les événements de cet instant. Le clic a donc un effet visible même en pause (sans cela, couper un câble en pause semblait sans effet), tout en restant une frontière d'événements définie : le journal des commandes (instant + commande) permet de rejouer exactement une session.
+
+## D-026 — Adaptateur Web Worker et projection côté interface
+
+Le moteur s'exécute dans un Web Worker ; l'adaptateur (`packages/engine/src/host.ts`) est testé sans navigateur avec une horloge et des minuteurs simulés. Messages versionnés et validés (Zod) ; chaque requête reçoit un accusé ou une erreur corrélés. Les mises à jour ne contiennent que les décisions nouvelles et les tables modifiées ; pendant un calcul intensif, une seule par 100 ms, sans perte (le tampon part avec la mise à jour suivante, quelle qu'elle soit). L'interface conserve une projection (Zustand) qui garde ses références quand rien ne change, construit l'index des noms une fois par chargement et diffère le rendu du journal (`useDeferredValue`, 100 lignes rendues d'emblée, `content-visibility`) : mesuré, ce rendu était la cause principale de blocage du fil principal.
+
+## D-027 — Une seule simulation active
+
+Le moteur est rattaché à un projet ouvert. Changer de projet actif met sa simulation en pause avec un message ; la vue Simulation d'un autre projet propose explicitement de la remplacer. Fermer le projet simulé arrête le Worker. Les sessions de simulation ne sont pas enregistrées (état d'exécution, D-016).
+
+## D-028 — Mini-carte et glisser-déposer reportés en phase 3
+
+E-12 était prévue en phase 2 « pour le scénario de 100 équipements ». La mesure montre que ce scénario s'affiche et se simule sans difficulté avec le zoom et « Ajuster à la topologie » ; la mini-carte sera plus utile avec les animations de la phase 3, qui l'accompagne. Report explicite, inscrit dans la feuille de route.
+
+## D-029 — Mesures de performance séparées des parcours fonctionnels
+
+`pnpm test:perf` (Playwright, configuration `e2e/playwright.perf.config.ts`, build de production servi par `vite preview`, une mesure à la fois) mesure séparément le calcul du moteur dans le Worker, l'intégration des lots et les tâches longues du fil principal (rendu compris) sur le scénario de 100 équipements et sur une tempête de diffusion ; `pnpm perf:engine` mesure le moteur seul dans Node. Les seuils, tirés d'une première mesure sur le poste de référence avec une marge, sont consignés dans `docs/PROGRESS.md`. Ces mesures dépendent de la machine : elles ne font pas partie de `pnpm test:e2e` ni de la CI.

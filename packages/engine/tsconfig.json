@@ -3,9 +3,10 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    // Typage, lint et tests consomment les sources des paquets du monorepo.
+    "customConditions": ["source"],
     "types": [],
-    "rootDir": "src",
-    "outDir": "dist"
+    "noEmit": true
   },
-  "include": ["src"]
+  "include": ["src", "*.config.ts"]
 }

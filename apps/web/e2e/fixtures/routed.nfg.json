@@ -1,0 +1,175 @@
+{
+  "format": "netforge-project",
+  "schemaVersion": 2,
+  "models": {
+    "catalog": 1
+  },
+  "metadata": {
+    "id": "scenario-routed",
+    "name": "Deux sous-réseaux",
+    "description": "",
+    "createdAt": "2026-11-11T08:00:00.000Z",
+    "updatedAt": "2026-11-11T08:00:00.000Z"
+  },
+  "topology": {
+    "devices": [
+      {
+        "id": "pc1",
+        "model": "PC",
+        "name": "PC1"
+      },
+      {
+        "id": "sw1",
+        "model": "S-24",
+        "name": "SW1"
+      },
+      {
+        "id": "r1",
+        "model": "R-200",
+        "name": "R1"
+      },
+      {
+        "id": "sw2",
+        "model": "S-24",
+        "name": "SW2"
+      },
+      {
+        "id": "pc2",
+        "model": "PC",
+        "name": "PC2"
+      }
+    ],
+    "links": [
+      {
+        "id": "l1",
+        "endpoints": [
+          {
+            "deviceId": "pc1",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l2",
+        "endpoints": [
+          {
+            "deviceId": "sw1",
+            "portId": "ge24"
+          },
+          {
+            "deviceId": "r1",
+            "portId": "ge0"
+          }
+        ]
+      },
+      {
+        "id": "l3",
+        "endpoints": [
+          {
+            "deviceId": "r1",
+            "portId": "ge1"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l4",
+        "endpoints": [
+          {
+            "deviceId": "sw2",
+            "portId": "ge1"
+          },
+          {
+            "deviceId": "pc2",
+            "portId": "eth0"
+          }
+        ]
+      }
+    ]
+  },
+  "configurations": {
+    "pc1": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "192.168.1.10",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": "192.168.1.1",
+      "staticRoutes": []
+    },
+    "sw1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "r1": {
+      "interfaces": {
+        "ge0": {
+          "ipv4": {
+            "address": "192.168.1.1",
+            "prefixLength": 24
+          }
+        },
+        "ge1": {
+          "ipv4": {
+            "address": "192.168.2.1",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw2": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc2": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "192.168.2.10",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": "192.168.2.1",
+      "staticRoutes": []
+    }
+  },
+  "layout": {
+    "devices": {
+      "pc1": {
+        "x": 100,
+        "y": 300
+      },
+      "sw1": {
+        "x": 250,
+        "y": 200
+      },
+      "r1": {
+        "x": 400,
+        "y": 120
+      },
+      "sw2": {
+        "x": 550,
+        "y": 200
+      },
+      "pc2": {
+        "x": 700,
+        "y": 300
+      }
+    }
+  }
+}

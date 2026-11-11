@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test --config e2e/playwright.config.ts"
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
+    "test:perf": "playwright test --config e2e/playwright.perf.config.ts"
   },
   "dependencies": {
     "@netforge/engine": "workspace:*",

@@ -2,7 +2,7 @@
 
 Laboratoire web pédagogique de simulation de réseaux pour la formation de techniciens télécom : cuivre, Ethernet/IP, fibre optique, FTTH et réseaux d'entreprise.
 
-> **État actuel : phase 1 (éditeur et persistance locale).** Le laboratoire invité permet de placer des PC, switches et routeurs, de les relier, de configurer l'adressage IPv4, d'annuler/rétablir, d'enregistrer automatiquement dans le navigateur et d'exporter/importer des fichiers `.nfg.json`. **Aucune simulation n'est encore disponible** (moteur : phase 2). Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
+> **État actuel : phase 2 (moteur LAN et routage statique).** Le laboratoire invité permet de construire et configurer un réseau (PC, switches, routeurs, adressage IPv4, routes statiques), puis de le **simuler** : ping, ARP, commutation, routage, coupure de câble, pas à pas, journal des décisions expliquées en français et tables observables (MAC, ARP, routage). Enregistrement automatique dans le navigateur, export/import `.nfg.json`. Suivi détaillé : [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Prérequis
 
@@ -37,10 +37,11 @@ Ouvre http://localhost:5173 (redirigé vers `/laboratoire`). Aucun compte, aucun
 
 1. **Nouveau projet**, puis ajout d'équipements depuis la palette (PC, Switch S-24, Routeur R-200) : ils apparaissent au centre de la vue et se déplacent à la souris ou aux flèches.
 2. **Relier** : outil de liaison (touche L) puis clic sur deux équipements, ou formulaire « Relier un port libre » de l'onglet Interfaces des propriétés.
-3. **Configurer** : adresse IPv4 et masque (`255.255.255.0` ou `24`) par port, passerelle par défaut des PC. Les erreurs bloquent ; les incohérences possibles (adresse en double, passerelle hors réseau) sont signalées sans bloquer, pour les exercices de dépannage.
-4. **Vue Configuration** : plan d'adressage et liens en tableaux, utilisables entièrement au clavier.
-5. **Enregistrement** automatique dans ce navigateur (« Enregistré localement »). Ce stockage n'est pas une sauvegarde garantie : exportez vos projets (`.nfg.json`) depuis la barre d'outils ou la page Projets.
-6. **Plusieurs onglets** : un seul onglet modifie un projet ; les autres passent en lecture seule et peuvent « Prendre la main ».
+3. **Configurer** : adresse IPv4 et masque (`255.255.255.0` ou `24`) par port, passerelle par défaut des PC, **routes statiques** des routeurs (sous-onglet Routes : réseau de destination, masque, prochain saut). Les erreurs bloquent ; les incohérences possibles (adresse en double, passerelle hors réseau, boucle de switches) sont signalées sans bloquer, pour les exercices de dépannage.
+4. **Vue Configuration** : plan d'adressage, liens et routes statiques en tableaux, utilisables entièrement au clavier.
+5. **Vue Simulation** : choisir un PC source et une adresse de destination puis « Lancer le ping » ; observer avec « Événement suivant » (pas à pas), « Lecture » (temps réel, ×10 ou ×100) ou « Terminer les échanges ». Le journal explique chaque décision du moteur (filtres par équipement et catégorie) ; l'onglet Pings donne les résultats ; le panneau « État d'exécution » montre les tables de l'équipement inspecté. « Couper le câble » simule une panne sans modifier le projet. Modifier le réseau pendant une simulation demande une réinitialisation.
+6. **Enregistrement** automatique dans ce navigateur (« Enregistré localement »). Ce stockage n'est pas une sauvegarde garantie : exportez vos projets (`.nfg.json`) depuis la barre d'outils ou la page Projets.
+7. **Plusieurs onglets** : un seul onglet modifie un projet ; les autres passent en lecture seule et peuvent « Prendre la main ».
 
 Raccourcis : Ctrl+Z / Ctrl+Y, V (sélection), L (liaison), Suppr, flèches (déplacement), + / − / 0 (zoom), Échap. Liste complète : bouton « Raccourcis clavier » du laboratoire.
 
@@ -88,9 +89,11 @@ pnpm test        # Vitest (moteur, contrats, interface, API)
 pnpm build       # builds de production
 pnpm check       # les quatre à la suite
 pnpm test:e2e    # parcours navigateur Playwright (lance le serveur Vite)
+pnpm test:perf   # mesures de performance dans le navigateur (100 équipements, tempête de diffusion)
+pnpm perf:engine # mesure du moteur seul dans Node
 ```
 
-Pour `pnpm test:e2e`, installer Chromium une fois (`pnpm --filter @netforge/web exec playwright install chromium`) **ou** réutiliser un navigateur présent : `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` (ou `chrome`).
+Pour `pnpm test:e2e` et `pnpm test:perf`, installer Chromium une fois (`pnpm --filter @netforge/web exec playwright install chromium`) **ou** réutiliser un navigateur présent : `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` (ou `chrome`). Les seuils de performance correspondent au poste de référence décrit dans [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Structure
 
@@ -105,10 +108,10 @@ docs/               Suivi, feuille de route, décisions, design, protocoles
 
 ## Limites actuelles
 
-- Pas encore de simulation (ping, ARP…), de CLI, de comptes ni de déploiement.
+- Simulation : Ethernet, ARP, IPv4, ICMP et routage statique, à un niveau pédagogique simplifié documenté dans [docs/protocols](docs/protocols/README.md). Pas encore d'animations de paquets, d'inspecteur, de CLI, d'outils PC ni d'exercices (phase 3) ; pas de VLAN, STP, DHCP ni routage dynamique.
+- Pas de comptes ni de déploiement.
 - Éditeur conçu pour un écran d'au moins 1 024 px ; pas d'édition complète sur smartphone.
 - Une seule connectique (cuivre RJ45) ; pas encore d'annotations ni de mini-carte.
-- Le moteur ne contient que l'unité de temps simulé (nanosecondes entières).
 - Le visuel de connexion attend les fichiers de référence (maquette et photo) : voir [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Documentation

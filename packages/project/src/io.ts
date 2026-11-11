@@ -6,16 +6,34 @@ export type ParseResult = { ok: true; document: NfgDocument; warnings: Issue[] }
 
 const MAX_REPORTED_SCHEMA_ERRORS = 10;
 
-/**
- * Migrations explicites : MIGRATIONS[v] transforme un document de la version
- * v en version v + 1. Aucune migration tant que seule la version 1 existe ;
- * chaque nouvelle version ajoute ici une étape testée.
- */
-const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Record<string, unknown>>> = {};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+/**
+ * Version 1 → 2 : ajout des routes statiques (liste vide pour chaque
+ * équipement). Une structure inattendue est laissée telle quelle : la
+ * validation du schéma la refusera ensuite avec un message précis.
+ */
+function migrateV1toV2(doc: Record<string, unknown>): Record<string, unknown> {
+  const configurations = doc["configurations"];
+  if (!isRecord(configurations)) return { ...doc, schemaVersion: 2 };
+  const migrated: Record<string, unknown> = {};
+  for (const [deviceId, config] of Object.entries(configurations)) {
+    // Une clé déjà présente (fichier v1 retouché à la main) n'est pas écrasée :
+    // elle sera validée par le schéma v2 plutôt que perdue silencieusement.
+    migrated[deviceId] = isRecord(config) ? { ...config, staticRoutes: config["staticRoutes"] ?? [] } : config;
+  }
+  return { ...doc, schemaVersion: 2, configurations: migrated };
+}
+
+/**
+ * Migrations explicites : MIGRATIONS[v] transforme un document de la version
+ * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
+ */
+const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Record<string, unknown>>> = {
+  1: migrateV1toV2,
+};
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */
 const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);

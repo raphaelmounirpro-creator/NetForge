@@ -1,0 +1,18 @@
+// Régénère les projets de référence des parcours navigateur à partir des
+// scénarios versionnés du moteur. Usage : pnpm build:packages, puis
+// node apps/web/e2e/fixtures/generate.mjs (un test unitaire vérifie la synchronisation).
+import { writeFileSync } from "node:fs";
+import { performanceScenario, routedScenario, switchLoopScenario, twoRoutersScenario } from "@netforge/engine";
+import { serializeNfg } from "@netforge/project";
+
+const fixtures = {
+  "routed.nfg.json": routedScenario(),
+  "two-routers-no-return.nfg.json": twoRoutersScenario({ r2Route: false }),
+  "perf-100.nfg.json": performanceScenario(),
+  "switch-loop.nfg.json": switchLoopScenario(),
+};
+
+for (const [name, doc] of Object.entries(fixtures)) {
+  writeFileSync(new URL(name, import.meta.url), serializeNfg(doc));
+  console.log(`écrit : ${name}`);
+}

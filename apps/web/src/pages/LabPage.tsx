@@ -18,6 +18,11 @@ import { useLabStore, type LabView } from "../features/lab/store";
 import { TopologyCanvas } from "../features/lab/topology/TopologyCanvas";
 import { useLabShortcuts } from "../features/lab/useLabShortcuts";
 import { NewProjectDialog } from "../features/projects/NewProjectDialog";
+import { RuntimePanel } from "../features/simulation/RuntimePanel";
+import { SimulationActions } from "../features/simulation/SimulationActions";
+import { SimulationView } from "../features/simulation/SimulationView";
+import { useIsStale } from "../features/simulation/services";
+import { useSimulationStore } from "../features/simulation/store";
 
 const t = messages.lab;
 const WIDE_LAYOUT = 1024;
@@ -33,6 +38,9 @@ export function LabPage() {
   const [paletteOpen, setPaletteOpen] = useState(() => window.innerWidth >= WIDE_LAYOUT);
   const [propertiesOpen, setPropertiesOpen] = useState(() => window.innerWidth >= WIDE_LAYOUT);
   useLabShortcuts(activeId);
+  const session = useSimulationStore((state) => (activeId && state.session?.projectId === activeId ? state.session : null));
+  const stale = useIsStale(activeId ?? "");
+  const simulationBlocked = !session || session.phase !== "ready" || session.workerError || stale || session.status === "interrupted";
 
   const requestClose = async (id: string) => {
     if ((await projectService.close(id)) === "unsaved") setClosing(id);
@@ -57,6 +65,7 @@ export function LabPage() {
             label={t.views}
             tabs={[
               { id: "topology", label: t.viewTopology },
+              { id: "simulation", label: t.viewSimulation },
               { id: "configuration", label: t.viewConfiguration },
             ]}
             selected={project.view}
@@ -84,21 +93,37 @@ export function LabPage() {
           >
             <div className="flex h-full min-h-0">
               {paletteOpen && (
-                <aside aria-label={messages.palette.region} className="w-60 shrink-0 animate-panel-in-left border-r border-border bg-surface">
-                  <Palette projectId={activeId} project={project} />
+                <aside
+                  aria-label={project.view === "simulation" ? messages.simulation.actions : messages.palette.region}
+                  className="w-64 shrink-0 animate-panel-in-left border-r border-border bg-surface"
+                >
+                  {project.view === "simulation" ? (
+                    <SimulationActions session={session} disabled={simulationBlocked} />
+                  ) : (
+                    <Palette projectId={activeId} project={project} />
+                  )}
                 </aside>
               )}
               <div key={project.view} className="relative min-w-0 flex-1 animate-view-in">
                 {project.view === "topology" ? (
                   <TopologyCanvas projectId={activeId} project={project} />
+                ) : project.view === "simulation" ? (
+                  <SimulationView projectId={activeId} project={project} />
                 ) : (
                   <ConfigurationView projectId={activeId} project={project} />
                 )}
                 <FeedbackBar projectId={activeId} project={project} />
               </div>
               {propertiesOpen && (
-                <aside aria-label={messages.properties.title} className="w-[22rem] shrink-0 animate-panel-in-right border-l border-border bg-surface">
-                  <PropertiesPanel projectId={activeId} project={project} />
+                <aside
+                  aria-label={project.view === "simulation" ? messages.simulation.runtime.title : messages.properties.title}
+                  className="w-[22rem] shrink-0 animate-panel-in-right border-l border-border bg-surface"
+                >
+                  {project.view === "simulation" ? (
+                    <RuntimePanel projectId={activeId} session={session} selection={project.selection} disabled={simulationBlocked} />
+                  ) : (
+                    <PropertiesPanel projectId={activeId} project={project} />
+                  )}
                 </aside>
               )}
             </div>

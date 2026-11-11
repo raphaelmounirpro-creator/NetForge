@@ -1,0 +1,167 @@
+{
+  "format": "netforge-project",
+  "schemaVersion": 2,
+  "models": {
+    "catalog": 1
+  },
+  "metadata": {
+    "id": "scenario-two-routers",
+    "name": "Deux routeurs",
+    "description": "",
+    "createdAt": "2026-11-11T08:00:00.000Z",
+    "updatedAt": "2026-11-11T08:00:00.000Z"
+  },
+  "topology": {
+    "devices": [
+      {
+        "id": "pc1",
+        "model": "PC",
+        "name": "PC1"
+      },
+      {
+        "id": "r1",
+        "model": "R-200",
+        "name": "R1"
+      },
+      {
+        "id": "r2",
+        "model": "R-200",
+        "name": "R2"
+      },
+      {
+        "id": "pc2",
+        "model": "PC",
+        "name": "PC2"
+      }
+    ],
+    "links": [
+      {
+        "id": "l1",
+        "endpoints": [
+          {
+            "deviceId": "pc1",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "r1",
+            "portId": "ge0"
+          }
+        ]
+      },
+      {
+        "id": "l2",
+        "endpoints": [
+          {
+            "deviceId": "r1",
+            "portId": "ge1"
+          },
+          {
+            "deviceId": "r2",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l3",
+        "endpoints": [
+          {
+            "deviceId": "r2",
+            "portId": "ge0"
+          },
+          {
+            "deviceId": "pc2",
+            "portId": "eth0"
+          }
+        ]
+      }
+    ]
+  },
+  "configurations": {
+    "pc1": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.0.1.10",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": "10.0.1.1",
+      "staticRoutes": []
+    },
+    "r1": {
+      "interfaces": {
+        "ge0": {
+          "ipv4": {
+            "address": "10.0.1.1",
+            "prefixLength": 24
+          }
+        },
+        "ge1": {
+          "ipv4": {
+            "address": "10.0.12.1",
+            "prefixLength": 30
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": [
+        {
+          "destination": "10.0.2.0",
+          "prefixLength": 24,
+          "nextHop": "10.0.12.2"
+        }
+      ]
+    },
+    "r2": {
+      "interfaces": {
+        "ge1": {
+          "ipv4": {
+            "address": "10.0.12.2",
+            "prefixLength": 30
+          }
+        },
+        "ge0": {
+          "ipv4": {
+            "address": "10.0.2.1",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc2": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.0.2.10",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": "10.0.2.1",
+      "staticRoutes": []
+    }
+  },
+  "layout": {
+    "devices": {
+      "pc1": {
+        "x": 100,
+        "y": 300
+      },
+      "r1": {
+        "x": 300,
+        "y": 200
+      },
+      "r2": {
+        "x": 500,
+        "y": 200
+      },
+      "pc2": {
+        "x": 700,
+        "y": 300
+      }
+    }
+  }
+}

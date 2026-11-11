@@ -1,6 +1,6 @@
 import { connectDevices, getModel, moveDevice, type NfgDocument } from "@netforge/project";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Layer, Line, Stage, Text } from "react-konva";
 import { fill, messages } from "../../../i18n";
 import { deleteSelection, newEntityId, zoomBy } from "../actions";
@@ -27,14 +27,26 @@ interface DragState {
   y: number;
 }
 
-export function TopologyCanvas({ projectId, project }: { projectId: string; project: OpenProject }) {
+interface TopologyCanvasProps {
+  projectId: string;
+  project: OpenProject;
+  /** « simulate » : observation (déplacements autorisés, aucun outil d'édition du réseau). */
+  mode?: "edit" | "simulate";
+  /** État des câbles calculé par le moteur (vue Simulation). */
+  linkStates?: Readonly<Record<string, boolean>> | undefined;
+}
+
+/** Mémoïsé : la vue Simulation reçoit des lots fréquents qui ne concernent pas le canevas. */
+export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project, mode = "edit", linkStates }: TopologyCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const helpId = useId();
   const colors = useThemeColors();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [drag, setDrag] = useState<DragState | null>(null);
-  const { document: doc, viewport, selection, tool, linkSourceId, access } = project;
+  const { document: doc, viewport, selection, linkSourceId, access } = project;
   const editable = access === "editor";
+  const simulate = mode === "simulate";
+  const tool = simulate ? "select" : project.tool;
 
   useEffect(() => {
     const element = containerRef.current;
@@ -132,11 +144,11 @@ export function TopologyCanvas({ projectId, project }: { projectId: string; proj
     <div
       ref={containerRef}
       role="region"
-      aria-label={messages.lab.viewTopology}
+      aria-label={simulate ? messages.lab.viewSimulation : messages.lab.viewTopology}
       aria-describedby={helpId}
       tabIndex={0}
       onKeyDown={(event) => {
-        if ((event.key === "Delete" || event.key === "Backspace") && editable) {
+        if ((event.key === "Delete" || event.key === "Backspace") && editable && !simulate) {
           event.preventDefault();
           deleteSelection(projectId);
           return;
@@ -174,6 +186,7 @@ export function TopologyCanvas({ projectId, project }: { projectId: string; proj
               const posB = positionOf(b.deviceId);
               if (!posA || !posB) return null;
               const selected = selection?.kind === "link" && selection.id === link.id;
+              const down = linkStates?.[link.id] === false;
               const select = () => {
                 store().select(projectId, { kind: "link", id: link.id });
               };
@@ -181,8 +194,9 @@ export function TopologyCanvas({ projectId, project }: { projectId: string; proj
                 <Line
                   key={link.id}
                   points={[posA.x, posA.y, posB.x, posB.y]}
-                  stroke={selected ? colors.accent : colors["border-strong"]}
+                  stroke={selected ? colors.accent : down ? colors.danger : colors["border-strong"]}
                   strokeWidth={selected ? 3 : 2}
+                  dash={down ? [8, 6] : []}
                   hitStrokeWidth={14}
                   onClick={select}
                   onTap={select}
@@ -215,6 +229,28 @@ export function TopologyCanvas({ projectId, project }: { projectId: string; proj
                   />
                 ));
               })}
+            {/* Câble coupé : le libellé texte double le pointillé (la couleur n'est jamais seule). */}
+            {doc.topology.links.map((link) => {
+              if (linkStates?.[link.id] !== false) return null;
+              const [a, b] = link.endpoints;
+              const posA = positionOf(a.deviceId);
+              const posB = positionOf(b.deviceId);
+              if (!posA || !posB) return null;
+              return (
+                <Text
+                  key={`${link.id}-down`}
+                  text={`✕ ${messages.simulation.linkDown}`}
+                  x={(posA.x + posB.x) / 2 - 40}
+                  y={(posA.y + posB.y) / 2 - 8}
+                  width={80}
+                  align="center"
+                  fontSize={12}
+                  fontStyle="bold"
+                  fill={colors.danger}
+                  listening={false}
+                />
+              );
+            })}
             {doc.topology.devices.map((device) => {
               const position = doc.layout.devices[device.id];
               if (!position) return null;
@@ -250,11 +286,11 @@ export function TopologyCanvas({ projectId, project }: { projectId: string; proj
           </div>
         </div>
       )}
-      {tool === "link" && editable && (
+      {tool === "link" && editable && !simulate && (
         <p className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-md border border-accent-text bg-surface px-3 py-1.5 text-xs text-text">
           {linkSourceId ? fill(messages.lab.linkModeSource, { name: nameOf(linkSourceId) }) : messages.lab.linkModeHint}
         </p>
       )}
     </div>
   );
-}
+});

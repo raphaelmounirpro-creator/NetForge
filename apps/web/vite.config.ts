@@ -17,6 +17,10 @@ export default defineConfig({
       conditions: [SOURCE_CONDITION, ...defaultServerConditions],
     },
   },
+  // Moteur de simulation exécuté dans un Web Worker module (import ESM).
+  worker: {
+    format: "es",
+  },
   server: {
     port: 5173,
     strictPort: true,

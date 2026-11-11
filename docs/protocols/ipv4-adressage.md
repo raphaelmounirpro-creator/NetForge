@@ -1,6 +1,6 @@
 # Adressage IPv4 (configuration)
 
-Niveau : **pédagogique simplifié — configuration et validation uniquement**. Aucun échange IPv4 n'est simulé avant la phase 2 (moteur ARP/IPv4/ICMP).
+Niveau : **pédagogique simplifié — configuration et validation**. L'acheminement des paquets est décrit dans [ipv4-routage.md](ipv4-routage.md).
 
 Code : [packages/project/src/ipv4.ts](../../packages/project/src/ipv4.ts), [validation.ts](../../packages/project/src/validation.ts).
 

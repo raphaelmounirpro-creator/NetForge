@@ -1,0 +1,3343 @@
+{
+  "format": "netforge-project",
+  "schemaVersion": 2,
+  "models": {
+    "catalog": 1
+  },
+  "metadata": {
+    "id": "scenario-perf-100",
+    "name": "Performance 100 équipements",
+    "description": "",
+    "createdAt": "2026-11-11T08:00:00.000Z",
+    "updatedAt": "2026-11-11T08:00:00.000Z"
+  },
+  "topology": {
+    "devices": [
+      {
+        "id": "sw0",
+        "model": "S-24",
+        "name": "SW0"
+      },
+      {
+        "id": "sw1",
+        "model": "S-24",
+        "name": "SW1"
+      },
+      {
+        "id": "pc1",
+        "model": "PC",
+        "name": "PC1"
+      },
+      {
+        "id": "pc2",
+        "model": "PC",
+        "name": "PC2"
+      },
+      {
+        "id": "pc3",
+        "model": "PC",
+        "name": "PC3"
+      },
+      {
+        "id": "pc4",
+        "model": "PC",
+        "name": "PC4"
+      },
+      {
+        "id": "pc5",
+        "model": "PC",
+        "name": "PC5"
+      },
+      {
+        "id": "pc6",
+        "model": "PC",
+        "name": "PC6"
+      },
+      {
+        "id": "pc7",
+        "model": "PC",
+        "name": "PC7"
+      },
+      {
+        "id": "pc8",
+        "model": "PC",
+        "name": "PC8"
+      },
+      {
+        "id": "pc9",
+        "model": "PC",
+        "name": "PC9"
+      },
+      {
+        "id": "pc10",
+        "model": "PC",
+        "name": "PC10"
+      },
+      {
+        "id": "sw2",
+        "model": "S-24",
+        "name": "SW2"
+      },
+      {
+        "id": "pc11",
+        "model": "PC",
+        "name": "PC11"
+      },
+      {
+        "id": "pc12",
+        "model": "PC",
+        "name": "PC12"
+      },
+      {
+        "id": "pc13",
+        "model": "PC",
+        "name": "PC13"
+      },
+      {
+        "id": "pc14",
+        "model": "PC",
+        "name": "PC14"
+      },
+      {
+        "id": "pc15",
+        "model": "PC",
+        "name": "PC15"
+      },
+      {
+        "id": "pc16",
+        "model": "PC",
+        "name": "PC16"
+      },
+      {
+        "id": "pc17",
+        "model": "PC",
+        "name": "PC17"
+      },
+      {
+        "id": "pc18",
+        "model": "PC",
+        "name": "PC18"
+      },
+      {
+        "id": "pc19",
+        "model": "PC",
+        "name": "PC19"
+      },
+      {
+        "id": "pc20",
+        "model": "PC",
+        "name": "PC20"
+      },
+      {
+        "id": "sw3",
+        "model": "S-24",
+        "name": "SW3"
+      },
+      {
+        "id": "pc21",
+        "model": "PC",
+        "name": "PC21"
+      },
+      {
+        "id": "pc22",
+        "model": "PC",
+        "name": "PC22"
+      },
+      {
+        "id": "pc23",
+        "model": "PC",
+        "name": "PC23"
+      },
+      {
+        "id": "pc24",
+        "model": "PC",
+        "name": "PC24"
+      },
+      {
+        "id": "pc25",
+        "model": "PC",
+        "name": "PC25"
+      },
+      {
+        "id": "pc26",
+        "model": "PC",
+        "name": "PC26"
+      },
+      {
+        "id": "pc27",
+        "model": "PC",
+        "name": "PC27"
+      },
+      {
+        "id": "pc28",
+        "model": "PC",
+        "name": "PC28"
+      },
+      {
+        "id": "pc29",
+        "model": "PC",
+        "name": "PC29"
+      },
+      {
+        "id": "pc30",
+        "model": "PC",
+        "name": "PC30"
+      },
+      {
+        "id": "sw4",
+        "model": "S-24",
+        "name": "SW4"
+      },
+      {
+        "id": "pc31",
+        "model": "PC",
+        "name": "PC31"
+      },
+      {
+        "id": "pc32",
+        "model": "PC",
+        "name": "PC32"
+      },
+      {
+        "id": "pc33",
+        "model": "PC",
+        "name": "PC33"
+      },
+      {
+        "id": "pc34",
+        "model": "PC",
+        "name": "PC34"
+      },
+      {
+        "id": "pc35",
+        "model": "PC",
+        "name": "PC35"
+      },
+      {
+        "id": "pc36",
+        "model": "PC",
+        "name": "PC36"
+      },
+      {
+        "id": "pc37",
+        "model": "PC",
+        "name": "PC37"
+      },
+      {
+        "id": "pc38",
+        "model": "PC",
+        "name": "PC38"
+      },
+      {
+        "id": "pc39",
+        "model": "PC",
+        "name": "PC39"
+      },
+      {
+        "id": "pc40",
+        "model": "PC",
+        "name": "PC40"
+      },
+      {
+        "id": "sw5",
+        "model": "S-24",
+        "name": "SW5"
+      },
+      {
+        "id": "pc41",
+        "model": "PC",
+        "name": "PC41"
+      },
+      {
+        "id": "pc42",
+        "model": "PC",
+        "name": "PC42"
+      },
+      {
+        "id": "pc43",
+        "model": "PC",
+        "name": "PC43"
+      },
+      {
+        "id": "pc44",
+        "model": "PC",
+        "name": "PC44"
+      },
+      {
+        "id": "pc45",
+        "model": "PC",
+        "name": "PC45"
+      },
+      {
+        "id": "pc46",
+        "model": "PC",
+        "name": "PC46"
+      },
+      {
+        "id": "pc47",
+        "model": "PC",
+        "name": "PC47"
+      },
+      {
+        "id": "pc48",
+        "model": "PC",
+        "name": "PC48"
+      },
+      {
+        "id": "pc49",
+        "model": "PC",
+        "name": "PC49"
+      },
+      {
+        "id": "pc50",
+        "model": "PC",
+        "name": "PC50"
+      },
+      {
+        "id": "sw6",
+        "model": "S-24",
+        "name": "SW6"
+      },
+      {
+        "id": "pc51",
+        "model": "PC",
+        "name": "PC51"
+      },
+      {
+        "id": "pc52",
+        "model": "PC",
+        "name": "PC52"
+      },
+      {
+        "id": "pc53",
+        "model": "PC",
+        "name": "PC53"
+      },
+      {
+        "id": "pc54",
+        "model": "PC",
+        "name": "PC54"
+      },
+      {
+        "id": "pc55",
+        "model": "PC",
+        "name": "PC55"
+      },
+      {
+        "id": "pc56",
+        "model": "PC",
+        "name": "PC56"
+      },
+      {
+        "id": "pc57",
+        "model": "PC",
+        "name": "PC57"
+      },
+      {
+        "id": "pc58",
+        "model": "PC",
+        "name": "PC58"
+      },
+      {
+        "id": "pc59",
+        "model": "PC",
+        "name": "PC59"
+      },
+      {
+        "id": "pc60",
+        "model": "PC",
+        "name": "PC60"
+      },
+      {
+        "id": "sw7",
+        "model": "S-24",
+        "name": "SW7"
+      },
+      {
+        "id": "pc61",
+        "model": "PC",
+        "name": "PC61"
+      },
+      {
+        "id": "pc62",
+        "model": "PC",
+        "name": "PC62"
+      },
+      {
+        "id": "pc63",
+        "model": "PC",
+        "name": "PC63"
+      },
+      {
+        "id": "pc64",
+        "model": "PC",
+        "name": "PC64"
+      },
+      {
+        "id": "pc65",
+        "model": "PC",
+        "name": "PC65"
+      },
+      {
+        "id": "pc66",
+        "model": "PC",
+        "name": "PC66"
+      },
+      {
+        "id": "pc67",
+        "model": "PC",
+        "name": "PC67"
+      },
+      {
+        "id": "pc68",
+        "model": "PC",
+        "name": "PC68"
+      },
+      {
+        "id": "pc69",
+        "model": "PC",
+        "name": "PC69"
+      },
+      {
+        "id": "pc70",
+        "model": "PC",
+        "name": "PC70"
+      },
+      {
+        "id": "sw8",
+        "model": "S-24",
+        "name": "SW8"
+      },
+      {
+        "id": "pc71",
+        "model": "PC",
+        "name": "PC71"
+      },
+      {
+        "id": "pc72",
+        "model": "PC",
+        "name": "PC72"
+      },
+      {
+        "id": "pc73",
+        "model": "PC",
+        "name": "PC73"
+      },
+      {
+        "id": "pc74",
+        "model": "PC",
+        "name": "PC74"
+      },
+      {
+        "id": "pc75",
+        "model": "PC",
+        "name": "PC75"
+      },
+      {
+        "id": "pc76",
+        "model": "PC",
+        "name": "PC76"
+      },
+      {
+        "id": "pc77",
+        "model": "PC",
+        "name": "PC77"
+      },
+      {
+        "id": "pc78",
+        "model": "PC",
+        "name": "PC78"
+      },
+      {
+        "id": "pc79",
+        "model": "PC",
+        "name": "PC79"
+      },
+      {
+        "id": "pc80",
+        "model": "PC",
+        "name": "PC80"
+      },
+      {
+        "id": "sw9",
+        "model": "S-24",
+        "name": "SW9"
+      },
+      {
+        "id": "pc81",
+        "model": "PC",
+        "name": "PC81"
+      },
+      {
+        "id": "pc82",
+        "model": "PC",
+        "name": "PC82"
+      },
+      {
+        "id": "pc83",
+        "model": "PC",
+        "name": "PC83"
+      },
+      {
+        "id": "pc84",
+        "model": "PC",
+        "name": "PC84"
+      },
+      {
+        "id": "pc85",
+        "model": "PC",
+        "name": "PC85"
+      },
+      {
+        "id": "pc86",
+        "model": "PC",
+        "name": "PC86"
+      },
+      {
+        "id": "pc87",
+        "model": "PC",
+        "name": "PC87"
+      },
+      {
+        "id": "pc88",
+        "model": "PC",
+        "name": "PC88"
+      },
+      {
+        "id": "pc89",
+        "model": "PC",
+        "name": "PC89"
+      },
+      {
+        "id": "pc90",
+        "model": "PC",
+        "name": "PC90"
+      }
+    ],
+    "links": [
+      {
+        "id": "l1",
+        "endpoints": [
+          {
+            "deviceId": "sw0",
+            "portId": "ge1"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l2",
+        "endpoints": [
+          {
+            "deviceId": "pc1",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l3",
+        "endpoints": [
+          {
+            "deviceId": "pc2",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l4",
+        "endpoints": [
+          {
+            "deviceId": "pc3",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge3"
+          }
+        ]
+      },
+      {
+        "id": "l5",
+        "endpoints": [
+          {
+            "deviceId": "pc4",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge4"
+          }
+        ]
+      },
+      {
+        "id": "l6",
+        "endpoints": [
+          {
+            "deviceId": "pc5",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge5"
+          }
+        ]
+      },
+      {
+        "id": "l7",
+        "endpoints": [
+          {
+            "deviceId": "pc6",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge6"
+          }
+        ]
+      },
+      {
+        "id": "l8",
+        "endpoints": [
+          {
+            "deviceId": "pc7",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge7"
+          }
+        ]
+      },
+      {
+        "id": "l9",
+        "endpoints": [
+          {
+            "deviceId": "pc8",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge8"
+          }
+        ]
+      },
+      {
+        "id": "l10",
+        "endpoints": [
+          {
+            "deviceId": "pc9",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge9"
+          }
+        ]
+      },
+      {
+        "id": "l11",
+        "endpoints": [
+          {
+            "deviceId": "pc10",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge10"
+          }
+        ]
+      },
+      {
+        "id": "l12",
+        "endpoints": [
+          {
+            "deviceId": "sw0",
+            "portId": "ge2"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l13",
+        "endpoints": [
+          {
+            "deviceId": "pc11",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l14",
+        "endpoints": [
+          {
+            "deviceId": "pc12",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l15",
+        "endpoints": [
+          {
+            "deviceId": "pc13",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge3"
+          }
+        ]
+      },
+      {
+        "id": "l16",
+        "endpoints": [
+          {
+            "deviceId": "pc14",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge4"
+          }
+        ]
+      },
+      {
+        "id": "l17",
+        "endpoints": [
+          {
+            "deviceId": "pc15",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge5"
+          }
+        ]
+      },
+      {
+        "id": "l18",
+        "endpoints": [
+          {
+            "deviceId": "pc16",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge6"
+          }
+        ]
+      },
+      {
+        "id": "l19",
+        "endpoints": [
+          {
+            "deviceId": "pc17",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge7"
+          }
+        ]
+      },
+      {
+        "id": "l20",
+        "endpoints": [
+          {
+            "deviceId": "pc18",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge8"
+          }
+        ]
+      },
+      {
+        "id": "l21",
+        "endpoints": [
+          {
+            "deviceId": "pc19",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge9"
+          }
+        ]
+      },
+      {
+        "id": "l22",
+        "endpoints": [
+          {
+            "deviceId": "pc20",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge10"
+          }
+        ]
+      },
+      {
+        "id": "l23",
+        "endpoints": [
+          {
+            "deviceId": "sw0",
+            "portId": "ge3"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l24",
+        "endpoints": [
+          {
+            "deviceId": "pc21",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l25",
+        "endpoints": [
+          {
+            "deviceId": "pc22",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l26",
+        "endpoints": [
+          {
+            "deviceId": "pc23",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge3"
+          }
+        ]
+      },
+      {
+        "id": "l27",
+        "endpoints": [
+          {
+            "deviceId": "pc24",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge4"
+          }
+        ]
+      },
+      {
+        "id": "l28",
+        "endpoints": [
+          {
+            "deviceId": "pc25",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge5"
+          }
+        ]
+      },
+      {
+        "id": "l29",
+        "endpoints": [
+          {
+            "deviceId": "pc26",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge6"
+          }
+        ]
+      },
+      {
+        "id": "l30",
+        "endpoints": [
+          {
+            "deviceId": "pc27",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge7"
+          }
+        ]
+      },
+      {
+        "id": "l31",
+        "endpoints": [
+          {
+            "deviceId": "pc28",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge8"
+          }
+        ]
+      },
+      {
+        "id": "l32",
+        "endpoints": [
+          {
+            "deviceId": "pc29",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge9"
+          }
+        ]
+      },
+      {
+        "id": "l33",
+        "endpoints": [
+          {
+            "deviceId": "pc30",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge10"
+          }
+        ]
+      },
+      {
+        "id": "l34",
+        "endpoints": [
+          {
+            "deviceId": "sw0",
+            "portId": "ge4"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l35",
+        "endpoints": [
+          {
+            "deviceId": "pc31",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l36",
+        "endpoints": [
+          {
+            "deviceId": "pc32",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l37",
+        "endpoints": [
+          {
+            "deviceId": "pc33",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge3"
+          }
+        ]
+      },
+      {
+        "id": "l38",
+        "endpoints": [
+          {
+            "deviceId": "pc34",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge4"
+          }
+        ]
+      },
+      {
+        "id": "l39",
+        "endpoints": [
+          {
+            "deviceId": "pc35",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge5"
+          }
+        ]
+      },
+      {
+        "id": "l40",
+        "endpoints": [
+          {
+            "deviceId": "pc36",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge6"
+          }
+        ]
+      },
+      {
+        "id": "l41",
+        "endpoints": [
+          {
+            "deviceId": "pc37",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge7"
+          }
+        ]
+      },
+      {
+        "id": "l42",
+        "endpoints": [
+          {
+            "deviceId": "pc38",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge8"
+          }
+        ]
+      },
+      {
+        "id": "l43",
+        "endpoints": [
+          {
+            "deviceId": "pc39",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge9"
+          }
+        ]
+      },
+      {
+        "id": "l44",
+        "endpoints": [
+          {
+            "deviceId": "pc40",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw4",
+            "portId": "ge10"
+          }
+        ]
+      },
+      {
+        "id": "l45",
+        "endpoints": [
+          {
+            "deviceId": "sw0",
+            "portId": "ge5"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l46",
+        "endpoints": [
+          {
+            "deviceId": "pc41",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l47",
+        "endpoints": [
+          {
+            "deviceId": "pc42",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l48",
+        "endpoints": [
+          {
+            "deviceId": "pc43",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge3"
+          }
+        ]
+      },
+      {
+        "id": "l49",
+        "endpoints": [
+          {
+            "deviceId": "pc44",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge4"
+          }
+        ]
+      },
+      {
+        "id": "l50",
+        "endpoints": [
+          {
+            "deviceId": "pc45",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge5"
+          }
+        ]
+      },
+      {
+        "id": "l51",
+        "endpoints": [
+          {
+            "deviceId": "pc46",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge6"
+          }
+        ]
+      },
+      {
+        "id": "l52",
+        "endpoints": [
+          {
+            "deviceId": "pc47",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge7"
+          }
+        ]
+      },
+      {
+        "id": "l53",
+        "endpoints": [
+          {
+            "deviceId": "pc48",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge8"
+          }
+        ]
+      },
+      {
+        "id": "l54",
+        "endpoints": [
+          {
+            "deviceId": "pc49",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge9"
+          }
+        ]
+      },
+      {
+        "id": "l55",
+        "endpoints": [
+          {
+            "deviceId": "pc50",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw5",
+            "portId": "ge10"
+          }
+        ]
+      },
+      {
+        "id": "l56",
+        "endpoints": [
+          {
+            "deviceId": "sw0",
+            "portId": "ge6"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l57",
+        "endpoints": [
+          {
+            "deviceId": "pc51",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l58",
+        "endpoints": [
+          {
+            "deviceId": "pc52",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l59",
+        "endpoints": [
+          {
+            "deviceId": "pc53",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge3"
+          }
+        ]
+      },
+      {
+        "id": "l60",
+        "endpoints": [
+          {
+            "deviceId": "pc54",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge4"
+          }
+        ]
+      },
+      {
+        "id": "l61",
+        "endpoints": [
+          {
+            "deviceId": "pc55",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge5"
+          }
+        ]
+      },
+      {
+        "id": "l62",
+        "endpoints": [
+          {
+            "deviceId": "pc56",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge6"
+          }
+        ]
+      },
+      {
+        "id": "l63",
+        "endpoints": [
+          {
+            "deviceId": "pc57",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge7"
+          }
+        ]
+      },
+      {
+        "id": "l64",
+        "endpoints": [
+          {
+            "deviceId": "pc58",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge8"
+          }
+        ]
+      },
+      {
+        "id": "l65",
+        "endpoints": [
+          {
+            "deviceId": "pc59",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge9"
+          }
+        ]
+      },
+      {
+        "id": "l66",
+        "endpoints": [
+          {
+            "deviceId": "pc60",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw6",
+            "portId": "ge10"
+          }
+        ]
+      },
+      {
+        "id": "l67",
+        "endpoints": [
+          {
+            "deviceId": "sw0",
+            "portId": "ge7"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l68",
+        "endpoints": [
+          {
+            "deviceId": "pc61",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l69",
+        "endpoints": [
+          {
+            "deviceId": "pc62",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l70",
+        "endpoints": [
+          {
+            "deviceId": "pc63",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge3"
+          }
+        ]
+      },
+      {
+        "id": "l71",
+        "endpoints": [
+          {
+            "deviceId": "pc64",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge4"
+          }
+        ]
+      },
+      {
+        "id": "l72",
+        "endpoints": [
+          {
+            "deviceId": "pc65",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge5"
+          }
+        ]
+      },
+      {
+        "id": "l73",
+        "endpoints": [
+          {
+            "deviceId": "pc66",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge6"
+          }
+        ]
+      },
+      {
+        "id": "l74",
+        "endpoints": [
+          {
+            "deviceId": "pc67",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge7"
+          }
+        ]
+      },
+      {
+        "id": "l75",
+        "endpoints": [
+          {
+            "deviceId": "pc68",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge8"
+          }
+        ]
+      },
+      {
+        "id": "l76",
+        "endpoints": [
+          {
+            "deviceId": "pc69",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge9"
+          }
+        ]
+      },
+      {
+        "id": "l77",
+        "endpoints": [
+          {
+            "deviceId": "pc70",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw7",
+            "portId": "ge10"
+          }
+        ]
+      },
+      {
+        "id": "l78",
+        "endpoints": [
+          {
+            "deviceId": "sw0",
+            "portId": "ge8"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l79",
+        "endpoints": [
+          {
+            "deviceId": "pc71",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l80",
+        "endpoints": [
+          {
+            "deviceId": "pc72",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l81",
+        "endpoints": [
+          {
+            "deviceId": "pc73",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge3"
+          }
+        ]
+      },
+      {
+        "id": "l82",
+        "endpoints": [
+          {
+            "deviceId": "pc74",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge4"
+          }
+        ]
+      },
+      {
+        "id": "l83",
+        "endpoints": [
+          {
+            "deviceId": "pc75",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge5"
+          }
+        ]
+      },
+      {
+        "id": "l84",
+        "endpoints": [
+          {
+            "deviceId": "pc76",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge6"
+          }
+        ]
+      },
+      {
+        "id": "l85",
+        "endpoints": [
+          {
+            "deviceId": "pc77",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge7"
+          }
+        ]
+      },
+      {
+        "id": "l86",
+        "endpoints": [
+          {
+            "deviceId": "pc78",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge8"
+          }
+        ]
+      },
+      {
+        "id": "l87",
+        "endpoints": [
+          {
+            "deviceId": "pc79",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge9"
+          }
+        ]
+      },
+      {
+        "id": "l88",
+        "endpoints": [
+          {
+            "deviceId": "pc80",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw8",
+            "portId": "ge10"
+          }
+        ]
+      },
+      {
+        "id": "l89",
+        "endpoints": [
+          {
+            "deviceId": "sw0",
+            "portId": "ge9"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge24"
+          }
+        ]
+      },
+      {
+        "id": "l90",
+        "endpoints": [
+          {
+            "deviceId": "pc81",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l91",
+        "endpoints": [
+          {
+            "deviceId": "pc82",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l92",
+        "endpoints": [
+          {
+            "deviceId": "pc83",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge3"
+          }
+        ]
+      },
+      {
+        "id": "l93",
+        "endpoints": [
+          {
+            "deviceId": "pc84",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge4"
+          }
+        ]
+      },
+      {
+        "id": "l94",
+        "endpoints": [
+          {
+            "deviceId": "pc85",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge5"
+          }
+        ]
+      },
+      {
+        "id": "l95",
+        "endpoints": [
+          {
+            "deviceId": "pc86",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge6"
+          }
+        ]
+      },
+      {
+        "id": "l96",
+        "endpoints": [
+          {
+            "deviceId": "pc87",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge7"
+          }
+        ]
+      },
+      {
+        "id": "l97",
+        "endpoints": [
+          {
+            "deviceId": "pc88",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge8"
+          }
+        ]
+      },
+      {
+        "id": "l98",
+        "endpoints": [
+          {
+            "deviceId": "pc89",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge9"
+          }
+        ]
+      },
+      {
+        "id": "l99",
+        "endpoints": [
+          {
+            "deviceId": "pc90",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw9",
+            "portId": "ge10"
+          }
+        ]
+      }
+    ]
+  },
+  "configurations": {
+    "sw0": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc1": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.1",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc2": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.2",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc3": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.3",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc4": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.4",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc5": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.5",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc6": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.6",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc7": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.7",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc8": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.8",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc9": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.9",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc10": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.10",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw2": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc11": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.11",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc12": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.12",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc13": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.13",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc14": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.14",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc15": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.15",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc16": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.16",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc17": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.17",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc18": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.18",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc19": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.19",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc20": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.20",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw3": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc21": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.21",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc22": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.22",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc23": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.23",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc24": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.24",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc25": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.25",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc26": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.26",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc27": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.27",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc28": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.28",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc29": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.29",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc30": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.30",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw4": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc31": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.31",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc32": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.32",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc33": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.33",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc34": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.34",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc35": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.35",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc36": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.36",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc37": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.37",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc38": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.38",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc39": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.39",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc40": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.40",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw5": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc41": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.41",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc42": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.42",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc43": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.43",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc44": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.44",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc45": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.45",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc46": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.46",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc47": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.47",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc48": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.48",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc49": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.49",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc50": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.50",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw6": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc51": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.51",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc52": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.52",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc53": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.53",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc54": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.54",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc55": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.55",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc56": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.56",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc57": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.57",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc58": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.58",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc59": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.59",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc60": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.60",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw7": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc61": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.61",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc62": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.62",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc63": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.63",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc64": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.64",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc65": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.65",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc66": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.66",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc67": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.67",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc68": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.68",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc69": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.69",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc70": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.70",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw8": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc71": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.71",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc72": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.72",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc73": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.73",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc74": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.74",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc75": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.75",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc76": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.76",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc77": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.77",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc78": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.78",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc79": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.79",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc80": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.80",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw9": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc81": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.81",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc82": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.82",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc83": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.83",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc84": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.84",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc85": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.85",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc86": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.86",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc87": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.87",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc88": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.88",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc89": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.89",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc90": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.10.0.90",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    }
+  },
+  "layout": {
+    "devices": {
+      "sw0": {
+        "x": 1400,
+        "y": 60
+      },
+      "sw1": {
+        "x": 300,
+        "y": 300
+      },
+      "pc1": {
+        "x": 165,
+        "y": 480
+      },
+      "pc2": {
+        "x": 235,
+        "y": 480
+      },
+      "pc3": {
+        "x": 305,
+        "y": 480
+      },
+      "pc4": {
+        "x": 375,
+        "y": 480
+      },
+      "pc5": {
+        "x": 445,
+        "y": 480
+      },
+      "pc6": {
+        "x": 165,
+        "y": 620
+      },
+      "pc7": {
+        "x": 235,
+        "y": 620
+      },
+      "pc8": {
+        "x": 305,
+        "y": 620
+      },
+      "pc9": {
+        "x": 375,
+        "y": 620
+      },
+      "pc10": {
+        "x": 445,
+        "y": 620
+      },
+      "sw2": {
+        "x": 600,
+        "y": 300
+      },
+      "pc11": {
+        "x": 465,
+        "y": 480
+      },
+      "pc12": {
+        "x": 535,
+        "y": 480
+      },
+      "pc13": {
+        "x": 605,
+        "y": 480
+      },
+      "pc14": {
+        "x": 675,
+        "y": 480
+      },
+      "pc15": {
+        "x": 745,
+        "y": 480
+      },
+      "pc16": {
+        "x": 465,
+        "y": 620
+      },
+      "pc17": {
+        "x": 535,
+        "y": 620
+      },
+      "pc18": {
+        "x": 605,
+        "y": 620
+      },
+      "pc19": {
+        "x": 675,
+        "y": 620
+      },
+      "pc20": {
+        "x": 745,
+        "y": 620
+      },
+      "sw3": {
+        "x": 900,
+        "y": 300
+      },
+      "pc21": {
+        "x": 765,
+        "y": 480
+      },
+      "pc22": {
+        "x": 835,
+        "y": 480
+      },
+      "pc23": {
+        "x": 905,
+        "y": 480
+      },
+      "pc24": {
+        "x": 975,
+        "y": 480
+      },
+      "pc25": {
+        "x": 1045,
+        "y": 480
+      },
+      "pc26": {
+        "x": 765,
+        "y": 620
+      },
+      "pc27": {
+        "x": 835,
+        "y": 620
+      },
+      "pc28": {
+        "x": 905,
+        "y": 620
+      },
+      "pc29": {
+        "x": 975,
+        "y": 620
+      },
+      "pc30": {
+        "x": 1045,
+        "y": 620
+      },
+      "sw4": {
+        "x": 1200,
+        "y": 300
+      },
+      "pc31": {
+        "x": 1065,
+        "y": 480
+      },
+      "pc32": {
+        "x": 1135,
+        "y": 480
+      },
+      "pc33": {
+        "x": 1205,
+        "y": 480
+      },
+      "pc34": {
+        "x": 1275,
+        "y": 480
+      },
+      "pc35": {
+        "x": 1345,
+        "y": 480
+      },
+      "pc36": {
+        "x": 1065,
+        "y": 620
+      },
+      "pc37": {
+        "x": 1135,
+        "y": 620
+      },
+      "pc38": {
+        "x": 1205,
+        "y": 620
+      },
+      "pc39": {
+        "x": 1275,
+        "y": 620
+      },
+      "pc40": {
+        "x": 1345,
+        "y": 620
+      },
+      "sw5": {
+        "x": 1500,
+        "y": 300
+      },
+      "pc41": {
+        "x": 1365,
+        "y": 480
+      },
+      "pc42": {
+        "x": 1435,
+        "y": 480
+      },
+      "pc43": {
+        "x": 1505,
+        "y": 480
+      },
+      "pc44": {
+        "x": 1575,
+        "y": 480
+      },
+      "pc45": {
+        "x": 1645,
+        "y": 480
+      },
+      "pc46": {
+        "x": 1365,
+        "y": 620
+      },
+      "pc47": {
+        "x": 1435,
+        "y": 620
+      },
+      "pc48": {
+        "x": 1505,
+        "y": 620
+      },
+      "pc49": {
+        "x": 1575,
+        "y": 620
+      },
+      "pc50": {
+        "x": 1645,
+        "y": 620
+      },
+      "sw6": {
+        "x": 1800,
+        "y": 300
+      },
+      "pc51": {
+        "x": 1665,
+        "y": 480
+      },
+      "pc52": {
+        "x": 1735,
+        "y": 480
+      },
+      "pc53": {
+        "x": 1805,
+        "y": 480
+      },
+      "pc54": {
+        "x": 1875,
+        "y": 480
+      },
+      "pc55": {
+        "x": 1945,
+        "y": 480
+      },
+      "pc56": {
+        "x": 1665,
+        "y": 620
+      },
+      "pc57": {
+        "x": 1735,
+        "y": 620
+      },
+      "pc58": {
+        "x": 1805,
+        "y": 620
+      },
+      "pc59": {
+        "x": 1875,
+        "y": 620
+      },
+      "pc60": {
+        "x": 1945,
+        "y": 620
+      },
+      "sw7": {
+        "x": 2100,
+        "y": 300
+      },
+      "pc61": {
+        "x": 1965,
+        "y": 480
+      },
+      "pc62": {
+        "x": 2035,
+        "y": 480
+      },
+      "pc63": {
+        "x": 2105,
+        "y": 480
+      },
+      "pc64": {
+        "x": 2175,
+        "y": 480
+      },
+      "pc65": {
+        "x": 2245,
+        "y": 480
+      },
+      "pc66": {
+        "x": 1965,
+        "y": 620
+      },
+      "pc67": {
+        "x": 2035,
+        "y": 620
+      },
+      "pc68": {
+        "x": 2105,
+        "y": 620
+      },
+      "pc69": {
+        "x": 2175,
+        "y": 620
+      },
+      "pc70": {
+        "x": 2245,
+        "y": 620
+      },
+      "sw8": {
+        "x": 2400,
+        "y": 300
+      },
+      "pc71": {
+        "x": 2265,
+        "y": 480
+      },
+      "pc72": {
+        "x": 2335,
+        "y": 480
+      },
+      "pc73": {
+        "x": 2405,
+        "y": 480
+      },
+      "pc74": {
+        "x": 2475,
+        "y": 480
+      },
+      "pc75": {
+        "x": 2545,
+        "y": 480
+      },
+      "pc76": {
+        "x": 2265,
+        "y": 620
+      },
+      "pc77": {
+        "x": 2335,
+        "y": 620
+      },
+      "pc78": {
+        "x": 2405,
+        "y": 620
+      },
+      "pc79": {
+        "x": 2475,
+        "y": 620
+      },
+      "pc80": {
+        "x": 2545,
+        "y": 620
+      },
+      "sw9": {
+        "x": 2700,
+        "y": 300
+      },
+      "pc81": {
+        "x": 2565,
+        "y": 480
+      },
+      "pc82": {
+        "x": 2635,
+        "y": 480
+      },
+      "pc83": {
+        "x": 2705,
+        "y": 480
+      },
+      "pc84": {
+        "x": 2775,
+        "y": 480
+      },
+      "pc85": {
+        "x": 2845,
+        "y": 480
+      },
+      "pc86": {
+        "x": 2565,
+        "y": 620
+      },
+      "pc87": {
+        "x": 2635,
+        "y": 620
+      },
+      "pc88": {
+        "x": 2705,
+        "y": 620
+      },
+      "pc89": {
+        "x": 2775,
+        "y": 620
+      },
+      "pc90": {
+        "x": 2845,
+        "y": 620
+      }
+    }
+  }
+}

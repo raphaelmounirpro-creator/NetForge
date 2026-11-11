@@ -23,10 +23,10 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 
 | Paquet | Rôle | Règles |
 |---|---|---|
-| `packages/engine` | Moteur à événements discrets | Aucune dépendance à React, NestJS, DOM, IndexedDB. Pas de `Date.now()` ni `Math.random()` dans la logique simulée. Temps en nanosecondes entières (`SimTime`). |
+| `packages/engine` | Moteur à événements discrets, protocoles, adaptateur Worker | Dépend de `@netforge/project` et de Zod uniquement. Aucune dépendance à React, NestJS, DOM, IndexedDB. Pas de `Date.now()` ni `Math.random()` dans la logique simulée (générateur `Prng` à graine). Temps en nanosecondes entières (`SimTime`). Décisions = codes stables (`trace.ts`) + paramètres, sans texte. L'adaptateur (`host.ts`) reçoit l'horloge réelle en paramètre et ne s'en sert que pour découper le calcul. |
 | `packages/project` | Format `.nfg.json`, catalogue, IPv4, validation, commandes d'édition | Fonctions pures. Toute modification d'un projet passe par une commande (formulaires, future CLI). Problèmes = codes stables + paramètres ; texte dans `apps/web/src/i18n`. Nouvelle version du format = migration explicite testée. |
 | `packages/contracts` | Schémas Zod des contrats d'API | Source unique des contrats HTTP validés à l'exécution. |
-| `apps/web` | Client React/Vite | Exprime des intentions et affiche les résultats du moteur ; ne décide jamais d'un résultat réseau. Zustand (`features/lab/store.ts`) : document du projet + état de session (sélection, vue, zoom, historique). Stockage : `features/storage` (IndexedDB, révisions, verrou d'onglet). |
+| `apps/web` | Client React/Vite | Exprime des intentions et affiche les résultats du moteur ; ne décide jamais d'un résultat réseau. Zustand (`features/lab/store.ts`) : document du projet + état de session (sélection, vue, zoom, historique). Simulation : `features/simulation` (Worker, client corrélé, projection des lots du moteur, une seule simulation active). Stockage : `features/storage` (IndexedDB, révisions, verrou d'onglet). |
 | `apps/api` | NestJS + Prisma | Logique métier dans les services, jamais dans les contrôleurs. Configuration validée au démarrage (`loadConfig`). |
 
 - Les paquets exposent `src` sous la condition d'export `source` (Vite, Vitest, typage et lint) et `dist` par défaut (exécution Node). Seuls le build de l'API (`tsconfig.build.json`) et `pnpm dev` utilisent `dist` : ils construisent les paquets d'abord.
@@ -44,6 +44,7 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 | `pnpm db:migrate` | Applique les migrations |
 | `pnpm check` | lint + typecheck + test + build |
 | `pnpm test:e2e` | Parcours Playwright (`PLAYWRIGHT_CHANNEL=msedge` en local, sans téléchargement de navigateur) |
+| `pnpm test:perf` / `pnpm perf:engine` | Mesures de performance (navigateur / moteur seul), hors CI |
 
 ## Conventions
 
@@ -51,7 +52,8 @@ Spécification produit complète : prompt « NetForge — Prompt Codex complet e
 - Tests Vitest à côté du code (`*.test.ts`) : comportements observables, cas limites, références calculées indépendamment. Pas de test qui recopie l'implémentation. Parcours navigateur : `apps/web/e2e` (sélecteurs par rôle et nom accessible exact).
 - Textes d'interface uniquement dans `apps/web/src/i18n/fr.ts` ; aucun `dangerouslySetInnerHTML`.
 - Commentaires en français, uniquement pour expliquer une décision utile.
-- Toute simplification pédagogique est documentée dans `docs/protocols/`.
+- Toute simplification pédagogique est documentée dans `docs/protocols/` ; tout nouveau code de trace reçoit un gabarit dans `apps/web/src/i18n/fr.ts` (vérifié par `i18n/simulation.test.ts` sur des traces réelles).
+- Scénarios de référence : `packages/engine/src/scenarios.ts`. Les projets des parcours navigateur (`apps/web/e2e/fixtures`) en sont générés (`node apps/web/e2e/fixtures/generate.mjs`) ; `src/fixtures.test.ts` vérifie leur synchronisation.
 - Décisions structurantes : `docs/DECISIONS.md`. Identité visuelle : `docs/DESIGN.md` (jetons uniquement, palette Tailwind par défaut désactivée).
 - Dépendances : versions exactes ; pnpm applique un délai minimal de publication — ne pas l'exempter, choisir une version plus ancienne. Scripts d'installation autorisés un par un dans `allowBuilds` après lecture.
 - Couleur jamais seule porteuse d'information ; `prefers-reduced-motion` respecté ; focus visible.

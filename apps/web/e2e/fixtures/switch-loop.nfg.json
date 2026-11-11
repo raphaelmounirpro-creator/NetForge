@@ -1,0 +1,161 @@
+{
+  "format": "netforge-project",
+  "schemaVersion": 2,
+  "models": {
+    "catalog": 1
+  },
+  "metadata": {
+    "id": "scenario-loop",
+    "name": "Boucle de commutation",
+    "description": "",
+    "createdAt": "2026-11-11T08:00:00.000Z",
+    "updatedAt": "2026-11-11T08:00:00.000Z"
+  },
+  "topology": {
+    "devices": [
+      {
+        "id": "pc1",
+        "model": "PC",
+        "name": "PC1"
+      },
+      {
+        "id": "sw1",
+        "model": "S-24",
+        "name": "SW1"
+      },
+      {
+        "id": "pc2",
+        "model": "PC",
+        "name": "PC2"
+      },
+      {
+        "id": "sw2",
+        "model": "S-24",
+        "name": "SW2"
+      }
+    ],
+    "links": [
+      {
+        "id": "l1",
+        "endpoints": [
+          {
+            "deviceId": "pc1",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l2",
+        "endpoints": [
+          {
+            "deviceId": "pc2",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l3",
+        "endpoints": [
+          {
+            "deviceId": "sw1",
+            "portId": "ge10"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge1"
+          }
+        ]
+      },
+      {
+        "id": "l4",
+        "endpoints": [
+          {
+            "deviceId": "sw1",
+            "portId": "ge11"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge2"
+          }
+        ]
+      },
+      {
+        "id": "l5",
+        "endpoints": [
+          {
+            "deviceId": "sw1",
+            "portId": "ge12"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge3"
+          }
+        ]
+      }
+    ]
+  },
+  "configurations": {
+    "pc1": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "192.168.1.10",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "pc2": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "192.168.1.11",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": []
+    },
+    "sw2": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": []
+    }
+  },
+  "layout": {
+    "devices": {
+      "pc1": {
+        "x": 100,
+        "y": 300
+      },
+      "sw1": {
+        "x": 300,
+        "y": 200
+      },
+      "pc2": {
+        "x": 500,
+        "y": 300
+      },
+      "sw2": {
+        "x": 300,
+        "y": 50
+      }
+    }
+  }
+}
