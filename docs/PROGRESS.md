@@ -10,9 +10,9 @@ Détail des preuves : commits `6b49de3` à `aff43fc`. Limites restantes : Docker
 
 Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests unitaires seulement ; éditeur prévu pour ≥ 1 024 px.
 
-## Phase active : 6 — Exercices éditables et notes vérifiées
+## Phase 6 — Exercices éditables et notes vérifiées : validée par le propriétaire (2026-11-12)
 
-**État : terminée en local le 2026-11-12, en attente de validation du propriétaire.** Tous les critères de la phase sont vérifiés localement (moteur, API sur PostgreSQL réel, parcours navigateur). Non déployée : la mise en production (migration additive sur Neon, puis déploiement) attend l'accord du propriétaire.
+**État : terminée et validée le 2026-11-12, déployée le même jour.** Tous les critères de la phase sont vérifiés localement (moteur, API sur PostgreSQL réel, parcours navigateur). Production : migration additive appliquée à la base Neon par le build de prévisualisation ; prévisualisation puis https://netforge-amber.vercel.app vérifiées (base prête, sécurité inchangée, nouvelles routes protégées : 401 sans session ; pages Parcours, /exercices et /evaluation/… sans erreur ni violation de la politique de contenu dans Edge). Parcours connecté complet non rejoué en production (comptes de test impossibles sans boîte de courrier lisible) : vérifié en local de bout en bout.
 
 ### Périmètre retenu
 
@@ -50,11 +50,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 - L'étape « observer » n'est pas notée en évaluation (démarche invérifiable après coup) ; une hypothèse se joue en une réponse (pas de second essai) ; une correction n'est accordée que si tous ses critères passent.
 - L'auteur ne voit que le nombre de tentatives de ses publications, pas les notes ni les élèves (phase 17).
 - Les fonctions « simulation » et « console » ne sont pas contrôlées : elles ne modifient pas le projet.
-- Mise en production non faite (accord du propriétaire requis).
 
-### Prochaine action
-
-Validation de la phase 6 par le propriétaire ; sur accord, déploiement (migration additive `exercises`, `publications`, `attempts` sur Neon, puis production) et vérification distante.
 
 ## Phase 5 — Comptes, projets privés et déploiement : validée par le propriétaire (2026-11-12)
 
