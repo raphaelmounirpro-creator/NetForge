@@ -1,6 +1,7 @@
 import type {
   DeviceView,
   Diagnostic,
+  DnsLookupView,
   PingView,
   PlaybackSpeed,
   SimMode,
@@ -50,6 +51,8 @@ export interface SimulationSession {
   readonly devices: Readonly<Record<string, DeviceView>>;
   readonly pings: Readonly<Record<string, PingView>>;
   readonly pingOrder: readonly string[];
+  /** Résolutions nslookup, par identifiant d'échange « dns-N ». */
+  readonly lookups: Readonly<Record<string, DnsLookupView>>;
   readonly links: Readonly<Record<string, boolean>>;
   /** Noms, adresses MAC et câbles du réseau chargé : fixes pendant une session, calculés au chargement. */
   readonly names: NameIndex;
@@ -92,6 +95,7 @@ function emptySession(projectId: string, projectName: string, fingerprint: strin
     devices: {},
     pings: {},
     pingOrder: [],
+    lookups: {},
     links: {},
     names: buildNameIndex([]),
     journal: [],
@@ -105,7 +109,7 @@ function emptySession(projectId: string, projectName: string, fingerprint: strin
 export function mergeUpdate(session: SimulationSession, update: UpdateMessage): SimulationSession {
   // Un lot plus ancien qu'un lot déjà intégré est ignoré (ordre garanti par seq).
   if (update.seq <= session.lastSeq) return session;
-  const base = update.full ? { ...session, devices: {}, pings: {}, pingOrder: [], links: {}, journal: [], journalTotal: 0, journalHidden: 0 } : session;
+  const base = update.full ? { ...session, devices: {}, pings: {}, pingOrder: [], lookups: {}, links: {}, journal: [], journalTotal: 0, journalHidden: 0 } : session;
 
   // Références conservées quand rien n'a changé : les composants ne se redessinent pas pour rien.
   const { changes } = update;
@@ -126,6 +130,12 @@ export function mergeUpdate(session: SimulationSession, update: UpdateMessage): 
     }
     pings = next;
     pingOrder = order;
+  }
+  let lookups = base.lookups;
+  if (changes.lookups.length > 0) {
+    const next = { ...base.lookups };
+    for (const lookup of changes.lookups) next[lookup.id] = lookup;
+    lookups = next;
   }
   let links = base.links;
   if (changes.links.length > 0) {
@@ -155,6 +165,7 @@ export function mergeUpdate(session: SimulationSession, update: UpdateMessage): 
     devices,
     pings,
     pingOrder,
+    lookups,
     links,
     names: update.full ? buildNameIndex(changes.devices) : base.names,
     journal: trimmed > 0 ? combined.slice(trimmed) : combined,

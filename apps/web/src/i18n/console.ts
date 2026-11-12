@@ -127,13 +127,25 @@ export function showDhcp(view: DeviceView, names: NameIndex): string[] {
   ];
 }
 
+/** « show dns » : noms publiés et réponses données par le service DNS (calculés par le moteur). */
+export function showDns(view: DeviceView): string[] {
+  const service = view.dnsServer;
+  const r = messages.simulation.runtime;
+  if (!service) return [r.dnsNone];
+  return [
+    fill(r.dnsCounters, { answered: service.answered, nameErrors: service.nameErrors }),
+    "",
+    ...(service.records.length === 0 ? [r.dnsNoRecords] : table([t.columns.name, t.columns.address], service.records.map((record) => [record.name, record.address]))),
+  ];
+}
+
 /** « ipconfig » : configuration du projet et adresse MAC calculée par le moteur. */
 export function ipconfig(doc: NfgDocument, deviceId: string, view: DeviceView | undefined): string[] {
   const device = doc.topology.devices.find((item) => item.id === deviceId);
   if (!device) return [];
   const config = doc.configurations[deviceId];
   const i = t.ipconfig;
-  return getModel(device.model).ports.flatMap((port) => {
+  const interfaces = getModel(device.model).ports.flatMap((port) => {
     const automatic = config?.interfaces[port.id]?.dhcp ?? false;
     const lease = automatic ? view?.dhcpClient?.lease : null;
     const ipv4 = automatic ? lease : config?.interfaces[port.id]?.ipv4;
@@ -147,4 +159,5 @@ export function ipconfig(doc: NfgDocument, deviceId: string, view: DeviceView | 
       ...(automatic ? [messages.properties.dhcpAutomatic, messages.simulation.dhcpPhases[view?.dhcpClient?.phase ?? "init"]] : []),
     ];
   });
+  return [...interfaces, fill(i.dns, { value: config?.dnsServer ?? i.none })];
 }

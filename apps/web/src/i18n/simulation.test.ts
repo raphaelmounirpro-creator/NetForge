@@ -3,6 +3,7 @@ import {
   TRACE_CODES,
   createSimulation,
   dhcpScenario,
+  dnsScenario,
   lanScenario,
   routedScenario,
   twoRoutersScenario,
@@ -12,7 +13,7 @@ import {
   type SimCommand,
   type TraceEntry,
 } from "@netforge/engine";
-import { addStaticRoute, disconnect, setDefaultGateway, setInterfaceIpv4, setSwitchport, type NfgDocument } from "@netforge/project";
+import { addStaticRoute, disconnect, setDefaultGateway, setDnsServer, setInterfaceIpv4, setSwitchport, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import {
   buildNameIndex,
@@ -21,7 +22,9 @@ import {
   formatSimTime,
   formatTrace,
   isLossOrError,
+  lookupLines,
   pingAttemptText,
+  pingResolutionLine,
   pingSummary,
   traceCategory,
   pduLayers,
@@ -187,6 +190,112 @@ describe("observation DHCP sur des échanges réels", () => {
   });
 });
 
+describe("observation DNS sur des échanges réels", () => {
+  const noRoute = ok(setDefaultGateway(ok(setDnsServer(dnsScenario(), { deviceId: "pc2", server: "10.0.0.1" })).document, { deviceId: "pc2", gateway: null })).document;
+  const runs = [
+    run(dnsScenario(), [
+      { type: "nslookup", deviceId: "pc1", name: "srv.lab" },
+      { type: "nslookup", deviceId: "pc1", name: "inconnu.lab" },
+      { type: "ping", deviceId: "pc1", destination: "srv.lab", count: 1 },
+      { type: "ping", deviceId: "pc1", destination: "inconnu.lab", count: 1 },
+      { type: "nslookup", deviceId: "pc2", name: "srv.lab" },
+    ]),
+    run(dnsScenario({ serviceDisabled: true }), [{ type: "ping", deviceId: "pc1", destination: "srv.lab", count: 1 }]),
+    run(noRoute, [{ type: "nslookup", deviceId: "pc2", name: "srv.lab" }]),
+  ];
+  const first = () => {
+    const result = runs[0];
+    if (!result) throw new Error("scénario attendu");
+    return { ...result, names: buildNameIndex(result.snapshot.devices) };
+  };
+  const decision = (trace: readonly TraceEntry[], code: TraceEntry["code"], deviceId?: string) => {
+    const entry = trace.find((item) => item.code === code && (deviceId === undefined || item.deviceId === deviceId));
+    if (!entry) throw new Error(code);
+    return entry;
+  };
+
+  it("explique chaque décision DNS aux deux niveaux, sans paramètre manquant", () => {
+    const seen = new Set<string>();
+    for (const { trace, snapshot } of runs) {
+      const names = buildNameIndex(snapshot.devices);
+      for (const entry of trace) {
+        seen.add(entry.code);
+        for (const level of ["beginner", "technical"] as const) {
+          expect(formatTrace(entry, names, level), entry.code + " " + level).not.toMatch(/\{\w+\}|undefined|null|NaN/);
+        }
+      }
+    }
+    for (const code of ["command.nslookup", "dns.no-server", "dns.query-sent", "dns.send-failed", "dns.answer-sent", "dns.name-error-sent", "dns.resolved", "dns.name-error", "dns.gave-up", "ping.unresolved", "udp.no-service"]) {
+      expect(seen, code).toContain(code);
+    }
+  });
+
+  it("formule les explications attendues", () => {
+    const { trace, names } = first();
+    const text = (code: TraceEntry["code"], level: "beginner" | "technical" = "beginner", deviceId?: string) => formatTrace(decision(trace, code, deviceId), names, level);
+    expect(text("dns.resolved")).toBe("PC1 apprend que srv.lab correspond à 10.0.0.10 (réponse de 192.168.1.1).");
+    expect(text("dns.name-error-sent")).toBe("R1 répond à 192.168.1.10 que inconnu.lab n'existe pas : aucun enregistrement à ce nom.");
+    expect(text("ping.unresolved")).toBe("Ping de PC1 vers inconnu.lab abandonné avant le premier écho : nom inexistant (NXDOMAIN).");
+    expect(text("command.nslookup", "beginner", "pc1")).toBe("PC1 demande l'adresse de srv.lab à son serveur DNS 192.168.1.1.");
+    expect(text("command.nslookup", "beginner", "pc2")).toBe("PC2 cherche l'adresse de srv.lab, mais aucun serveur DNS n'est configuré.");
+    expect(text("dns.query-sent", "technical")).toMatch(/^Question DNS : identifiant \d+, QR=0, RD=1, type A, classe IN ; UDP \d+ → 192\.168\.1\.1:53\./);
+    expect(traceCategory("dns.resolved")).toBe("dns");
+    expect(traceCategory("command.nslookup")).toBe("dns");
+    expect(isLossOrError(decision(trace, "dns.name-error"))).toBe(true);
+    expect(isLossOrError(decision(trace, "dns.resolved"))).toBe(false);
+  });
+
+  it("inspecte question et réponse avec leurs seuls champs modélisés", () => {
+    const { trace, names } = first();
+    const frames = trace.flatMap((entry) =>
+      entry.code === "eth.transmit" && entry.pdu?.kind === "ethernet" && entry.pdu.payload.kind === "ipv4" && entry.pdu.payload.payload.kind === "udp" ? [entry.pdu] : [],
+    );
+    const query = frames[0];
+    const answer = frames.find((frame) => frame.destination === query?.source);
+    if (!query || !answer) throw new Error("question et réponse attendues");
+    const queryLayers = pduLayers(query, names);
+    expect(queryLayers.map((layer) => layer.id)).toEqual(["ethernet", "ipv4", "udp", "dns"]);
+    expect(queryLayers[2]?.fields[1]).toEqual(["Port destination", "53"]);
+    expect(queryLayers[3]?.fields.slice(1)).toEqual([
+      ["QR", "0 (question)"],
+      ["Drapeaux", "AA=0, RD=1, RA=0"],
+      ["RCODE", "0 (pas d'erreur)"],
+      ["Question", "srv.lab, type A (1), classe IN (1)"],
+    ]);
+    expect(pduLayers(answer, names)[3]?.fields.slice(1)).toEqual([
+      ["QR", "1 (réponse)"],
+      ["Drapeaux", "AA=1, RD=1, RA=0"],
+      ["RCODE", "0 (pas d'erreur)"],
+      ["Question", "srv.lab, type A (1), classe IN (1)"],
+      ["Réponse", "srv.lab → 10.0.0.10, type A, TTL 300 s"],
+    ]);
+  });
+
+  it("présente les résultats de nslookup et des pings par nom", () => {
+    const { snapshot } = first();
+    const [found, unknown, noServer] = snapshot.lookups;
+    if (!found || !unknown || !noServer) throw new Error("résolutions attendues");
+    expect(lookupLines(found)).toEqual({ lines: ["Serveur : 192.168.1.1", "Nom : srv.lab", "Adresse : 10.0.0.10 (TTL 300 s)"], error: null });
+    expect(lookupLines(unknown)).toEqual({ lines: ["Serveur : 192.168.1.1"], error: "*** inconnu.lab : nom inexistant (NXDOMAIN)" });
+    expect(lookupLines(noServer)).toEqual({ lines: [], error: "*** srv.lab : aucun serveur DNS configuré sur le poste" });
+    const [byName, unresolved] = snapshot.pings;
+    if (!byName || !unresolved) throw new Error("pings attendus");
+    expect(pingResolutionLine(byName)).toEqual({ text: "srv.lab correspond à 10.0.0.10.", failed: false });
+    expect(pingSummary(byName)?.summary).toBe("1 envoyé(s), 1 reçu(s), 0 perdu(s) (0 % de perte)");
+    expect(pingResolutionLine(unresolved)).toEqual({ text: "La requête ping n'a pas trouvé l'hôte inconnu.lab : nom inexistant (NXDOMAIN).", failed: true });
+    expect(pingSummary(unresolved)).toBeNull();
+    const timeout = runs[1]?.snapshot.pings[0];
+    expect(timeout && pingResolutionLine(timeout)?.text).toBe("La requête ping n'a pas trouvé l'hôte srv.lab : aucune réponse du serveur DNS.");
+  });
+
+  it("explique les commandes DNS refusées", () => {
+    expect(formatCommandError("command.invalid-name", { name: "srv_lab" })).toBe("« srv_lab » n'est pas un nom d'hôte valide (exemple : srv.lab).");
+    expect(formatCommandError("command.invalid-destination", { destination: "10.0.0", reason: "format" })).toBe(
+      "« 10.0.0 » ne peut pas être pingée : ni adresse IPv4 (exemple : 192.168.1.11) ni nom d'hôte (exemple : srv.lab).",
+    );
+  });
+});
+
 describe("pertes et erreurs mises en évidence", () => {
   const codesWhere = (predicate: (entry: TraceEntry) => boolean) =>
     new Set(allScenarios().flatMap(({ trace }) => trace.filter(predicate).map((entry) => entry.code)));
@@ -260,7 +369,7 @@ describe("formats", () => {
 
   it("explique chaque refus de commande", () => {
     for (const code of COMMAND_ERROR_CODES) {
-      expect(formatCommandError(code, { max: 20, deviceName: "SW1", destination: "x", reason: "format", table: "arp" })).not.toMatch(/\{\w+\}/);
+      expect(formatCommandError(code, { max: 20, deviceName: "SW1", destination: "x", name: "x", reason: "format", table: "arp" })).not.toMatch(/\{\w+\}/);
     }
     expect(formatCommandError("command.invalid-destination", { destination: "224.0.0.1", reason: "multicast" })).toBe(
       "« 224.0.0.1 » ne peut pas être pingée : plage multicast 224.0.0.0/4.",

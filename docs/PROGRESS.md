@@ -4,6 +4,8 @@ Le propriétaire a demandé un commit et un push GitHub le 2026-11-12, en cours 
 
 ### Point de sauvegarde demandé le 2026-11-12
 
+État dépassé : la tranche DHCP a été terminée et vérifiée ensuite (`a07b0a7`). Constat d'alors, conservé :
+
 - Travaux DHCP en cours sauvegardés comme tels : format, commandes, console et moteur ; tranche non terminée, non validée.
 - `pnpm check` échoue au lint : 5 erreurs (gabarits i18n manquants et assertions non nulles dans les tests DHCP).
 - `pnpm typecheck` échoue dans `packages/engine/src/routing.test.ts:122` : accès à `type` sur un `Ipv4Payload` pouvant désormais être un datagramme UDP.
@@ -19,7 +21,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 7 — Commutation avancée et services IP de base
 
-**État : en cours (démarrée le 2026-11-12).** Tranches 1 (VLAN), 2 (STP) et 3 (DHCP) terminées et vérifiées ; DNS minimal reste la prochaine tranche. La phase 7 reste ouverte.
+**État : terminée le 2026-11-12, en attente de validation du propriétaire.** Les quatre tranches du périmètre retenu (VLAN, STP, DHCP, DNS minimal) sont livrées et vérifiées, à une exception près : le parcours navigateur des comptes et évaluations n'a pas pu être rejoué pour la tranche DNS (voir ses vérifications). Rien de la phase 7 n'est déployé.
 
 ### Périmètre retenu
 
@@ -32,7 +34,7 @@ La ligne « phase 7 » de la feuille de route (P-01, P-02, P-03, P-06) couvre un
   3. **DHCP** : serveur sur routeur (plages, passerelle, durée de bail), postes en adressage automatique, échange DORA dans le journal, table des baux.
   4. **DNS minimal** (si les tranches précédentes sont terminées) : noms enregistrés sur un serveur, résolution par les postes.
 - Exclus (restent dans la feuille de route) : RSTP, agrégation, LLDP, sécurité de port, VTP, VLAN voix ; IPv6 (P-02) ; relais DHCP ; HTTP/HTTPS, FTP/TFTP, SMTP/POP3, Syslog, NTP, SSH, SNMP ; traceroute, Wi-Fi et clients applicatifs (P-06).
-- Données : aucune donnée personnelle ; projets enrichis (configuration de ports de commutateur, sous-interfaces, puis STP et DHCP).
+- Données : aucune donnée personnelle ; projets enrichis (configuration de ports de commutateur, sous-interfaces, puis STP, DHCP et DNS).
 
 ### Scénarios d'acceptation
 
@@ -45,6 +47,20 @@ La ligne « phase 7 » de la feuille de route (P-01, P-02, P-03, P-06) couvre un
 | VLAN | Projets version 4 migrés : comportement inchangé (tous les ports en VLAN 1) | atteint : migration testée ; 117 tests du moteur antérieurs inchangés ; parcours navigateur existants réussis |
 | STP | La boucle de commutation de référence converge sans tempête ; un port bloqué ; le ping réussit ; reconvergence après coupure | atteint : `stp.test.ts` (même boucle interrompue sans STP, convergée avec ; écoute 0 s, apprentissage 15 s, transmission 30 s), `stp.spec.ts` (port bloqué, coupure, ping en échec puis réussi, `show spanning-tree`) |
 | DHCP | Un poste obtient adresse et passerelle ; DORA observable ; plage épuisée signalée | atteint : `dhcp.test.ts` (DORA, clients distincts, ping distant, épuisement, libération, T1/T2/expiration, VLAN, déterminisme), `dhcp.spec.ts` (formulaires, console, inspecteur et baux) |
+| DNS | Un poste résout un nom enregistré sur le serveur et joint l'hôte par son nom ; question et réponse observables | atteint : `dns.test.ts` (question unicast vers le port 53 depuis un port éphémère, réponse d'autorité, taille comptée à la main, ping par nom, autre réseau, poste en DHCP), `dns.spec.ts` (nslookup, ping par nom, inspecteur, service dans le panneau d'exécution) |
+| DNS | Nom inconnu, poste sans serveur, serveur muet ou injoignable : échec explicite | atteint : `dns.test.ts` (NXDOMAIN, aucun serveur, service désactivé : retransmission à 5 s et abandon à 15 s, absence de route ou d'adresse, câble coupé), `dns.spec.ts` (« nom inexistant (NXDOMAIN) » dans la console et les résultats de ping) |
+| DNS | Console et formulaires équivalents ; anciens projets migrés sans DNS ; évaluations protégées | atteint : `project/dns.test.ts` (documents identiques, configuration rejouée), `migration.test.ts` (v6 → v7), `evaluation.test.ts` (fonction « addressing »), `dns.spec.ts` (nom ajouté au formulaire puis retiré à la console) |
+
+### Vérifications de la tranche DNS (2026-11-12, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- État commité de départ revérifié avant tout changement (`a07b0a7`, travaux DNS mis de côté) : `pnpm check` réussi, 415 tests.
+- Après la tranche : `pnpm check` réussi (lint, typecheck, **454 tests** : format 155, moteur 164, interface 80, contrats 2, API 53 sur PostgreSQL réel ; builds). Bundle principal 1 166 kB (344 kB gzip), Worker 186 kB.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **29 parcours** réussis (dont les 2 de `dns.spec.ts`), deux fois (avant et après les corrections visuelles).
+- `pnpm test:e2e:accounts` : **non exécuté**. Un processus PostgreSQL orphelin d'une exécution antérieure (PID 28932, lancé à 17:34, parent disparu, binaire `@embedded-postgres` du dépôt) garde le port 54330 ; son arrêt a été refusé par le mode automatique de l'outil et reste à décider par le propriétaire. Attente « correcteur version 4 » actualisée dans `evaluations.spec.ts` sans être rejouée. Contrôle partiel : tests d'API des exercices (note, versions du correcteur et du moteur) réussis sur PostgreSQL réel.
+- Inspection visuelle réelle (Edge) : formulaire « Serveur DNS » d'un PC, section « Service DNS » d'un routeur, console (nslookup, ping par nom, NXDOMAIN), résultats des pings, service dans le panneau d'exécution, inspecteur DNS ; thèmes sombre et clair, 1 440 et 1 024 px (mouvement réduit à 1 024 px) ; aucun débordement horizontal. Captures locales ignorées par Git.
+- Défauts trouvés et corrigés : retrait d'un nom absent qui activait le service (travaux repris) ; « 10.0.0 » accepté comme nom d'hôte (dernier label désormais alphabétique, RFC 1123 §2.1) ; paquet animé étiqueté « ICMP » pour tout datagramme UDP, DHCP compris (étiquette du protocole transporté, testée) ; ligne « Serveur » d'un nslookup en échec affichée comme une erreur ; commande de console tapée avant le chargement du moteur dans le parcours (attente explicite) ; retours d'expressions vides signalés par le lint.
+- Format **v7**, moteur **0.5.0**, protocole du Worker **2**, correcteur **v4**. Références consultées le 2026-11-12 : RFC 1035, RFC 1123, RFC 6335 ; limites dans [protocols/dns.md](protocols/dns.md) et D-055.
+- Limites connues de la tranche : pas d'option DHCP 6 (serveur DNS du poste saisi à la main), aucun cache ni fichier hosts, enregistrements A seulement, pas de récursion ni d'erreur ICMP « port inaccessible » ; critères d'exercice toujours exprimés par adresse.
 
 ### Vérifications de la tranche DHCP (2026-11-12)
 

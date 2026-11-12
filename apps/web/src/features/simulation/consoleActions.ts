@@ -1,6 +1,6 @@
 import { cliPrompt, configurationCommands, interpret, type CliRequest } from "@netforge/project";
 import { fill, formatIssue, messages } from "../../i18n";
-import { formatCliError, helpLines, ipconfig, showArp, showDhcp, showInterfaces, showMac, showRoutes, showStp, showVlans } from "../../i18n/console";
+import { formatCliError, helpLines, ipconfig, showArp, showDhcp, showDns, showInterfaces, showMac, showRoutes, showStp, showVlans } from "../../i18n/console";
 import { formatCommandError } from "../../i18n/simulation";
 import { useLabStore } from "../lab/store";
 import { consoleKey, EMPTY_CONSOLE, useConsoleStore } from "./consoleStore";
@@ -100,6 +100,20 @@ async function handleRequest(projectId: string, deviceId: string, key: string, r
     case "show-dhcp":
       runtime((names) => (view ? showDhcp(view, names) : []));
       return;
+    case "show-dns":
+      runtime(() => (view ? showDns(view) : []));
+      return;
+    case "nslookup": {
+      const reply = await simulation.nslookup(deviceId, request.name);
+      if (!reply.ok) {
+        consoles.append(key, "error", [formatCommandError(reply.code, reply.params)]);
+        return;
+      }
+      consoles.append(key, "output", [fill(t.nslookupStart, { name: request.name })]);
+      watchSession(key, reply.sessionId);
+      if (stale) consoles.append(key, "info", [t.staleNote]);
+      return;
+    }
     case "dhcp": {
       const reply = await simulation.dhcp(deviceId, request.action);
       consoles.append(key, reply.ok ? "info" : "error", [reply.ok ? messages.simulation.runtime.dhcpQueued : formatCommandError(reply.code, reply.params)]);
@@ -117,13 +131,19 @@ async function handleRequest(projectId: string, deviceId: string, key: string, r
         return;
       }
       consoles.append(key, "output", [fill(t.pingStart, { count: request.count, destination: request.destination })]);
-      if (reply.sessionId) {
-        consoles.watch(reply.sessionId, key);
-        const latest = useSimulationStore.getState().session;
-        if (latest) consoles.syncPings(latest);
-      }
-      if (useSimulationStore.getState().session?.mode === "paused") consoles.append(key, "info", [t.pingPaused]);
+      watchSession(key, reply.sessionId);
       return;
     }
   }
+}
+
+/** Suit un ping ou un nslookup : ses résultats s'afficheront dans la console au fil du calcul. */
+function watchSession(key: string, sessionId: string | null): void {
+  const consoles = useConsoleStore.getState();
+  if (sessionId) {
+    consoles.watch(sessionId, key);
+    const latest = useSimulationStore.getState().session;
+    if (latest) consoles.syncPings(latest);
+  }
+  if (useSimulationStore.getState().session?.mode === "paused") consoles.append(key, "info", [t.pingPaused]);
 }

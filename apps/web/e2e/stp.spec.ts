@@ -13,7 +13,7 @@ const dockTab = (page: Page, name: string) => page.getByRole("tablist", { name: 
 const dock = (page: Page) => page.getByRole("region", { name: "Résultats de la simulation" });
 
 async function ping(page: Page): Promise<void> {
-  await actions(page).getByLabel("Adresse de destination").fill("192.168.1.11");
+  await actions(page).getByLabel("Destination (adresse ou nom)").fill("192.168.1.11");
   await actions(page).getByLabel("Nombre d'échos").fill("1");
   await actions(page).getByRole("button", { name: "Lancer le ping" }).click();
   await bar(page).getByRole("button", { name: "Terminer les échanges" }).click();

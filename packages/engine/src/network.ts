@@ -81,6 +81,10 @@ export interface RuntimeDevice {
   readonly stp: { readonly enabled: boolean; readonly priority: number } | null;
   /** Serveur DHCP (routeur) : plage de chaque interface qui en a une. */
   readonly dhcpPools: ReadonlyMap<string, RuntimeDhcpPool>;
+  /** Résolveur (PC) : serveur DNS interrogé, ou null. */
+  readonly dnsServer: string | null;
+  /** Service DNS (routeur) : enregistrements A par nom ; null si le service est désactivé. */
+  readonly dnsRecords: ReadonlyMap<string, string> | null;
 }
 
 export interface RuntimeDhcpPool {
@@ -190,6 +194,8 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
               return start === null || end === null ? [] : [[id, { start, end, gateway: pool.gateway, leaseSeconds: pool.leaseSeconds }] as const];
             }),
       ),
+      dnsServer: model.kind === "pc" ? (config?.dnsServer ?? null) : null,
+      dnsRecords: model.kind === "router" && config?.dnsRecords ? new Map(Object.entries(config.dnsRecords)) : null,
     });
   }
   return { devices, links };

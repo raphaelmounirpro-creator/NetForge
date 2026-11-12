@@ -107,6 +107,18 @@ function isSwitchModel(model: string): boolean {
   return model in DEVICE_MODELS && getModel(model as DeviceModelId).kind === "switch";
 }
 
+/** Version 6 → 7 : aucun résolveur ni service DNS activé implicitement. */
+function migrateV6toV7(doc: Record<string, unknown>): Record<string, unknown> {
+  const configs = doc["configurations"];
+  return {
+    ...doc,
+    schemaVersion: 7,
+    configurations: isRecord(configs)
+      ? Object.fromEntries(Object.entries(configs).map(([id, config]) => [id, isRecord(config) ? { ...config, dnsServer: null, dnsRecords: null } : config]))
+      : configs,
+  };
+}
+
 /**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
@@ -117,6 +129,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   3: migrateV3toV4,
   4: migrateV4toV5,
   5: migrateV5toV6,
+  6: migrateV6toV7,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

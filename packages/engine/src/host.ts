@@ -112,7 +112,7 @@ export function createSimulationHost(env: HostEnvironment, timing: Partial<HostT
     let changes: SimulationChanges = current.takeChanges();
     if (options.full) {
       const snapshot = current.snapshot();
-      changes = { devices: snapshot.devices, pings: snapshot.pings, links: snapshot.links };
+      changes = { devices: snapshot.devices, pings: snapshot.pings, lookups: snapshot.lookups, links: snapshot.links };
     }
     updateSeq += 1;
     env.post({

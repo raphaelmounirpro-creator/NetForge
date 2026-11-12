@@ -1,4 +1,5 @@
 import { findPort, getModel } from "./catalog.js";
+import { isDnsAddress } from "./dns.js";
 import { error, warning, type Issue } from "./issues.js";
 import {
   broadcastAddress,
@@ -244,6 +245,17 @@ function checkIntegrity(doc: NfgDocument): Issue[] {
       issues.push(error("config.missing", { deviceId: device.id, deviceName: device.name }));
     } else {
       const model = getModel(device.model);
+      // DNS (v7) : résolveur sur un PC, service sur un routeur, adresses d'hôte attribuables.
+      if (config.dnsServer !== null) {
+        if (model.kind !== "pc") issues.push(error("dns.client-not-supported", { deviceId: device.id, deviceName: device.name }));
+        if (!isDnsAddress(config.dnsServer)) issues.push(error("dns.invalid-address", { value: config.dnsServer }));
+      }
+      if (config.dnsRecords !== null) {
+        if (model.kind !== "router") issues.push(error("dns.server-not-supported", { deviceId: device.id, deviceName: device.name }));
+        for (const address of Object.values(config.dnsRecords)) {
+          if (!isDnsAddress(address)) issues.push(error("dns.invalid-address", { value: address }));
+        }
+      }
       for (const [portId, portConfig] of Object.entries(config.interfaces)) {
         if (portId.includes(".")) {
           // Sous-interface 802.1Q (v5) : routeur seulement, port parent existant, VLAN 1 à 4094.

@@ -128,6 +128,37 @@ export interface DhcpServerView {
   readonly leases: readonly DhcpLeaseView[];
 }
 
+/** Service DNS d'un routeur : enregistrements publiés et réponses données depuis le chargement. */
+export interface DnsServerView {
+  /** Enregistrements A triés par nom. */
+  readonly records: ReadonlyArray<{ readonly name: string; readonly address: string }>;
+  readonly answered: number;
+  readonly nameErrors: number;
+}
+
+/**
+ * Issue d'une résolution DNS : « pending » en attente de réponse ;
+ * « resolved » adresse obtenue ; « name-error » nom inexistant (NXDOMAIN) ;
+ * « timeout » aucune réponse après les retransmissions ; « no-server »
+ * aucun serveur DNS configuré ; « no-address » et « no-route » question
+ * impossible à émettre.
+ */
+export type DnsLookupStatus = "pending" | "resolved" | "name-error" | "timeout" | "no-server" | "no-address" | "no-route";
+
+/** Résolution demandée par nslookup. */
+export interface DnsLookupView {
+  readonly id: string;
+  readonly deviceId: string;
+  readonly name: string;
+  /** Serveur interrogé (null sans serveur configuré). */
+  readonly server: string | null;
+  readonly status: DnsLookupStatus;
+  readonly address: string | null;
+  readonly ttl: number | null;
+  /** Questions émises. */
+  readonly attempts: number;
+}
+
 export interface DeviceView {
   readonly deviceId: string;
   readonly name: string;
@@ -146,6 +177,8 @@ export interface DeviceView {
   readonly dhcpClient: DhcpClientView | null;
   /** Serveur DHCP (routeur ayant au moins une plage). */
   readonly dhcpServer: DhcpServerView | null;
+  /** Service DNS (routeur dont le service est activé). */
+  readonly dnsServer: DnsServerView | null;
 }
 
 export type PingFailure = "no-address" | "no-route" | "host-unreachable" | "queue-full";
@@ -168,7 +201,12 @@ export interface PingAttemptView {
 export interface PingView {
   readonly id: string;
   readonly deviceId: string;
+  /** Destination demandée : adresse IPv4 ou nom d'hôte (forme canonique). */
   readonly destination: string;
+  /** Adresse visée : la destination, ou l'adresse obtenue par DNS (null avant la résolution). */
+  readonly address: string | null;
+  /** Résolution du nom (null quand la destination est une adresse). */
+  readonly resolution: DnsLookupStatus | null;
   readonly count: number;
   readonly identifier: number;
   readonly done: boolean;
@@ -192,6 +230,7 @@ export interface SimulationSnapshot {
   readonly activity: boolean;
   readonly devices: readonly DeviceView[];
   readonly pings: readonly PingView[];
+  readonly lookups: readonly DnsLookupView[];
   readonly links: readonly LinkView[];
 }
 
@@ -199,5 +238,6 @@ export interface SimulationSnapshot {
 export interface SimulationChanges {
   readonly devices: readonly DeviceView[];
   readonly pings: readonly PingView[];
+  readonly lookups: readonly DnsLookupView[];
   readonly links: readonly LinkView[];
 }

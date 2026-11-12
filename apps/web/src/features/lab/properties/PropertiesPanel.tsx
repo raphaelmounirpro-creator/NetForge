@@ -24,6 +24,7 @@ import { ConnectForm } from "./ConnectForm";
 import { FiberForm } from "./FiberForm";
 import { Ipv4Form } from "./Ipv4Form";
 import { DhcpMode, DhcpPools } from "./DhcpForms";
+import { DnsServerForm, DnsServiceSection } from "./DnsForms";
 import { SubinterfacesSection } from "./SubinterfacesSection";
 import { SwitchportForm } from "./SwitchportForm";
 import { RoutesTab } from "./RoutesTab";
@@ -198,6 +199,7 @@ function InterfacesTab({ projectId, project, device }: { projectId: string; proj
       </ul>
       {model.kind === "router" && <SubinterfacesSection projectId={projectId} doc={doc} device={device} disabled={!editable} />}
       {model.kind === "router" && config && <DhcpPools projectId={projectId} deviceId={device.id} config={config} disabled={!editable} />}
+      {model.kind === "router" && <DnsServiceSection projectId={projectId} deviceId={device.id} records={config?.dnsRecords ?? null} disabled={!editable} />}
       {model.kind === "pc" && !Object.values(config?.interfaces ?? {}).some((value) => value.dhcp) && (
         <SingleFieldForm
           key={config?.defaultGateway ?? "-"}
@@ -208,6 +210,7 @@ function InterfacesTab({ projectId, project, device }: { projectId: string; proj
           onApply={(gateway) => useLabStore.getState().apply(projectId, (current) => setDefaultGateway(current, { deviceId: device.id, gateway }))}
         />
       )}
+      {model.kind === "pc" && <DnsServerForm projectId={projectId} deviceId={device.id} current={config?.dnsServer ?? null} disabled={!editable} />}
     </div>
   );
 }

@@ -46,10 +46,14 @@ export interface Animation {
   readonly duration: number;
 }
 
+/** Protocole de plus haut niveau transporté par la trame (nom de protocole, non traduit). */
 function frameLabel(entry: TraceEntry): string {
   const pdu = entry.pdu;
   if (pdu?.kind !== "ethernet") return "";
-  return pdu.payload.kind === "arp" ? "ARP" : "ICMP";
+  if (pdu.payload.kind === "arp") return "ARP";
+  const carried = pdu.payload.payload;
+  if (carried.kind === "udp") return carried.payload.kind === "dns" ? "DNS" : "DHCP";
+  return "ICMP";
 }
 
 const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;

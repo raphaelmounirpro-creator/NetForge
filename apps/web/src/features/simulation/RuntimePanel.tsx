@@ -77,6 +77,16 @@ function DeviceRuntime({ device, names, disabled }: { device: DeviceView; names:
         {device.dhcpServer.leases.map((lease) => <Entry key={lease.address} main={`${lease.address} → ${names.mac(lease.mac)}`} detail={fill(t.dhcpLeaseEntry, { state: lease.state === "bound" ? t.dhcpBound : t.dhcpOffered, port: lease.portId, expires: lease.expiresAt === null ? "—" : formatSimTime(lease.expiresAt) })} />)}
       </EntryList>}
 
+      {device.dnsServer && (
+        <EntryList title={t.dnsServerTitle} empty={null}>
+          <li className="text-xs text-text-muted">{fill(t.dnsCounters, { answered: device.dnsServer.answered, nameErrors: device.dnsServer.nameErrors })}</li>
+          {device.dnsServer.records.length === 0 && <li className="text-xs text-text-muted">{t.dnsNoRecords}</li>}
+          {device.dnsServer.records.map((record) => (
+            <Entry key={record.name} main={record.name} detail={`→ ${record.address}`} />
+          ))}
+        </EntryList>
+      )}
+
       {device.stp && (
         <EntryList title={t.stpTitle} empty={device.stp.enabled ? null : t.stpDisabled}>
           {device.stp.enabled && (

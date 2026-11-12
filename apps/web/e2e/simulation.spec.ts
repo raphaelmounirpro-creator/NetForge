@@ -23,7 +23,7 @@ async function openSimulation(page: Page): Promise<void> {
 async function ping(page: Page, destination: string, count: string, source?: string): Promise<void> {
   const panel = actions(page);
   if (source) await panel.getByLabel("Depuis").selectOption({ label: new RegExp(`^${source} `).source.slice(1) });
-  await panel.getByLabel("Adresse de destination").fill(destination);
+  await panel.getByLabel("Destination (adresse ou nom)").fill(destination);
   await panel.getByLabel("Nombre d'échos").fill(count);
   await panel.getByRole("button", { name: "Lancer le ping" }).click();
 }

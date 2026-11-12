@@ -1,6 +1,6 @@
 # Protocoles et modèles physiques
 
-Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2) et calcule le bilan optique d'un réseau FTTH (phase 4). Chaque fiche indique le niveau de modélisation, les références publiques effectivement consultées, les simplifications et les tests qui vérifient le comportement.
+Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2), VLAN, STP, DHCP et DNS (phase 7) et calcule le bilan optique d'un réseau FTTH (phase 4). Chaque fiche indique le niveau de modélisation, les références publiques effectivement consultées, les simplifications et les tests qui vérifient le comportement.
 
 | Fiche | Niveau |
 |---|---|
@@ -10,6 +10,7 @@ Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2) et calcule le bilan optiq
 | [Spanning Tree (IEEE 802.1D)](stp.md) | Pédagogique simplifié — arbre calculé, sans BPDU simulés |
 | [ARP](arp.md) | Pédagogique simplifié |
 | [DHCP sur IPv4](dhcp.md) | Pédagogique simplifié — serveur sur routeur, clients PC |
+| [DNS minimal sur IPv4](dns.md) | Pédagogique simplifié — enregistrements A sur routeur, résolution par les PC |
 | [Adressage IPv4 (configuration)](ipv4-adressage.md) | Pédagogique simplifié — configuration et validation |
 | [IPv4 : acheminement et routage statique](ipv4-routage.md) | Pédagogique simplifié |
 | [ICMP et ping](icmp-ping.md) | Pédagogique simplifié (sous-ensemble) |
@@ -45,7 +46,8 @@ La trace (et l'inspecteur prévu en phase 3) n'affiche que ces champs ; aucun oc
 | Trame Ethernet | 2 · liaison | MAC source, MAC destination, étiquette 802.1Q (VID) si présente (EtherType déduit du contenu ; taille calculée) | ARP ou IPv4 |
 | ARP | entre 2 et 3 · résolution d'adresse | opération, MAC et IP de l'émetteur, MAC et IP de la cible | — |
 | IPv4 | 3 · réseau | source, destination, TTL, identification (protocole transporté : ICMP ou UDP) | ICMP ou UDP |
-| UDP | 4 · transport | ports source et destination | DHCP |
+| UDP | 4 · transport | ports source et destination | DHCP ou DNS |
 | DHCP | 7 · application | type, xid, BROADCAST, ciaddr, yiaddr, chaddr, options présentes | — |
+| DNS | 7 · application | identifiant, QR, AA, RD, RA, RCODE, question (nom, type A, classe IN), réponses A (nom, adresse, TTL) | — |
 | ICMP écho | 3 · contrôle et diagnostic | type, identifiant, séquence, longueur des données | — |
 | ICMP erreur | 3 · contrôle et diagnostic | type, code, en-tête IP et identifiant/séquence de l'écho d'origine | — |

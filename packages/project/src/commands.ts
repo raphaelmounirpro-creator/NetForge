@@ -1,5 +1,6 @@
 import { CATALOG_VERSION, findPort, getModel, type DeviceModelId } from "./catalog.js";
 import { DHCP_LEASE_MAX, DHCP_LEASE_MIN, isDhcpLease, type DhcpPool } from "./dhcp.js";
+import { DNS_MAX_RECORDS, isDnsAddress, normalizeDnsName } from "./dns.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, parseIpv4, parsePrefixOrMask, type Ipv4Interface } from "./ipv4.js";
 import {
@@ -51,7 +52,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {} };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -622,4 +623,46 @@ export function repair(doc: NfgDocument, params: { action: RepairAction; target:
   const remaining = doc.faults.filter((fault) => !(fixed.includes(fault.kind) && sameTarget(fault.target, params.target)));
   if (remaining.length === doc.faults.length) return fail(error("repair.nothing-found", { action: params.action }));
   return commit(doc, { ...doc, faults: remaining });
+}
+
+/** Résolveur d'un poste : adresse du serveur DNS interrogé, ou null (chaîne vide) pour le retirer. */
+export function setDnsServer(doc: NfgDocument, params: { deviceId: string; server: string | null }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "pc") return fail(error("dns.client-not-supported", { deviceId: device.id, deviceName: device.name }));
+  const server = params.server?.trim() || null;
+  if (server !== null && !isDnsAddress(server)) return fail(error("dns.invalid-address", { value: server }));
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, dnsServer: server } } });
+}
+
+/** Service DNS d'un routeur : l'activer conserve ses noms ; le désactiver les retire (l'historique permet d'annuler). */
+export function setDnsEnabled(doc: NfgDocument, params: { deviceId: string; enabled: boolean }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "router") return fail(error("dns.server-not-supported", { deviceId: device.id, deviceName: device.name }));
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  const dnsRecords = params.enabled ? (config.dnsRecords ?? {}) : null;
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, dnsRecords } } });
+}
+
+/**
+ * Enregistrement A du service DNS d'un routeur : ajout ou remplacement (le
+ * service est alors activé), ou retrait avec une adresse null.
+ */
+export function setDnsRecord(doc: NfgDocument, params: { deviceId: string; name: string; address: string | null }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "router") return fail(error("dns.server-not-supported", { deviceId: device.id, deviceName: device.name }));
+  const name = normalizeDnsName(params.name);
+  if (name === null) return fail(error("dns.invalid-name", { value: params.name.trim() }));
+  const address = params.address?.trim() ?? null;
+  if (address !== null && !isDnsAddress(address)) return fail(error("dns.invalid-address", { value: address }));
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  const current = config.dnsRecords ?? {};
+  if (address === null && !Object.hasOwn(current, name)) return fail(error("dns.record-not-found", { name, deviceName: device.name }));
+  const { [name]: _replaced, ...rest } = current;
+  const dnsRecords = address === null ? rest : { ...rest, [name]: address };
+  if (Object.keys(dnsRecords).length > DNS_MAX_RECORDS) return fail(error("dns.too-many-records", { max: DNS_MAX_RECORDS }));
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, dnsRecords } } });
 }

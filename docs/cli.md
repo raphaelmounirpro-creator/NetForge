@@ -28,6 +28,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `show vlans` (switch) | Ports d'accès par VLAN, puis trunks (VLAN natif, VLAN autorisés) |
 | | `show spanning-tree` (switch) | Racine élue, port racine, puis rôle, état et coût de chaque port |
 | | `show dhcp` (routeur) | Plages et baux calculés par le moteur |
+| | `show dns` (routeur) | Noms enregistrés et réponses données par le service DNS (calculés par le moteur) |
 | | `show config` | Configuration réécrite en commandes (rejouable) |
 | | `clear arp` (routeur) / `clear mac` (switch) | Vide la table apprise |
 | | `configure` | Passe en mode configuration |
@@ -38,6 +39,9 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `route delete <réseau>/<préfixe>` | Retire une route statique |
 | | `spanning-tree enable` / `spanning-tree disable` (switch) | Active / désactive le Spanning Tree |
 | | `spanning-tree priority <priorité>` (switch) | Priorité du pont : multiple de 4096 entre 0 et 61440 (la plus petite devient racine) |
+| | `dns enable` / `dns disable` (routeur) | Active le service DNS / le désactive (ses noms sont retirés ; annulable) |
+| | `dns record <nom> <adresse>` (routeur) | Enregistre ou remplace un nom (enregistrement A) ; active le service |
+| | `dns delete <nom>` (routeur) | Retire un nom enregistré |
 | Interface (`R1(config ge0)>`) | `address <adresse>/<préfixe>` ou `address <adresse> <masque>` | Adresse IPv4 du port |
 | | `address clear` | Retire l'adresse |
 | | `dhcp pool <début> <fin> [gateway <passerelle>] [lease <durée>]` (routeur) | Plage de l'interface ; défauts : adresse de l'interface, bail de 1 jour |
@@ -57,11 +61,14 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | `ipconfig clear` | Retire l'adresse et la passerelle |
 | `ipconfig dhcp` | Active l'adressage automatique (adresse obtenue pendant la simulation) |
 | `ipconfig renew` / `ipconfig release` | Demande ou renouvelle / libère le bail DHCP |
-| `ping <adresse> [-n <nombre>]` | Échos ICMP (4 par défaut, 20 au plus) ; réponses affichées au fil du calcul |
+| `ipconfig dns <serveur>` / `ipconfig dns clear` | Définit / retire le serveur DNS interrogé (y compris en DHCP) |
+| `nslookup <nom>` | Résout un nom par le serveur DNS du poste : serveur, nom, adresse et TTL, ou cause de l'échec |
+| `ping <adresse\|nom> [-n <nombre>]` | Échos ICMP (4 par défaut, 20 au plus) ; un nom est d'abord résolu par DNS ; réponses affichées au fil du calcul |
 | `arp -a` / `arp -d` | Affiche / vide le cache ARP |
 
 ## Limites
 
-- Pas de ping depuis un routeur ni de traceroute (prévus avec les outils de supervision).
+- Pas de ping ni de résolution de noms depuis un routeur, ni de traceroute (prévus avec les outils de supervision).
+- `ipconfig d` est ambigu (`dhcp` ou `dns`), comme `show d` sur un routeur.
 - Pas de description de port ni d'arrêt administratif d'interface ; pas de base de VLAN ni de noms de VLAN ([protocols/vlan.md](protocols/vlan.md)).
 - La console n'est disponible que dans la vue Simulation.

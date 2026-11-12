@@ -4,7 +4,7 @@ const actions = (page: Page) => page.getByRole("complementary", { name: "Actions
 const bar = (page: Page) => page.getByRole("toolbar", { name: "Commandes de la simulation" });
 
 async function pingPc2(page: Page): Promise<void> {
-  await actions(page).getByLabel("Adresse de destination").fill("10.0.2.10");
+  await actions(page).getByLabel("Destination (adresse ou nom)").fill("10.0.2.10");
   await actions(page).getByLabel("Nombre d'échos").fill("1");
   await actions(page).getByRole("button", { name: "Lancer le ping" }).click();
   await bar(page).getByRole("button", { name: "Terminer les échanges" }).click();

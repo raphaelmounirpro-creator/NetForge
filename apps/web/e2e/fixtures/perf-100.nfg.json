@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "models": {
     "catalog": 2
   },
@@ -1913,7 +1913,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw1": {
       "interfaces": {},
@@ -1924,7 +1926,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc1": {
       "interfaces": {
@@ -1940,7 +1944,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc2": {
       "interfaces": {
@@ -1956,7 +1962,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc3": {
       "interfaces": {
@@ -1972,7 +1980,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc4": {
       "interfaces": {
@@ -1988,7 +1998,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc5": {
       "interfaces": {
@@ -2004,7 +2016,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc6": {
       "interfaces": {
@@ -2020,7 +2034,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc7": {
       "interfaces": {
@@ -2036,7 +2052,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc8": {
       "interfaces": {
@@ -2052,7 +2070,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc9": {
       "interfaces": {
@@ -2068,7 +2088,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc10": {
       "interfaces": {
@@ -2084,7 +2106,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw2": {
       "interfaces": {},
@@ -2095,7 +2119,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc11": {
       "interfaces": {
@@ -2111,7 +2137,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc12": {
       "interfaces": {
@@ -2127,7 +2155,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc13": {
       "interfaces": {
@@ -2143,7 +2173,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc14": {
       "interfaces": {
@@ -2159,7 +2191,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc15": {
       "interfaces": {
@@ -2175,7 +2209,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc16": {
       "interfaces": {
@@ -2191,7 +2227,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc17": {
       "interfaces": {
@@ -2207,7 +2245,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc18": {
       "interfaces": {
@@ -2223,7 +2263,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc19": {
       "interfaces": {
@@ -2239,7 +2281,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc20": {
       "interfaces": {
@@ -2255,7 +2299,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw3": {
       "interfaces": {},
@@ -2266,7 +2312,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc21": {
       "interfaces": {
@@ -2282,7 +2330,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc22": {
       "interfaces": {
@@ -2298,7 +2348,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc23": {
       "interfaces": {
@@ -2314,7 +2366,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc24": {
       "interfaces": {
@@ -2330,7 +2384,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc25": {
       "interfaces": {
@@ -2346,7 +2402,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc26": {
       "interfaces": {
@@ -2362,7 +2420,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc27": {
       "interfaces": {
@@ -2378,7 +2438,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc28": {
       "interfaces": {
@@ -2394,7 +2456,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc29": {
       "interfaces": {
@@ -2410,7 +2474,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc30": {
       "interfaces": {
@@ -2426,7 +2492,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw4": {
       "interfaces": {},
@@ -2437,7 +2505,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc31": {
       "interfaces": {
@@ -2453,7 +2523,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc32": {
       "interfaces": {
@@ -2469,7 +2541,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc33": {
       "interfaces": {
@@ -2485,7 +2559,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc34": {
       "interfaces": {
@@ -2501,7 +2577,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc35": {
       "interfaces": {
@@ -2517,7 +2595,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc36": {
       "interfaces": {
@@ -2533,7 +2613,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc37": {
       "interfaces": {
@@ -2549,7 +2631,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc38": {
       "interfaces": {
@@ -2565,7 +2649,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc39": {
       "interfaces": {
@@ -2581,7 +2667,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc40": {
       "interfaces": {
@@ -2597,7 +2685,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw5": {
       "interfaces": {},
@@ -2608,7 +2698,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc41": {
       "interfaces": {
@@ -2624,7 +2716,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc42": {
       "interfaces": {
@@ -2640,7 +2734,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc43": {
       "interfaces": {
@@ -2656,7 +2752,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc44": {
       "interfaces": {
@@ -2672,7 +2770,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc45": {
       "interfaces": {
@@ -2688,7 +2788,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc46": {
       "interfaces": {
@@ -2704,7 +2806,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc47": {
       "interfaces": {
@@ -2720,7 +2824,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc48": {
       "interfaces": {
@@ -2736,7 +2842,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc49": {
       "interfaces": {
@@ -2752,7 +2860,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc50": {
       "interfaces": {
@@ -2768,7 +2878,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw6": {
       "interfaces": {},
@@ -2779,7 +2891,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc51": {
       "interfaces": {
@@ -2795,7 +2909,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc52": {
       "interfaces": {
@@ -2811,7 +2927,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc53": {
       "interfaces": {
@@ -2827,7 +2945,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc54": {
       "interfaces": {
@@ -2843,7 +2963,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc55": {
       "interfaces": {
@@ -2859,7 +2981,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc56": {
       "interfaces": {
@@ -2875,7 +2999,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc57": {
       "interfaces": {
@@ -2891,7 +3017,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc58": {
       "interfaces": {
@@ -2907,7 +3035,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc59": {
       "interfaces": {
@@ -2923,7 +3053,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc60": {
       "interfaces": {
@@ -2939,7 +3071,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw7": {
       "interfaces": {},
@@ -2950,7 +3084,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc61": {
       "interfaces": {
@@ -2966,7 +3102,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc62": {
       "interfaces": {
@@ -2982,7 +3120,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc63": {
       "interfaces": {
@@ -2998,7 +3138,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc64": {
       "interfaces": {
@@ -3014,7 +3156,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc65": {
       "interfaces": {
@@ -3030,7 +3174,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc66": {
       "interfaces": {
@@ -3046,7 +3192,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc67": {
       "interfaces": {
@@ -3062,7 +3210,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc68": {
       "interfaces": {
@@ -3078,7 +3228,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc69": {
       "interfaces": {
@@ -3094,7 +3246,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc70": {
       "interfaces": {
@@ -3110,7 +3264,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw8": {
       "interfaces": {},
@@ -3121,7 +3277,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc71": {
       "interfaces": {
@@ -3137,7 +3295,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc72": {
       "interfaces": {
@@ -3153,7 +3313,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc73": {
       "interfaces": {
@@ -3169,7 +3331,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc74": {
       "interfaces": {
@@ -3185,7 +3349,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc75": {
       "interfaces": {
@@ -3201,7 +3367,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc76": {
       "interfaces": {
@@ -3217,7 +3385,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc77": {
       "interfaces": {
@@ -3233,7 +3403,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc78": {
       "interfaces": {
@@ -3249,7 +3421,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc79": {
       "interfaces": {
@@ -3265,7 +3439,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc80": {
       "interfaces": {
@@ -3281,7 +3457,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw9": {
       "interfaces": {},
@@ -3292,7 +3470,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc81": {
       "interfaces": {
@@ -3308,7 +3488,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc82": {
       "interfaces": {
@@ -3324,7 +3506,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc83": {
       "interfaces": {
@@ -3340,7 +3524,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc84": {
       "interfaces": {
@@ -3356,7 +3542,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc85": {
       "interfaces": {
@@ -3372,7 +3560,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc86": {
       "interfaces": {
@@ -3388,7 +3578,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc87": {
       "interfaces": {
@@ -3404,7 +3596,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc88": {
       "interfaces": {
@@ -3420,7 +3614,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc89": {
       "interfaces": {
@@ -3436,7 +3632,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc90": {
       "interfaces": {
@@ -3452,7 +3650,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     }
   },
   "faults": [],

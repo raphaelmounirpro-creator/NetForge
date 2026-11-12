@@ -15,7 +15,7 @@ const dockTab = (page: Page, name: string) => page.getByRole("tablist", { name: 
 const pings = (page: Page) => page.getByRole("region", { name: "Résultats de la simulation" });
 
 async function ping(page: Page, destination: string): Promise<void> {
-  await actions(page).getByLabel("Adresse de destination").fill(destination);
+  await actions(page).getByLabel("Destination (adresse ou nom)").fill(destination);
   await actions(page).getByLabel("Nombre d'échos").fill("1");
   await actions(page).getByRole("button", { name: "Lancer le ping" }).click();
   await bar(page).getByRole("button", { name: "Terminer les échanges" }).click();

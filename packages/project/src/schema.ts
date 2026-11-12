@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CATALOG_VERSION, DEVICE_MODEL_IDS } from "./catalog.js";
 import { DHCP_LEASE_MAX, DHCP_LEASE_MIN } from "./dhcp.js";
+import { DNS_MAX_RECORDS, normalizeDnsName } from "./dns.js";
 import { isIpv4Address } from "./ipv4.js";
 import { STP_PRIORITY_MAX, STP_PRIORITY_STEP } from "./stp.js";
 import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
@@ -15,7 +16,7 @@ import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -122,6 +123,16 @@ const deviceConfigSchema = z.strictObject({
     .nullable(),
   /** Serveur DHCP (routeurs uniquement) : une plage par interface ; vide sans serveur. */
   dhcpPools: z.record(interfaceIdSchema, dhcpPoolSchema),
+  /** Résolveur (PC uniquement) : serveur DNS saisi manuellement, y compris en adressage automatique. */
+  dnsServer: ipv4AddressSchema.nullable(),
+  /** Service DNS (routeurs uniquement) : null désactivé ; sinon enregistrements A par nom canonique. */
+  dnsRecords: z
+    .record(
+      z.string().refine((name) => normalizeDnsName(name) === name, "nom DNS canonique"),
+      ipv4AddressSchema,
+    )
+    .refine((records) => Object.keys(records).length <= DNS_MAX_RECORDS, "trop d'enregistrements")
+    .nullable(),
 });
 
 const deviceSchema = z.strictObject({

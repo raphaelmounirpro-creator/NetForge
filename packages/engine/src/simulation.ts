@@ -2,6 +2,7 @@ import {
   carriesVlan,
   DEFAULT_SWITCHPORT,
   formatIpv4,
+  normalizeDnsName,
   parseIpv4,
   parsePrefixOrMask,
   prefixToMask,
@@ -17,6 +18,9 @@ import { DEFAULT_PARAMETERS, PING_DEFAULTS, type SimulationLimits, type Simulati
 import {
   DHCP_CLIENT_PORT,
   DHCP_SERVER_PORT,
+  DNS_SERVER_PORT,
+  EPHEMERAL_PORT_MAX,
+  EPHEMERAL_PORT_MIN,
   ETHERNET_WIRE_OVERHEAD_BYTES,
   LIMITED_BROADCAST,
   UNSPECIFIED_ADDRESS,
@@ -27,6 +31,7 @@ import {
   type DhcpMessage,
   type DhcpMessageType,
   type DhcpOptions,
+  type DnsMessage,
   type EthernetFrame,
   type IcmpError,
   type Ipv4Packet,
@@ -43,6 +48,8 @@ import type { Diagnostic, TraceCode, TraceEntry, TraceParams } from "./trace.js"
 import type {
   DeviceView,
   DhcpClientPhase,
+  DnsLookupStatus,
+  DnsLookupView,
   LinkView,
   PingAttemptView,
   PingFailure,
@@ -80,7 +87,8 @@ type EventValue =
       readonly stage: "renew" | "rebind" | "expire";
       readonly generation: number;
     }
-  | { readonly type: "dhcp-server-expiry"; readonly deviceId: string; readonly address: string; readonly generation: number };
+  | { readonly type: "dhcp-server-expiry"; readonly deviceId: string; readonly address: string; readonly generation: number }
+  | { readonly type: "dns-retry"; readonly queryId: string; readonly attempt: number };
 
 interface QueuedEvent {
   readonly value: EventValue;
@@ -109,7 +117,8 @@ interface ArpEntry {
 type PacketOrigin =
   | { readonly kind: "ping"; readonly sessionId: string; readonly sequence: number }
   | { readonly kind: "local" }
-  | { readonly kind: "forwarded" };
+  | { readonly kind: "forwarded" }
+  | { readonly kind: "dns"; readonly queryId: string };
 
 interface QueuedPacket {
   readonly packet: Ipv4Packet;
@@ -157,6 +166,9 @@ interface DeviceState {
   readonly pending: Map<string, PendingResolution>;
   readonly dhcpLeases: Map<string, ServerLease>;
   nextIdentification: number;
+  /** Service DNS : réponses données (avec adresse) et noms inconnus (NXDOMAIN). */
+  dnsAnswered: number;
+  dnsNameErrors: number;
 }
 
 interface DhcpOffer {
@@ -191,6 +203,27 @@ interface DhcpClient {
 const NO_DHCP_OPTIONS: DhcpOptions = { serverId: null, requestedIp: null, subnetMask: null, router: null, leaseSeconds: null };
 const dhcpClientKey = (deviceId: string, portId: string) => `${deviceId}/${portId}`;
 
+/**
+ * Résolution DNS d'un nom par un PC : nslookup (pingSessionId null) ou
+ * préalable d'un ping par nom. Identifiant de message et port source sont
+ * tirés au démarrage ; la réponse est reconnue par port, identifiant,
+ * serveur et question (RFC 1035 §7.3).
+ */
+interface DnsQuery {
+  readonly id: string;
+  readonly deviceId: string;
+  readonly name: string;
+  readonly server: string | null;
+  readonly pingSessionId: string | null;
+  messageId: number;
+  sourcePort: number;
+  attempts: number;
+  retrySeq: number;
+  status: DnsLookupStatus;
+  address: string | null;
+  ttl: number | null;
+}
+
 interface PingAttempt {
   readonly sequence: number;
   status: PingStatus;
@@ -207,7 +240,11 @@ interface PingAttempt {
 interface PingSession {
   readonly id: string;
   readonly deviceId: string;
+  /** Adresse IPv4 ou nom canonique demandé. */
   readonly destination: string;
+  /** Adresse visée : la destination, ou celle obtenue par DNS (null avant la résolution). */
+  address: string | null;
+  resolution: DnsLookupStatus | null;
   readonly count: number;
   identifier: number;
   started: boolean;
@@ -301,6 +338,10 @@ export class Simulation {
   /** Clients DHCP (ports de PC en adressage automatique). */
   private readonly dhcpClients = new Map<string, DhcpClient>();
   private nextDhcpExchange = 1;
+  /** Résolutions DNS (nslookup et pings par nom), par identifiant d'échange « dns-N ». */
+  private readonly dnsQueries = new Map<string, DnsQuery>();
+  private nextDnsQuery = 1;
+  private readonly dirtyLookups = new Set<string>();
 
   constructor(doc: NfgDocument, options: SimulationOptions = {}) {
     this.seed = options.seed ?? DEFAULT_SEED;
@@ -317,6 +358,8 @@ export class Simulation {
         pending: new Map(),
         dhcpLeases: new Map(),
         nextIdentification: this.prng.nextInt(0x10000),
+        dnsAnswered: 0,
+        dnsNameErrors: 0,
       });
     }
     this.tree = computeSpanningTree(this.network, this.isUp);
@@ -406,9 +449,23 @@ export class Simulation {
       return { ok: true, sessionId: null };
     }
     if (device.kind !== "pc") return reject("command.not-a-pc", { deviceId: device.id, deviceName: device.name });
-    const destination = command.destination.trim();
-    const invalid = this.invalidDestination(device, destination);
-    if (invalid) return reject("command.invalid-destination", { destination, reason: invalid });
+    if (command.type === "nslookup") {
+      const name = normalizeDnsName(command.name);
+      if (name === null) return reject("command.invalid-name", { name: command.name.trim() });
+      const pending = [...this.dnsQueries.values()].filter((query) => query.pingSessionId === null && query.status === "pending").length;
+      if (pending >= this.parameters.limits.maxDnsLookups) return reject("command.too-many-lookups", { max: this.parameters.limits.maxDnsLookups });
+      const query = this.newQuery(device, name, null);
+      const normalized: SimCommand = { type: "nslookup", deviceId: device.id, name };
+      this.schedule(this.clock, { type: "command", command: normalized, sessionId: query.id });
+      this.log.push({ time: this.clock, command: normalized });
+      return { ok: true, sessionId: query.id };
+    }
+    const typed = command.destination.trim();
+    // Une destination qui n'est pas une adresse IPv4 est un nom d'hôte, résolu par DNS avant le premier écho.
+    const name = parseIpv4(typed) === null ? normalizeDnsName(typed) : null;
+    const invalid = name === null ? this.invalidDestination(device, typed) : null;
+    if (invalid) return reject("command.invalid-destination", { destination: typed, reason: invalid });
+    const destination = name ?? typed;
     const count = command.count ?? PING_DEFAULTS.count;
     if (!Number.isInteger(count) || count < 1 || count > PING_DEFAULTS.maxCount) {
       return reject("command.invalid-count", { max: PING_DEFAULTS.maxCount });
@@ -423,6 +480,8 @@ export class Simulation {
       id: sessionId,
       deviceId: device.id,
       destination,
+      address: name === null ? destination : null,
+      resolution: null,
       count,
       identifier: 0,
       started: false,
@@ -501,6 +560,7 @@ export class Simulation {
       activity: this.hasActivity(),
       devices: [...this.network.devices.values()].map((device) => this.deviceView(device)),
       pings: [...this.sessions.values()].map((session) => pingView(session)),
+      lookups: [...this.dnsQueries.values()].filter((query) => query.pingSessionId === null).map((query) => lookupView(query)),
       links: [...this.network.links.values()].map((link) => ({ linkId: link.id, up: link.up })),
     };
   }
@@ -517,6 +577,11 @@ export class Simulation {
       const session = this.sessions.get(id);
       if (session) pings.push(pingView(session));
     }
+    const lookups: DnsLookupView[] = [];
+    for (const id of this.dirtyLookups) {
+      const query = this.dnsQueries.get(id);
+      if (query) lookups.push(lookupView(query));
+    }
     const links: LinkView[] = [];
     for (const id of this.dirtyLinks) {
       const link = this.network.links.get(id);
@@ -524,8 +589,9 @@ export class Simulation {
     }
     this.dirtyDevices.clear();
     this.dirtyPings.clear();
+    this.dirtyLookups.clear();
     this.dirtyLinks.clear();
-    return { devices, pings, links };
+    return { devices, pings, lookups, links };
   }
 
   // ---------------------------------------------------------------- Boucle d'événements
@@ -651,6 +717,9 @@ export class Simulation {
       case "dhcp-server-expiry":
         this.onServerLeaseExpiry(value.deviceId, value.address, value.generation);
         return;
+      case "dns-retry":
+        this.onDnsRetry(value.queryId, value.attempt);
+        return;
     }
   }
 
@@ -717,6 +786,13 @@ export class Simulation {
       this.dhcpCommand(command.deviceId, command.action);
       return;
     }
+    if (command.type === "nslookup") {
+      const query = sessionId ? this.dnsQueries.get(sessionId) : undefined;
+      if (!query) return;
+      this.emit("command.nslookup", { name: query.name, server: query.server }, { device: this.device(query.deviceId), exchange: query.id });
+      this.startQuery(query);
+      return;
+    }
     const session = sessionId ? this.sessions.get(sessionId) : undefined;
     if (!session) return;
     const device = this.device(session.deviceId);
@@ -726,6 +802,11 @@ export class Simulation {
       device,
       exchange: session.id,
     });
+    if (session.address === null) {
+      // Ping par nom : la résolution précède le premier écho.
+      this.startQuery(this.newQuery(device, session.destination, session.id));
+      return;
+    }
     this.sendEcho(session);
   }
 
@@ -1336,6 +1417,9 @@ export class Simulation {
   ): void {
     if (origin.kind === "ping") {
       this.pingFailed(origin.sessionId, origin.sequence, failure);
+    } else if (origin.kind === "dns") {
+      // Question impossible à émettre : échec immédiat. Une question perdue ensuite (ARP sans réponse) attend la retransmission.
+      if (failure === "no-address" || failure === "no-route") this.dnsSendFailed(origin.queryId, failure);
     } else if (origin.kind === "forwarded" && failure === "host-unreachable" && packet) {
       this.sendIcmpError(device, packet, "destination-unreachable", 1, exchange);
     }
@@ -1347,7 +1431,7 @@ export class Simulation {
     const message = packet.payload;
     const where = { device, exchange, pdu: packet };
     if (message.kind === "udp") {
-      if (port) this.onUdp(device, port, packet, message, exchange);
+      this.onUdp(device, port, packet, message, exchange);
       return;
     }
     if (message.type === "echo-request") {
@@ -1424,17 +1508,30 @@ export class Simulation {
 
   // ---------------------------------------------------------------- UDP et DHCP
 
-  private onUdp(device: RuntimeDevice, port: RuntimePort, packet: Ipv4Packet, datagram: UdpDatagram, exchange: string | null): void {
-    if (datagram.destinationPort === DHCP_SERVER_PORT && device.kind === "router") {
-      this.onDhcpServer(device, port, datagram.payload, exchange);
+  /** Remise d'un datagramme UDP au service qui écoute son port (port null : remise locale par bouclage). */
+  private onUdp(device: RuntimeDevice, port: RuntimePort | null, packet: Ipv4Packet, datagram: UdpDatagram, exchange: string | null): void {
+    const message = datagram.payload;
+    if (message.kind === "dns") {
+      if (!message.response && datagram.destinationPort === DNS_SERVER_PORT && device.dnsRecords) {
+        this.onDnsServer(device, packet, datagram, message, exchange);
+        return;
+      }
+      const query = message.response ? this.queryOnPort(device.id, datagram.destinationPort) : undefined;
+      if (query) {
+        this.onDnsResponse(device, packet, query, message);
+        return;
+      }
+    } else if (port && datagram.destinationPort === DHCP_SERVER_PORT && device.kind === "router") {
+      this.onDhcpServer(device, port, message, exchange);
       return;
+    } else {
+      const client = port && datagram.destinationPort === DHCP_CLIENT_PORT ? this.dhcpClients.get(dhcpClientKey(device.id, port.portId)) : undefined;
+      if (port && client) {
+        this.onDhcpClient(device, port, client, message, exchange);
+        return;
+      }
     }
-    const client = datagram.destinationPort === DHCP_CLIENT_PORT ? this.dhcpClients.get(dhcpClientKey(device.id, port.portId)) : undefined;
-    if (client) {
-      this.onDhcpClient(device, port, client, datagram.payload, exchange);
-      return;
-    }
-    this.emit("udp.no-service", { destinationPort: datagram.destinationPort }, { device, port, exchange, pdu: packet });
+    this.emit("udp.no-service", { destinationPort: datagram.destinationPort }, { device, port: port ?? undefined, exchange, pdu: packet });
   }
 
   /** Datagramme UDP diffusé (255.255.255.255, MAC de diffusion) sur une interface, sans routage. */
@@ -1905,6 +2002,187 @@ export class Simulation {
     this.emit("dhcp.lease-expired", { address, mac: lease.mac }, { device, port: device.portById.get(lease.portId) });
   }
 
+  // ---------------------------------------------------------------- DNS : résolveur du poste
+
+  private newQuery(device: RuntimeDevice, name: string, pingSessionId: string | null): DnsQuery {
+    const id = `dns-${String(this.nextDnsQuery)}`;
+    this.nextDnsQuery += 1;
+    const query: DnsQuery = {
+      id,
+      deviceId: device.id,
+      name,
+      server: device.dnsServer,
+      pingSessionId,
+      messageId: 0,
+      sourcePort: 0,
+      attempts: 0,
+      retrySeq: -1,
+      status: "pending",
+      address: null,
+      ttl: null,
+    };
+    this.dnsQueries.set(id, query);
+    this.markQuery(query);
+    return query;
+  }
+
+  private markQuery(query: DnsQuery): void {
+    if (query.pingSessionId === null) this.dirtyLookups.add(query.id);
+  }
+
+  private queryOnPort(deviceId: string, port: number): DnsQuery | undefined {
+    for (const query of this.dnsQueries.values()) {
+      if (query.deviceId === deviceId && query.status === "pending" && query.attempts > 0 && query.sourcePort === port) return query;
+    }
+    return undefined;
+  }
+
+  private startQuery(query: DnsQuery): void {
+    const device = this.device(query.deviceId);
+    if (query.server === null) {
+      this.emit("dns.no-server", { name: query.name }, { device, exchange: query.id });
+      this.finishQuery(query, "no-server");
+      return;
+    }
+    query.messageId = this.prng.nextInt(0x10000);
+    // Port source éphémère tiré par le générateur à graine, distinct des questions en cours du poste.
+    const taken = new Set([...this.dnsQueries.values()].filter((other) => other.deviceId === device.id && other.status === "pending").map((other) => other.sourcePort));
+    const span = EPHEMERAL_PORT_MAX - EPHEMERAL_PORT_MIN + 1;
+    let port = EPHEMERAL_PORT_MIN + this.prng.nextInt(span);
+    while (taken.has(port)) port = EPHEMERAL_PORT_MIN + this.prng.nextInt(span);
+    query.sourcePort = port;
+    this.sendQuery(query);
+  }
+
+  /** Question A vers le serveur du poste (récursion demandée), puis attente : 5 s, doublée à chaque retransmission. */
+  private sendQuery(query: DnsQuery): void {
+    const server = query.server;
+    if (server === null) return;
+    const device = this.device(query.deviceId);
+    query.attempts += 1;
+    this.markQuery(query);
+    const message: DnsMessage = {
+      kind: "dns",
+      id: query.messageId,
+      response: false,
+      authoritative: false,
+      recursionDesired: true,
+      recursionAvailable: false,
+      rcode: "no-error",
+      question: { name: query.name, type: "A" },
+      answers: [],
+    };
+    this.emit(
+      "dns.query-sent",
+      { name: query.name, server, id: query.messageId, sourcePort: query.sourcePort, attempt: query.attempts, maxAttempts: this.parameters.dnsMaxAttempts },
+      { device, exchange: query.id, pdu: message },
+    );
+    const datagram: UdpDatagram = { kind: "udp", sourcePort: query.sourcePort, destinationPort: DNS_SERVER_PORT, payload: message };
+    this.sendLocal(device, { source: null, destination: server, ttl: this.initialTtl(device), payload: datagram }, { kind: "dns", queryId: query.id }, query.id);
+    if (query.status !== "pending") return;
+    const delay = this.parameters.dnsRetryTimeout * 2 ** (query.attempts - 1);
+    query.retrySeq = this.schedule(this.clock + delay, { type: "dns-retry", queryId: query.id, attempt: query.attempts });
+  }
+
+  private onDnsRetry(queryId: string, attempt: number): void {
+    const query = this.dnsQueries.get(queryId);
+    if (query?.status !== "pending" || query.attempts !== attempt) return;
+    if (query.attempts < this.parameters.dnsMaxAttempts) {
+      this.sendQuery(query);
+      return;
+    }
+    this.emit("dns.gave-up", { name: query.name, server: query.server, attempts: query.attempts }, { device: this.device(query.deviceId), exchange: query.id });
+    this.finishQuery(query, "timeout");
+  }
+
+  private dnsSendFailed(queryId: string, reason: "no-address" | "no-route"): void {
+    const query = this.dnsQueries.get(queryId);
+    if (query?.status !== "pending") return;
+    this.emit("dns.send-failed", { name: query.name, server: query.server, reason }, { device: this.device(query.deviceId), exchange: query.id });
+    this.finishQuery(query, reason);
+  }
+
+  /** Réponse reçue sur le port d'une question en cours : identifiant, serveur et question doivent correspondre. */
+  private onDnsResponse(device: RuntimeDevice, packet: Ipv4Packet, query: DnsQuery, message: DnsMessage): void {
+    const where = { device, exchange: query.id, pdu: message };
+    const answer = message.answers.find((item) => item.name === query.name);
+    const mismatch =
+      message.id !== query.messageId
+        ? "unknown-id"
+        : packet.source !== query.server
+          ? "other-server"
+          : message.question.name !== query.name
+            ? "other-question"
+            : message.rcode === "no-error" && !answer
+              ? "no-answer"
+              : null;
+    if (mismatch !== null) {
+      this.emit("dns.ignored", { reason: mismatch, id: message.id, name: message.question.name, from: packet.source }, where);
+      return;
+    }
+    if (message.rcode === "name-error" || !answer) {
+      this.emit("dns.name-error", { name: query.name, server: packet.source }, where);
+      this.finishQuery(query, "name-error");
+      return;
+    }
+    query.address = answer.address;
+    query.ttl = answer.ttl;
+    this.emit("dns.resolved", { name: query.name, address: answer.address, server: packet.source, ttl: answer.ttl }, where);
+    this.finishQuery(query, "resolved");
+  }
+
+  /** Fin d'une résolution : un ping par nom envoie alors son premier écho, ou se termine sans écho. */
+  private finishQuery(query: DnsQuery, status: Exclude<DnsLookupStatus, "pending">): void {
+    query.status = status;
+    this.cancel(query.retrySeq);
+    this.markQuery(query);
+    const session = query.pingSessionId === null ? undefined : this.sessions.get(query.pingSessionId);
+    if (!session) return;
+    session.resolution = status;
+    this.dirtyPings.add(session.id);
+    if (status === "resolved" && query.address !== null) {
+      session.address = query.address;
+      this.sendEcho(session);
+      return;
+    }
+    session.done = true;
+    this.emit("ping.unresolved", { name: query.name, reason: status }, { device: this.device(session.deviceId), exchange: session.id });
+  }
+
+  // ---------------------------------------------------------------- DNS : service du routeur
+
+  /**
+   * Le routeur répond avec autorité à partir de ses seuls enregistrements :
+   * adresse si le nom est connu, NXDOMAIN sinon ; aucune récursion. La
+   * réponse part de l'adresse interrogée vers le port source du client.
+   */
+  private onDnsServer(device: RuntimeDevice, packet: Ipv4Packet, datagram: UdpDatagram, query: DnsMessage, exchange: string | null): void {
+    const records = device.dnsRecords;
+    if (!records) return;
+    const state = this.state(device.id);
+    const name = query.question.name;
+    const address = records.get(name) ?? null;
+    const ttl = this.parameters.dnsAnswerTtl;
+    const reply: DnsMessage = {
+      ...query,
+      response: true,
+      authoritative: true,
+      recursionAvailable: false,
+      rcode: address === null ? "name-error" : "no-error",
+      answers: address === null ? [] : [{ name, type: "A", ttl, address }],
+    };
+    if (address === null) {
+      state.dnsNameErrors += 1;
+      this.emit("dns.name-error-sent", { name, client: packet.source }, { device, exchange, pdu: reply });
+    } else {
+      state.dnsAnswered += 1;
+      this.emit("dns.answer-sent", { name, address, client: packet.source, ttl }, { device, exchange, pdu: reply });
+    }
+    this.dirtyDevices.add(device.id);
+    const datagramOut: UdpDatagram = { kind: "udp", sourcePort: DNS_SERVER_PORT, destinationPort: datagram.sourcePort, payload: reply };
+    this.sendLocal(device, { source: packet.destination, destination: packet.source, ttl: this.initialTtl(device), payload: datagramOut }, { kind: "local" }, exchange);
+  }
+
   // ---------------------------------------------------------------- Application ping
 
   private findSession(deviceId: string, identifier: number): PingSession | undefined {
@@ -1936,7 +2214,7 @@ export class Simulation {
     if (sequence < session.count) this.schedule(this.clock + PING_DEFAULTS.interval, { type: "ping-send", sessionId: session.id });
     const draft: PacketDraft = {
       source: null,
-      destination: session.destination,
+      destination: session.address ?? session.destination,
       ttl: this.initialTtl(device),
       payload: { kind: "icmp", type: "echo-request", identifier: session.identifier, sequence, dataLength: PING_DEFAULTS.dataLength },
     };
@@ -2107,6 +2385,15 @@ export class Simulation {
       stp: this.stpView(device),
       dhcpClient: this.dhcpClientView(device),
       dhcpServer: this.dhcpServerView(device, state),
+      dnsServer: device.dnsRecords
+        ? {
+            records: [...device.dnsRecords.entries()]
+              .map(([name, address]) => ({ name, address }))
+              .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)),
+            answered: state.dnsAnswered,
+            nameErrors: state.dnsNameErrors,
+          }
+        : null,
       routes:
         device.kind === "switch"
           ? []
@@ -2152,6 +2439,8 @@ function pingView(session: PingSession): PingView {
     id: session.id,
     deviceId: session.deviceId,
     destination: session.destination,
+    address: session.address,
+    resolution: session.resolution,
     count: session.count,
     identifier: session.identifier,
     done: session.done,
@@ -2168,5 +2457,18 @@ function pingView(session: PingSession): PingView {
         failure: attempt.failure,
       }),
     ),
+  };
+}
+
+function lookupView(query: DnsQuery): DnsLookupView {
+  return {
+    id: query.id,
+    deviceId: query.deviceId,
+    name: query.name,
+    server: query.server,
+    status: query.status,
+    address: query.address,
+    ttl: query.ttl,
+    attempts: query.attempts,
   };
 }

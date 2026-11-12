@@ -15,6 +15,7 @@ export const TRACE_CODES = [
   "command.clear-mac",
   "command.dhcp-renew",
   "command.dhcp-release",
+  "command.nslookup",
   // Couche liaison
   "eth.transmit",
   "eth.no-link",
@@ -58,6 +59,16 @@ export const TRACE_CODES = [
   "dhcp.not-selected",
   "dhcp.released",
   "dhcp.lease-expired",
+  // DNS
+  "dns.no-server",
+  "dns.query-sent",
+  "dns.send-failed",
+  "dns.answer-sent",
+  "dns.name-error-sent",
+  "dns.resolved",
+  "dns.name-error",
+  "dns.ignored",
+  "dns.gave-up",
   // ARP
   "arp.cache-hit",
   "arp.cache-miss",
@@ -98,6 +109,7 @@ export const TRACE_CODES = [
   "ping.timeout",
   "ping.late-reply",
   "ping.done",
+  "ping.unresolved",
   // Limites
   "sim.interrupted",
 ] as const;

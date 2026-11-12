@@ -3,7 +3,7 @@ import type { MacAddress } from "./mac.js";
 /**
  * Unités de données réellement modélisées, en unions discriminées qui
  * suivent l'encapsulation : Ethernet transporte ARP ou IPv4 ; IPv4
- * transporte ICMP ou UDP ; UDP transporte DHCP. Seuls ces champs existent ;
+ * transporte ICMP ou UDP ; UDP transporte DHCP ou DNS. Seuls ces champs existent ;
  * aucun octet n'est inventé.
  * Les adresses IPv4 sont en notation décimale pointée.
  */
@@ -83,12 +83,58 @@ export interface DhcpOptions {
   readonly leaseSeconds: number | null;
 }
 
+/** Code de réponse DNS (RCODE, RFC 1035 §4.1.1) : 0 sans erreur, 3 nom inexistant. */
+export type DnsRcode = "no-error" | "name-error";
+
+/** Question d'un message DNS (RFC 1035 §4.1.2) : seul le type A de la classe IN est modélisé. */
+export interface DnsQuestion {
+  readonly name: string;
+  readonly type: "A";
+}
+
+/** Enregistrement A d'une réponse (RFC 1035 §4.1.3), classe IN. */
+export interface DnsAnswer {
+  readonly name: string;
+  readonly type: "A";
+  /** Durée de conservation annoncée, en secondes. */
+  readonly ttl: number;
+  readonly address: string;
+}
+
+/**
+ * Message DNS (RFC 1035 §4.1) : en-tête (identifiant, QR, AA, RD, RA,
+ * RCODE), une question et les réponses. Les sections d'autorité et
+ * additionnelles, toujours vides ici, ne sont pas modélisées.
+ */
+export interface DnsMessage {
+  readonly kind: "dns";
+  /** Identifiant choisi par le client, recopié dans la réponse. */
+  readonly id: number;
+  /** QR : faux pour une question, vrai pour une réponse. */
+  readonly response: boolean;
+  /** AA : réponse faisant autorité. */
+  readonly authoritative: boolean;
+  /** RD : récursion demandée par le client. */
+  readonly recursionDesired: boolean;
+  /** RA : récursion proposée par le serveur. */
+  readonly recursionAvailable: boolean;
+  readonly rcode: DnsRcode;
+  readonly question: DnsQuestion;
+  readonly answers: readonly DnsAnswer[];
+}
+
 export interface UdpDatagram {
   readonly kind: "udp";
   readonly sourcePort: number;
   readonly destinationPort: number;
-  readonly payload: DhcpMessage;
+  readonly payload: DhcpMessage | DnsMessage;
 }
+
+/** Port UDP du serveur DNS (RFC 1035 §4.2.1). */
+export const DNS_SERVER_PORT = 53;
+/** Plage des ports dynamiques (éphémères) de l'IANA, d'où le client tire son port source. */
+export const EPHEMERAL_PORT_MIN = 49152;
+export const EPHEMERAL_PORT_MAX = 65535;
 
 /** Ports UDP de DHCP (RFC 2131 §4.1) : 67 serveur, 68 client. */
 export const DHCP_SERVER_PORT = 67;
@@ -121,7 +167,7 @@ export interface EthernetFrame {
   readonly payload: ArpPacket | Ipv4Packet;
 }
 
-export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage;
+export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage | DnsMessage;
 
 export const ZERO_MAC: MacAddress = "00:00:00:00:00:00";
 
@@ -154,8 +200,24 @@ export function dhcpBytes(message: DhcpMessage): number {
   return DHCP_FIXED_BYTES + DHCP_TYPE_AND_END_BYTES + options * DHCP_ADDRESS_OPTION_BYTES;
 }
 
+const DNS_HEADER_BYTES = 12;
+/** Type et classe d'une question (2 + 2 octets). */
+const DNS_QUESTION_FIXED_BYTES = 4;
+/** Réponse A : pointeur de compression vers le nom de la question (2), type, classe, TTL, longueur (10) et adresse (4). */
+const DNS_A_ANSWER_BYTES = 2 + 10 + 4;
+
+/** Nom encodé : un octet de longueur par label, les caractères, puis le label racine vide. */
+export function dnsNameBytes(name: string): number {
+  return name.length + 2;
+}
+
+/** Taille du message DNS : en-tête, question et réponses A (nom compressé, RFC 1035 §4.1.4). */
+export function dnsBytes(message: DnsMessage): number {
+  return DNS_HEADER_BYTES + dnsNameBytes(message.question.name) + DNS_QUESTION_FIXED_BYTES + message.answers.length * DNS_A_ANSWER_BYTES;
+}
+
 export function udpBytes(datagram: UdpDatagram): number {
-  return UDP_HEADER_BYTES + dhcpBytes(datagram.payload);
+  return UDP_HEADER_BYTES + (datagram.payload.kind === "dns" ? dnsBytes(datagram.payload) : dhcpBytes(datagram.payload));
 }
 
 export function icmpBytes(message: IcmpMessage): number {

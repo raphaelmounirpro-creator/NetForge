@@ -7,6 +7,9 @@ import {
   renameDevice,
   setDefaultGateway,
   setDhcpPool,
+  setDnsEnabled,
+  setDnsRecord,
+  setDnsServer,
   setInterfaceDhcp,
   setInterfaceIpv4,
   setStp,
@@ -14,6 +17,7 @@ import {
   type CommandResult,
 } from "./commands.js";
 import { DHCP_LEASE_DEFAULT, formatLeaseDuration, parseDhcpPoolInput } from "./dhcp.js";
+import { isDnsAddress, normalizeDnsName, parseDnsRecordInput, sortedDnsRecords } from "./dns.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, prefixToMask } from "./ipv4.js";
 import type { Device, NfgDocument } from "./schema.js";
@@ -45,10 +49,14 @@ export type CliRequest =
   | { readonly kind: "show-vlans" }
   | { readonly kind: "show-stp" }
   | { readonly kind: "show-dhcp" }
+  | { readonly kind: "show-dns" }
   | { readonly kind: "ipconfig" }
   /** Client DHCP d'un PC : renouveler ou libérer le bail (demande d'exécution). */
   | { readonly kind: "dhcp"; readonly action: "renew" | "release" }
+  /** Destination : adresse IPv4 ou nom d'hôte (résolu par le moteur). */
   | { readonly kind: "ping"; readonly destination: string; readonly count: number }
+  /** Résolution d'un nom par le serveur DNS du poste (demande d'exécution). */
+  | { readonly kind: "nslookup"; readonly name: string }
   | { readonly kind: "clear-table"; readonly table: "arp" | "mac" }
   | { readonly kind: "help"; readonly entries: readonly CliHelpEntry[] }
   | { readonly kind: "clear-screen" };
@@ -268,9 +276,47 @@ const COMMANDS: readonly CommandSpec[] = [
     run: ({ mode }) => ok(mode, { request: { kind: "dhcp", action: "release" } }),
   },
   {
+    id: "ipconfig-dns",
+    words: ["ipconfig", "dns"],
+    syntax: "<serveur>",
+    modes: ["operation"],
+    devices: ["pc"],
+    required: ["serveur"],
+    maxArgs: 1,
+    run: ({ device, mode, args }) => {
+      const server = args[0] ?? "";
+      if (!isDnsAddress(server)) return invalid(mode, [error("dns.invalid-address", { value: server })]);
+      return ok(mode, { edit: (doc) => setDnsServer(doc, { deviceId: device.id, server }) });
+    },
+  },
+  {
+    id: "ipconfig-dns-clear",
+    words: ["ipconfig", "dns", "clear"],
+    syntax: "",
+    modes: ["operation"],
+    devices: ["pc"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => ok(mode, { edit: (doc) => setDnsServer(doc, { deviceId: device.id, server: null }) }),
+  },
+  {
+    id: "nslookup",
+    words: ["nslookup"],
+    syntax: "<nom>",
+    modes: ["operation"],
+    devices: ["pc"],
+    required: ["nom"],
+    maxArgs: 1,
+    run: ({ mode, args }) => {
+      const name = normalizeDnsName(args[0] ?? "");
+      if (name === null) return invalid(mode, [error("dns.invalid-name", { value: args[0] ?? "" })]);
+      return ok(mode, { request: { kind: "nslookup", name } });
+    },
+  },
+  {
     id: "ping",
     words: ["ping"],
-    syntax: "<adresse> [-n <nombre>]",
+    syntax: "<adresse|nom> [-n <nombre>]",
     modes: ["operation"],
     devices: ["pc"],
     required: ["adresse"],
@@ -418,6 +464,60 @@ const COMMANDS: readonly CommandSpec[] = [
     required: [],
     maxArgs: 0,
     run: ({ mode }) => ok(mode, { request: { kind: "show-dhcp" } }),
+  },
+  {
+    id: "show-dns",
+    words: ["show", "dns"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-dns" } }),
+  },
+  {
+    id: "dns-enable",
+    words: ["dns", "enable"],
+    syntax: "",
+    modes: ["config"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => ok(mode, { edit: (doc) => setDnsEnabled(doc, { deviceId: device.id, enabled: true }) }),
+  },
+  {
+    id: "dns-disable",
+    words: ["dns", "disable"],
+    syntax: "",
+    modes: ["config"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => ok(mode, { edit: (doc) => setDnsEnabled(doc, { deviceId: device.id, enabled: false }) }),
+  },
+  {
+    id: "dns-record",
+    words: ["dns", "record"],
+    syntax: "<nom> <adresse>",
+    modes: ["config"],
+    devices: ["router"],
+    required: ["nom", "adresse"],
+    maxArgs: 2,
+    run: ({ device, mode, args }) => {
+      const parsed = parseDnsRecordInput(args[0] ?? "", args[1] ?? "");
+      if (!parsed.ok) return invalid(mode, parsed.errors);
+      return ok(mode, { edit: (doc) => setDnsRecord(doc, { deviceId: device.id, name: parsed.name, address: parsed.address }) });
+    },
+  },
+  {
+    id: "dns-delete",
+    words: ["dns", "delete"],
+    syntax: "<nom>",
+    modes: ["config"],
+    devices: ["router"],
+    required: ["nom"],
+    maxArgs: 1,
+    run: ({ device, mode, args }) => ok(mode, { edit: (doc) => setDnsRecord(doc, { deviceId: device.id, name: args[0] ?? "", address: null }) }),
   },
   {
     id: "clear-arp",
@@ -816,10 +916,12 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
   const config = doc.configurations[device.id];
   const model = getModel(device.model);
   if (model.kind === "pc") {
-    if (config?.interfaces[pcPort(device)]?.dhcp) return ["ipconfig dhcp"];
+    const lines: string[] = [];
     const ipv4 = config?.interfaces[pcPort(device)]?.ipv4;
-    if (!ipv4) return [];
-    return [["ipconfig set", ipv4.address, prefixToMask(ipv4.prefixLength), config.defaultGateway ?? ""].join(" ").trim()];
+    if (config?.interfaces[pcPort(device)]?.dhcp) lines.push("ipconfig dhcp");
+    else if (ipv4) lines.push(["ipconfig set", ipv4.address, prefixToMask(ipv4.prefixLength), config.defaultGateway ?? ""].join(" ").trim());
+    if (config?.dnsServer) lines.push(`ipconfig dns ${config.dnsServer}`);
+    return lines;
   }
   const lines = ["configure", `hostname ${device.name}`];
   for (const port of model.ports) {
@@ -846,6 +948,11 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
   }
   for (const route of config?.staticRoutes ?? []) {
     lines.push(`route add ${route.destination}/${String(route.prefixLength)} via ${route.nextHop}`);
+  }
+  // Service DNS : activé (même sans nom), puis ses enregistrements par nom.
+  if (config?.dnsRecords) {
+    lines.push("dns enable");
+    for (const record of sortedDnsRecords(config.dnsRecords)) lines.push(`dns record ${record.name} ${record.address}`);
   }
   // STP : seulement ce qui diffère d'un switch neuf (activé, priorité 32768).
   if (config?.stp && !config.stp.enabled) lines.push("spanning-tree disable");

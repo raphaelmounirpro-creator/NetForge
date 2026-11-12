@@ -14,7 +14,7 @@ async function simulate(page: Page, name: string, destination: string): Promise<
   await expect(page).toHaveURL(/\/laboratoire$/);
   await page.getByRole("tab", { name: "Simulation" }).click();
   await expect(actions(page).getByRole("button", { name: "Lancer le ping" })).toBeEnabled();
-  await actions(page).getByLabel("Adresse de destination").fill(destination);
+  await actions(page).getByLabel("Destination (adresse ou nom)").fill(destination);
   await actions(page).getByLabel("Nombre d'échos").fill("1");
   await actions(page).getByRole("button", { name: "Lancer le ping" }).click();
   await bar(page).getByRole("button", { name: "Terminer les échanges" }).click();

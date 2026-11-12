@@ -71,7 +71,7 @@ test("performance : 100 équipements simulés dans le Worker sans bloquer l'inte
   // Charge : 8 pings de 4 échos entre switches d'accès différents (caches vides).
   for (let n = 1; n <= 71; n += 10) {
     await actions(page).getByLabel("Depuis").selectOption({ label: `PC${String(n)} (10.10.0.${String(n)}/24)` });
-    await actions(page).getByLabel("Adresse de destination").fill(`10.10.0.${String(n + 19)}`);
+    await actions(page).getByLabel("Destination (adresse ou nom)").fill(`10.10.0.${String(n + 19)}`);
     await actions(page).getByRole("button", { name: "Lancer le ping" }).click();
   }
 
@@ -105,7 +105,7 @@ test("performance : tempête de diffusion interrompue sans figer l'interface", a
   await page.getByTestId("import-input").setInputFiles(fixture("switch-loop.nfg.json"));
   await page.getByRole("tab", { name: "Simulation" }).click();
   await expect(actions(page).getByRole("button", { name: "Lancer le ping" })).toBeEnabled();
-  await actions(page).getByLabel("Adresse de destination").fill("192.168.1.11");
+  await actions(page).getByLabel("Destination (adresse ou nom)").fill("192.168.1.11");
   await actions(page).getByRole("button", { name: "Lancer le ping" }).click();
 
   const stormMetrics = await measure(page, async () => {

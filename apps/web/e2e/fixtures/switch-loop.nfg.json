@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "models": {
     "catalog": 2
   },
@@ -122,7 +122,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw1": {
       "interfaces": {},
@@ -133,7 +135,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pc2": {
       "interfaces": {
@@ -149,7 +153,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "sw2": {
       "interfaces": {},
@@ -160,7 +166,9 @@
         "enabled": false,
         "priority": 32768
       },
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     }
   },
   "faults": [],

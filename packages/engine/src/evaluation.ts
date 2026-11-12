@@ -17,9 +17,11 @@ import { createSimulation } from "./simulation.js";
  * différente (règles de notation, limites, moteur). Version 2 : VLAN et STP
  * (format v5), fonction autorisée « switching » pour la configuration des
  * switches (ports d'accès et trunks, Spanning Tree). Version 3 : DHCP (format v6),
- * configuration des clients et des plages protégée par « addressing ».
+ * configuration des clients et des plages protégée par « addressing ». Version 4 :
+ * DNS (format v7), résolveur des postes et service des routeurs protégés par
+ * « addressing » ; moteur capable de pings par nom.
  */
-export const EVALUATOR_VERSION = 3;
+export const EVALUATOR_VERSION = 4;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */
@@ -184,7 +186,10 @@ function sortedEntries<T>(record: Readonly<Record<string, T>>): [string, T][] {
   return Object.entries(record).sort(([a], [b]) => a.localeCompare(b));
 }
 
-/** Adresses présentes seulement : une configuration vide (nouvel équipement) n'est pas un changement d'adressage. */
+/**
+ * Adresses présentes seulement : une configuration vide (nouvel équipement) n'est pas un changement d'adressage.
+ * Services IP de base compris : plages DHCP, résolveur et service DNS.
+ */
 function addressingOf(doc: NfgDocument): string {
   const devices = sortedEntries(doc.configurations).map(([id, config]) => ({
     id,
@@ -192,8 +197,10 @@ function addressingOf(doc: NfgDocument): string {
       .filter(([, value]) => value.ipv4 !== null || value.dhcp)
       .map(([port, value]) => [port, value.ipv4, value.dhcp]),
     pools: sortedEntries(config.dhcpPools),
+    dnsServer: config.dnsServer,
+    dnsRecords: config.dnsRecords === null ? null : sortedEntries(config.dnsRecords),
   }));
-  return stable(devices.filter((device) => device.addresses.length > 0 || device.pools.length > 0));
+  return stable(devices.filter((device) => device.addresses.length > 0 || device.pools.length > 0 || device.dnsServer !== null || device.dnsRecords !== null));
 }
 
 /** Configuration des switches : ports (accès dans un VLAN autre que 1, trunks) et Spanning Tree. */
@@ -215,8 +222,8 @@ function routesOf(doc: NfgDocument): string {
 
 /**
  * Modifications du projet soumis qui dépassent les fonctions autorisées.
- * Noms, disposition, notes et métadonnées restent libres. Les sous-interfaces
- * relèvent de l'adressage ; ports de switch et Spanning Tree de « switching ». « optics » permet
+ * Noms, disposition, notes et métadonnées restent libres. Les sous-interfaces,
+ * DHCP et DNS relèvent de l'adressage ; ports de switch et Spanning Tree de « switching ». « optics » permet
  * de retirer des pannes (interventions), jamais d'en ajouter ou d'en modifier.
  */
 export function forbiddenChanges(initial: NfgDocument, submitted: NfgDocument, allowed: readonly string[]): ForbiddenChange[] {

@@ -58,6 +58,13 @@ export const ISSUE_CODES = [
   "dhcp.range-outside-subnet",
   "dhcp.gateway-outside-subnet",
   "dhcp.range-contains-static",
+  // DNS
+  "dns.client-not-supported",
+  "dns.server-not-supported",
+  "dns.invalid-name",
+  "dns.invalid-address",
+  "dns.too-many-records",
+  "dns.record-not-found",
   // VLAN
   "vlan.invalid-id",
   "vlan.mode-mismatch",

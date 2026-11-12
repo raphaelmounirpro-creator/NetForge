@@ -6,6 +6,8 @@ import {
   createProject,
   setDefaultGateway,
   setDhcpPool,
+  setDnsRecord,
+  setDnsServer,
   setInterfaceDhcp,
   setFiber,
   setInterfaceIpv4,
@@ -41,6 +43,26 @@ export function dhcpScenario(options: { singleAddress?: boolean; noServer?: bool
     .ip("pc3", "eth0", "10.0.0.2/24").gateway("pc3", "10.0.0.1")
     .dhcpClient("pc1").dhcpClient("pc2");
   if (!options.noServer) builder.dhcpPool("r1", "ge0", "192.168.1.100", options.singleAddress ? "192.168.1.100" : "192.168.1.101", "192.168.1.1");
+  return builder.build();
+}
+
+/**
+ * Résolution de noms : service DNS sur R1 (srv.lab, pc1.lab), PC1 et SRV
+ * l'interrogent (chacun par l'adresse de R1 sur son réseau), PC2 n'a pas de
+ * serveur DNS. Sans service, R1 ne répond pas sur le port 53.
+ */
+export function dnsScenario(options: { serviceDisabled?: boolean } = {}): NfgDocument {
+  const builder = new ScenarioBuilder("dns", "DNS : résolution de noms")
+    .device("pc1", "PC", 80, 100).device("pc2", "PC", 80, 280)
+    .device("sw1", "S-24", 320, 180).device("r1", "R-200", 560, 180)
+    .device("srv", "PC", 800, 180)
+    .link("pc1", "eth0", "sw1", "ge1").link("pc2", "eth0", "sw1", "ge2")
+    .link("sw1", "ge3", "r1", "ge0").link("r1", "ge1", "srv", "eth0")
+    .ip("r1", "ge0", "192.168.1.1/24").ip("r1", "ge1", "10.0.0.1/24")
+    .ip("pc1", "eth0", "192.168.1.10/24").gateway("pc1", "192.168.1.1").dnsServer("pc1", "192.168.1.1")
+    .ip("pc2", "eth0", "192.168.1.11/24").gateway("pc2", "192.168.1.1")
+    .ip("srv", "eth0", "10.0.0.10/24").gateway("srv", "10.0.0.1").dnsServer("srv", "10.0.0.1");
+  if (!options.serviceDisabled) builder.dnsRecord("r1", "srv.lab", "10.0.0.10").dnsRecord("r1", "pc1.lab", "192.168.1.10");
   return builder.build();
 }
 
@@ -99,6 +121,16 @@ export class ScenarioBuilder {
 
   dhcpPool(deviceId: string, portId: string, start: string, end: string, gateway: string, leaseSeconds = 120): this {
     this.doc = ok(setDhcpPool(this.doc, { deviceId, interfaceId: portId, pool: { start, end, gateway, leaseSeconds } }));
+    return this;
+  }
+
+  dnsServer(deviceId: string, server: string): this {
+    this.doc = ok(setDnsServer(this.doc, { deviceId, server }));
+    return this;
+  }
+
+  dnsRecord(deviceId: string, name: string, address: string): this {
+    this.doc = ok(setDnsRecord(this.doc, { deviceId, name, address }));
     return this;
   }
 

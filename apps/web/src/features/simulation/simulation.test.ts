@@ -1,4 +1,4 @@
-import { createSimulationHost, lanScenario, routedScenario, type UpdateMessage } from "@netforge/engine";
+import { createSimulationHost, lanScenario, PROTOCOL_VERSION, routedScenario, type UpdateMessage } from "@netforge/engine";
 import { setInterfaceIpv4, moveDevice } from "@netforge/project";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildNameIndex } from "../../i18n/simulation";
@@ -177,6 +177,7 @@ describe("projection des lots du moteur", () => {
     devices: {},
     pings: {},
     pingOrder: [],
+    lookups: {},
     links: {},
     names: buildNameIndex([]),
     journal: [],
@@ -186,7 +187,7 @@ describe("projection des lots du moteur", () => {
   };
   const entry = (event: number) => ({ event, parent: null, time: event, deviceId: null, portId: null, exchange: null, code: "ping.send" as const, params: {}, pdu: null });
   const update = (seq: number, trace: number[], droppedTrace = 0): UpdateMessage => ({
-    v: 1,
+    v: PROTOCOL_VERSION,
     type: "update",
     seq,
     full: false,
@@ -200,7 +201,7 @@ describe("projection des lots du moteur", () => {
     activity: false,
     trace: trace.map(entry),
     droppedTrace,
-    changes: { devices: [], pings: [], links: [] },
+    changes: { devices: [], pings: [], lookups: [], links: [] },
     computeMs: 0,
     lagging: false,
     notice: null,

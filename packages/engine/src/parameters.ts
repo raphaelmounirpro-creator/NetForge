@@ -33,6 +33,12 @@ export interface SimulationParameters {
   readonly dhcpRetryTimeout: SimTime;
   /** DHCP : émissions d'un même message avant abandon (4 : à 0, 4, 12 puis 28 s ; abandon à 60 s). */
   readonly dhcpMaxAttempts: number;
+  /** DNS : attente d'une réponse avant retransmission (5 s, valeur par défaut minimale de RFC 1123 §6.1.3.3), doublée ensuite. */
+  readonly dnsRetryTimeout: SimTime;
+  /** DNS : émissions d'une même question avant abandon (2 : à 0 puis 5 s ; abandon à 15 s). */
+  readonly dnsMaxAttempts: number;
+  /** DNS : TTL annoncé dans les réponses du serveur, en secondes (aucun cache côté poste). */
+  readonly dnsAnswerTtl: number;
   readonly limits: SimulationLimits;
 }
 
@@ -44,12 +50,15 @@ export interface SimulationLimits {
   readonly maxEvents: number;
   /** Sessions ping simultanées. */
   readonly maxPingSessions: number;
+  /** Résolutions nslookup simultanées. */
+  readonly maxDnsLookups: number;
 }
 
 export const DEFAULT_LIMITS: SimulationLimits = {
   maxPendingEvents: 100_000,
   maxEvents: 2_000_000,
   maxPingSessions: 16,
+  maxDnsLookups: 16,
 };
 
 export const DEFAULT_PARAMETERS: SimulationParameters = {
@@ -68,6 +77,9 @@ export const DEFAULT_PARAMETERS: SimulationParameters = {
   stpForwardDelay: 15_000_000_000,
   dhcpRetryTimeout: fromSeconds(4),
   dhcpMaxAttempts: 4,
+  dnsRetryTimeout: fromSeconds(5),
+  dnsMaxAttempts: 2,
+  dnsAnswerTtl: 300,
   limits: DEFAULT_LIMITS,
 };
 

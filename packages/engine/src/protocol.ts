@@ -15,7 +15,7 @@ import type { SimulationChanges, SimulationStatus } from "./views.js";
  *   les seules décisions et tables modifiées depuis la précédente.
  * Toute évolution incompatible incrémente PROTOCOL_VERSION.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Vitesses d'observation : temps simulé écoulé par seconde réelle. */
 export const PLAYBACK_SPEEDS = [1, 10, 100] as const;
@@ -27,12 +27,13 @@ export const simCommandSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("ping"),
     deviceId: identifier,
-    destination: z.string().max(64),
+    destination: z.string().max(256),
     count: z.int().min(1).max(20).optional(),
   }),
   z.strictObject({ type: z.literal("set-link"), linkId: identifier, up: z.boolean() }),
   z.strictObject({ type: z.literal("clear-table"), deviceId: identifier, table: z.enum(["arp", "mac"]) }),
   z.strictObject({ type: z.literal("dhcp"), deviceId: identifier, action: z.enum(["renew", "release"]) }),
+  z.strictObject({ type: z.literal("nslookup"), deviceId: identifier, name: z.string().max(256) }),
 ]);
 
 const base = { v: z.literal(PROTOCOL_VERSION), id: z.int().min(1).max(Number.MAX_SAFE_INTEGER) };
@@ -65,7 +66,7 @@ export interface AckMessage {
   readonly v: typeof PROTOCOL_VERSION;
   readonly type: "ack";
   readonly id: number;
-  /** Ping créé par une commande (sinon null). */
+  /** Ping ou résolution nslookup créé par une commande (sinon null). */
   readonly sessionId: string | null;
 }
 

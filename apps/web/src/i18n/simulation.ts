@@ -6,6 +6,8 @@ import {
   NANOSECONDS_PER_MILLISECOND,
   NANOSECONDS_PER_SECOND,
   type DeviceView,
+  type DnsLookupStatus,
+  type DnsLookupView,
   type HostErrorCode,
   type PingAttemptView,
   type PingView,
@@ -78,8 +80,8 @@ export function buildNameIndex(devices: readonly DeviceView[]): NameIndex {
   };
 }
 
-export type TraceCategory = "link" | "switch" | "arp" | "ip" | "icmp" | "dhcp" | "system";
-export const TRACE_CATEGORIES: readonly TraceCategory[] = ["link", "switch", "arp", "ip", "icmp", "dhcp", "system"];
+export type TraceCategory = "link" | "switch" | "arp" | "ip" | "icmp" | "dhcp" | "dns" | "system";
+export const TRACE_CATEGORIES: readonly TraceCategory[] = ["link", "switch", "arp", "ip", "icmp", "dhcp", "dns", "system"];
 
 export function traceCategory(code: TraceCode): TraceCategory {
   const family = code.slice(0, code.indexOf("."));
@@ -96,13 +98,15 @@ export function traceCategory(code: TraceCode): TraceCategory {
     case "dhcp":
     case "udp":
       return "dhcp";
+    case "dns":
+      return "dns";
     case "ip":
       return "ip";
     case "icmp":
     case "ping":
       return "icmp";
     default:
-      return "system";
+      return code === "command.nslookup" ? "dns" : "system";
   }
 }
 
@@ -140,6 +144,12 @@ const LOSS_OR_ERROR_CODES: ReadonlySet<TraceCode> = new Set<TraceCode>([
   "dhcp.nak-sent",
   "dhcp.nak-received",
   "dhcp.expired",
+  "dns.no-server",
+  "dns.send-failed",
+  "dns.name-error-sent",
+  "dns.name-error",
+  "dns.gave-up",
+  "ping.unresolved",
 ]);
 
 export function isLossOrError(entry: TraceEntry): boolean {
@@ -192,6 +202,8 @@ function templateKey(entry: TraceEntry): keyof typeof messages.trace {
     case "switch.flood-broadcast":
     case "switch.flood-unknown":
       return typeof params["vlan"] === "number" && params["vlan"] !== 1 ? `${entry.code}.vlan` : entry.code;
+    case "command.nslookup":
+      return params["server"] === null ? "command.nslookup.no-server" : entry.code;
     case "ip.no-route": {
       const key = `ip.no-route.${String(params["reason"])}`;
       return key in messages.trace ? (key as keyof typeof messages.trace) : "ip.no-route.no-match";
@@ -230,6 +242,10 @@ export function formatTrace(entry: TraceEntry, names: NameIndex, level: Explanat
   if (params["outPorts"] === "") values["outPorts"] = messages.traceLabels.nobody;
   if (typeof params["type"] === "string") values["icmp"] = icmpText(params["type"], typeof params["code"] === "number" ? params["code"] : null);
   if (entry.code === "ping.failed") values["failure"] = failureText(params["reason"]);
+  if (entry.code === "dns.send-failed" || entry.code === "ping.unresolved") values["reasonText"] = dnsStatusText(params["reason"]);
+  if (entry.code === "dns.ignored" && typeof params["reason"] === "string" && params["reason"] in t.dnsIgnored) {
+    values["reasonText"] = t.dnsIgnored[params["reason"] as keyof typeof t.dnsIgnored];
+  }
   if (typeof params["routeKind"] === "string" && params["routeKind"] in messages.traceLabels.routeKinds) {
     values["routeKind"] = messages.traceLabels.routeKinds[params["routeKind"] as keyof typeof messages.traceLabels.routeKinds];
   }
@@ -245,6 +261,8 @@ export function formatTrace(entry: TraceEntry, names: NameIndex, level: Explanat
 export function formatExchange(exchange: string): string {
   const dhcp = /^dhcp-(\d+)$/.exec(exchange);
   if (dhcp) return fill(t.exchangeDhcp, { session: dhcp[1] ?? "" });
+  const dns = /^dns-(\d+)$/.exec(exchange);
+  if (dns) return fill(t.exchangeDns, { session: dns[1] ?? "" });
   const echo = /^ping-(\d+)#(\d+)$/.exec(exchange);
   if (echo) return fill(t.exchangeEcho, { session: echo[1] ?? "", sequence: echo[2] ?? "" });
   const session = /^ping-(\d+)$/.exec(exchange);
@@ -252,7 +270,7 @@ export function formatExchange(exchange: string): string {
 }
 
 export interface PduLayer {
-  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp";
+  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp" | "dns";
   readonly title: string;
   readonly osi: string;
   readonly fields: ReadonlyArray<readonly [label: string, value: string]>;
@@ -311,6 +329,19 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
         ...([[f.serverId, options.serverId], [f.requestedIp, options.requestedIp], [f.subnetMask, options.subnetMask], [f.router, options.router], [f.lease, options.leaseSeconds]] as const)
           .flatMap(([label, value]) => value === null ? [] : [[label, String(value)] as const]),
       ])];
+    }
+    case "dns": {
+      const bit = (value: boolean) => (value ? 1 : 0);
+      return [
+        layer("dns", [
+          [f.dnsId, String(pdu.id)],
+          [f.dnsDirection, pdu.response ? v.dnsResponse : v.dnsQuery],
+          [f.dnsFlags, fill(v.dnsFlags, { aa: bit(pdu.authoritative), rd: bit(pdu.recursionDesired), ra: bit(pdu.recursionAvailable) })],
+          [f.rcode, v.dnsRcodes[pdu.rcode]],
+          [f.question, fill(v.dnsQuestion, { name: pdu.question.name })],
+          ...pdu.answers.map((answer) => [f.answer, fill(v.dnsAnswer, { name: answer.name, address: answer.address, ttl: answer.ttl })] as const),
+        ]),
+      ];
     }
     case "icmp": {
       if (!isIcmpError(pdu)) {
@@ -393,9 +424,38 @@ export function pingAttemptText(attempt: PingAttemptView): string {
   }
 }
 
-/** Bilan d'un ping terminé (null tant qu'il est en cours). */
+/** Issue d'une résolution DNS, en clair. */
+export function dnsStatusText(status: unknown): string {
+  return typeof status === "string" && status in t.dnsStatus ? t.dnsStatus[status as DnsLookupStatus] : String(status);
+}
+
+/** Résolution d'un ping par nom terminée sans adresse : aucun écho n'est envoyé. */
+export function pingUnresolved(view: PingView): boolean {
+  return view.resolution !== null && view.resolution !== "pending" && view.resolution !== "resolved";
+}
+
+/** Ligne de résolution d'un ping par nom (null pour une adresse ou une résolution en cours). */
+export function pingResolutionLine(view: PingView): { text: string; failed: boolean } | null {
+  if (view.resolution === null || view.resolution === "pending") return null;
+  if (view.resolution === "resolved") return { text: fill(t.pingResolved, { name: view.destination, address: view.address ?? "" }), failed: false };
+  return { text: fill(t.pingUnresolved, { name: view.destination, reason: dnsStatusText(view.resolution) }), failed: true };
+}
+
+/** Résultat d'un nslookup, à la manière de l'outil : serveur, nom et adresse, ou cause de l'échec. */
+export function lookupLines(view: DnsLookupView): { lines: string[]; error: string | null } | null {
+  const c = messages.console;
+  if (view.status === "pending") return null;
+  const server = view.server === null ? [] : [fill(c.nslookupServer, { server: view.server })];
+  if (view.status === "resolved") {
+    return { lines: [...server, fill(c.nslookupName, { name: view.name }), fill(c.nslookupAddress, { address: view.address ?? "", ttl: view.ttl ?? "" })], error: null };
+  }
+  // Seule la cause de l'échec est une erreur ; le serveur interrogé reste une information.
+  return { lines: server, error: fill(c.nslookupFailed, { name: view.name, reason: dnsStatusText(view.status) }) };
+}
+
+/** Bilan d'un ping terminé (null tant qu'il est en cours, ou si le nom n'a pas été résolu). */
 export function pingSummary(view: PingView): { summary: string; rtt: string | null; hasLoss: boolean } | null {
-  if (!view.done) return null;
+  if (!view.done || pingUnresolved(view)) return null;
   const rtts = view.attempts.flatMap((attempt) => (attempt.rtt === null ? [] : [attempt.rtt]));
   const sent = view.attempts.length;
   const received = rtts.length;

@@ -1,8 +1,8 @@
-import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setInterfaceDhcp, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
-import { dhcpScenario, ftthScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
+import { dhcpScenario, dnsScenario, ftthScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
 
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(result.errors.map((issue) => issue.code).join(", "));
@@ -189,6 +189,20 @@ describe("fonctions autorisées", () => {
     expect(forbiddenChanges(initial, manual, ["simulation", "routes"])).toEqual(["addressing"]);
     expect(forbiddenChanges(initial, noPool, ["simulation", "routes"])).toEqual(["addressing"]);
     expect(forbiddenChanges(initial, noPool, ["addressing"])).toEqual([]);
+  });
+
+  it("protègent le résolveur des postes et le service DNS des routeurs par la fonction adressage", () => {
+    const initial = dnsScenario();
+    const otherServer = ok(setDnsServer(initial, { deviceId: "pc2", server: "192.168.1.1" }));
+    const newRecord = ok(setDnsRecord(initial, { deviceId: "r1", name: "web.lab", address: "10.0.0.10" }));
+    const disabled = ok(setDnsEnabled(initial, { deviceId: "r1", enabled: false }));
+    for (const changed of [otherServer, newRecord, disabled]) {
+      expect(forbiddenChanges(initial, changed, ["simulation", "routes", "switching"])).toEqual(["addressing"]);
+      expect(forbiddenChanges(initial, changed, ["addressing"])).toEqual([]);
+    }
+    // Un routeur ajouté sans service DNS n'est pas un changement d'adressage.
+    const extended = ok(addDevice(initial, { id: "r9", model: "R-200", position: { x: 0, y: 0 } }));
+    expect(forbiddenChanges(initial, extended, ["topology"])).toEqual([]);
   });
 
   it("n'autorisent le retrait d'une panne optique qu'avec « optics », et jamais son ajout ou sa modification", () => {

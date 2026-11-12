@@ -23,6 +23,7 @@ export interface SimulationController {
   setLink: (linkId: string, up: boolean) => Promise<Reply>;
   clearTable: (deviceId: string, table: "arp" | "mac") => Promise<Reply>;
   dhcp: (deviceId: string, action: "renew" | "release") => Promise<Reply>;
+  nslookup: (deviceId: string, name: string) => Promise<Reply>;
   /** Arrête la simulation (projet fermé). */
   stop: () => void;
   /** Changement de projet actif : la simulation d'un autre projet est mise en pause. */
@@ -83,6 +84,7 @@ export function createSimulationController(createWorker: () => WorkerPort): Simu
     setLink: (linkId, up) => whenLoaded(() => client.request({ type: "command", command: { type: "set-link", linkId, up } })),
     clearTable: (deviceId, table) => whenLoaded(() => client.request({ type: "command", command: { type: "clear-table", deviceId, table } })),
     dhcp: (deviceId, action) => whenLoaded(() => client.request({ type: "command", command: { type: "dhcp", deviceId, action } })),
+    nslookup: (deviceId, name) => whenLoaded(() => client.request({ type: "command", command: { type: "nslookup", deviceId, name } })),
     stop: () => {
       client.terminate();
       store().clear();

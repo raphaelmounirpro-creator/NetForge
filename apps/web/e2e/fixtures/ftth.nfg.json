@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "models": {
     "catalog": 2
   },
@@ -295,7 +295,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "odf1": {
       "interfaces": {},
@@ -303,7 +305,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "cpl1": {
       "interfaces": {},
@@ -311,7 +315,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "cpl2": {
       "interfaces": {},
@@ -319,7 +325,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pbo1": {
       "interfaces": {},
@@ -327,7 +335,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pto1": {
       "interfaces": {},
@@ -335,7 +345,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pto2": {
       "interfaces": {},
@@ -343,7 +355,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "pto3": {
       "interfaces": {},
@@ -351,7 +365,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "ont1": {
       "interfaces": {},
@@ -359,7 +375,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "ont2": {
       "interfaces": {},
@@ -367,7 +385,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     },
     "ont3": {
       "interfaces": {},
@@ -375,7 +395,9 @@
       "staticRoutes": [],
       "switchports": {},
       "stp": null,
-      "dhcpPools": {}
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null
     }
   },
   "faults": [],

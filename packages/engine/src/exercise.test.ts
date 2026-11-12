@@ -68,6 +68,8 @@ describe("mesure et observation", () => {
       id: "ping-1",
       deviceId: "pc1",
       destination: "10.0.2.10",
+      address: "10.0.2.10",
+      resolution: null,
       count: statuses.length,
       identifier: 1,
       done: true,

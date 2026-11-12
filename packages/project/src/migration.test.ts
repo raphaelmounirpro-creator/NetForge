@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectDevices, setInterfaceIpv4 } from "./commands.js";
+import { connectDevices, setDhcpPool, setInterfaceDhcp, setInterfaceIpv4 } from "./commands.js";
 import { parseNfgText, parseNfgValue, serializeNfg } from "./io.js";
 import { expectOk, projectWith } from "./test-helpers.js";
 
@@ -34,16 +34,16 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 6", () => {
+describe("migration du format version 1 → 7", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(6);
+    expect(result.document.schemaVersion).toBe(7);
     expect(result.document.models).toEqual({ catalog: 2 });
     expect(result.document.faults).toEqual([]);
-    // Routes (v2), ports de switch, STP (v5) et DHCP (v6) : tous les ports en accès dans le VLAN 1, aucun STP hors
-    // switch, adressage manuel conservé, aucun serveur DHCP.
+    // Routes (v2), ports de switch, STP (v5), DHCP (v6) et DNS (v7) : tous les ports en accès dans le VLAN 1, aucun
+    // STP hors switch, adressage manuel conservé, aucun serveur DHCP, ni résolveur ni service DNS.
     expect(result.document.configurations["pc1"]).toEqual({
       ...versionOne.configurations.pc1,
       interfaces: { eth0: { ipv4: { address: "192.168.1.10", prefixLength: 24 }, dhcp: false } },
@@ -51,6 +51,8 @@ describe("migration du format version 1 → 6", () => {
       switchports: {},
       stp: null,
       dhcpPools: {},
+      dnsServer: null,
+      dnsRecords: null,
     });
     expect(result.document.configurations["r1"]).toEqual({
       ...versionOne.configurations.r1,
@@ -59,6 +61,8 @@ describe("migration du format version 1 → 6", () => {
       switchports: {},
       stp: null,
       dhcpPools: {},
+      dnsServer: null,
+      dnsRecords: null,
     });
     // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre.
     expect(result.document.topology).toEqual({
@@ -118,7 +122,7 @@ describe("migration du format version 1 → 6", () => {
     const result = parseNfgValue(versionThree);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(6);
+    expect(result.document.schemaVersion).toBe(7);
     expect(result.document.models.catalog).toBe(2);
     expect(result.document.topology.links[0]?.fiber).toBeNull();
     expect(result.document.faults).toEqual([]);
@@ -158,10 +162,21 @@ describe("migration du format version 1 → 6", () => {
 
   it("migre les anciens fichiers v5 en conservant VLAN, STP, adresses et routes sans activer DHCP", () => {
     const current = expectOk(setInterfaceIpv4(projectWith(["pc1", "PC"]), { deviceId: "pc1", portId: "eth0", ipv4: { address: "192.168.1.10", prefixLength: 24 } }));
-    const old = { ...current, schemaVersion: 5, configurations: Object.fromEntries(Object.entries(current.configurations).map(([id, { dhcpPools: _pools, ...config }]) => [id, { ...config, interfaces: Object.fromEntries(Object.entries(config.interfaces).map(([port, { dhcp: _dhcp, ...value }]) => [port, value])) }])) };
+    const old = { ...current, schemaVersion: 5, configurations: Object.fromEntries(Object.entries(current.configurations).map(([id, { dhcpPools: _pools, dnsServer: _server, dnsRecords: _records, ...config }]) => [id, { ...config, interfaces: Object.fromEntries(Object.entries(config.interfaces).map(([port, { dhcp: _dhcp, ...value }]) => [port, value])) }])) };
     const result = parseNfgValue(old);
     expect(result.ok && result.document).toEqual(current);
     expect(old.schemaVersion).toBe(5);
+  });
+
+  it("migre les anciens fichiers v6 en conservant DHCP sans activer de résolveur ni de service DNS", () => {
+    let current = expectOk(setInterfaceDhcp(projectWith(["pc1", "PC"], ["r1", "R-200"]), { deviceId: "pc1", portId: "eth0", enabled: true }));
+    current = expectOk(setInterfaceIpv4(current, { deviceId: "r1", portId: "ge0", ipv4: { address: "192.168.1.1", prefixLength: 24 } }));
+    current = expectOk(setDhcpPool(current, { deviceId: "r1", interfaceId: "ge0", pool: { start: "192.168.1.100", end: "192.168.1.110", gateway: "192.168.1.1", leaseSeconds: 3600 } }));
+    const old = { ...current, schemaVersion: 6, configurations: Object.fromEntries(Object.entries(current.configurations).map(([id, { dnsServer: _server, dnsRecords: _records, ...config }]) => [id, config])) };
+    const result = parseNfgValue(old);
+    expect(result.ok && result.document).toEqual(current);
+    // Un fichier v7 doit porter les deux champs DNS : deux manques par équipement.
+    expect(errorCodes({ ...old, schemaVersion: 7 })).toEqual(Array.from({ length: 4 }, () => "import.schema"));
   });
 
   it("refuse une version courante sans table de ports de switch", () => {

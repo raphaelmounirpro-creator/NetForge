@@ -9,6 +9,7 @@ export type SimCommand =
   | {
       readonly type: "ping";
       readonly deviceId: string;
+      /** Adresse IPv4, ou nom d'hôte résolu d'abord par le serveur DNS du poste. */
       readonly destination: string;
       /** Nombre d'échos (défaut 4, maximum 20). */
       readonly count?: number | undefined;
@@ -30,6 +31,12 @@ export type SimCommand =
       readonly type: "dhcp";
       readonly deviceId: string;
       readonly action: "renew" | "release";
+    }
+  | {
+      /** Résolution d'un nom par le serveur DNS d'un PC (nslookup). */
+      readonly type: "nslookup";
+      readonly deviceId: string;
+      readonly name: string;
     };
 
 export const COMMAND_ERROR_CODES = [
@@ -40,7 +47,9 @@ export const COMMAND_ERROR_CODES = [
   "command.unknown-link",
   "command.wrong-table",
   "command.not-dhcp-client",
+  "command.invalid-name",
   "command.too-many-pings",
+  "command.too-many-lookups",
   "command.interrupted",
 ] as const;
 

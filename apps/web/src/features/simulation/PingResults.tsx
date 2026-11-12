@@ -1,6 +1,6 @@
 import { Button } from "../../components/ui/Button";
 import { fill, messages } from "../../i18n";
-import { pingAttemptText, pingSummary } from "../../i18n/simulation";
+import { pingAttemptText, pingResolutionLine, pingSummary } from "../../i18n/simulation";
 import { useLabLayout } from "../lab/layout";
 import { explainEcho } from "./observation";
 import type { SimulationSession } from "./store";
@@ -19,11 +19,19 @@ export function PingResults({ session }: { session: SimulationSession }) {
       {pings.map((view) => {
         const summary = pingSummary(view);
         const source = session.devices[view.deviceId]?.name ?? view.deviceId;
+        // Ping par nom : l'adresse obtenue par DNS s'ajoute au titre ; un échec de résolution remplace les échos.
+        const byName = view.resolution !== null;
+        const resolution = pingResolutionLine(view);
+        const heading = byName && view.address !== null ? fill(t.pingHeadingResolved, { source, destination: view.destination, address: view.address }) : fill(t.pingHeading, { source, destination: view.destination });
         return (
           <li key={view.id} className="border-b border-border px-3 py-2">
-            <h3 className="font-mono text-sm font-semibold text-text">{fill(t.pingHeading, { source, destination: view.destination })}</h3>
-            {view.attempts.length === 0 ? (
-              <p className="mt-1 text-xs text-text-muted">{t.pingWaiting}</p>
+            <h3 className="font-mono text-sm font-semibold break-all text-text">{heading}</h3>
+            {resolution?.failed ? (
+              <p aria-live="polite" data-severity="error" className="mt-1 text-xs font-semibold text-danger">
+                {`✕ ${resolution.text}`}
+              </p>
+            ) : view.attempts.length === 0 ? (
+              <p className="mt-1 text-xs text-text-muted">{view.resolution === "pending" ? fill(t.pingResolving, { name: view.destination }) : t.pingWaiting}</p>
             ) : (
               <ol className="mt-1 space-y-0.5 font-mono text-xs">
                 {view.attempts.map((attempt) => (
