@@ -78,8 +78,8 @@ export function buildNameIndex(devices: readonly DeviceView[]): NameIndex {
   };
 }
 
-export type TraceCategory = "link" | "switch" | "arp" | "ip" | "icmp" | "system";
-export const TRACE_CATEGORIES: readonly TraceCategory[] = ["link", "switch", "arp", "ip", "icmp", "system"];
+export type TraceCategory = "link" | "switch" | "arp" | "ip" | "icmp" | "dhcp" | "system";
+export const TRACE_CATEGORIES: readonly TraceCategory[] = ["link", "switch", "arp", "ip", "icmp", "dhcp", "system"];
 
 export function traceCategory(code: TraceCode): TraceCategory {
   const family = code.slice(0, code.indexOf("."));
@@ -93,6 +93,9 @@ export function traceCategory(code: TraceCode): TraceCategory {
       return "switch";
     case "arp":
       return "arp";
+    case "dhcp":
+    case "udp":
+      return "dhcp";
     case "ip":
       return "ip";
     case "icmp":
@@ -132,6 +135,11 @@ const LOSS_OR_ERROR_CODES: ReadonlySet<TraceCode> = new Set<TraceCode>([
   "ping.timeout",
   "ping.late-reply",
   "sim.interrupted",
+  "dhcp.pool-exhausted",
+  "dhcp.gave-up",
+  "dhcp.nak-sent",
+  "dhcp.nak-received",
+  "dhcp.expired",
 ]);
 
 export function isLossOrError(entry: TraceEntry): boolean {
@@ -155,7 +163,7 @@ function failureText(reason: unknown): string {
 }
 
 const MAC_PATTERN = /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/;
-const TIME_PARAMS = new Set(["expiresAt", "arrival", "departure", "until"]);
+const TIME_PARAMS = new Set(["expiresAt", "renewAt", "arrival", "departure", "until"]);
 const DURATION_PARAMS = new Set(["rtt", "waited", "minRtt", "maxRtt", "avgRtt"]);
 
 export type ExplanationLevel = "beginner" | "technical";
@@ -235,6 +243,8 @@ export function formatTrace(entry: TraceEntry, names: NameIndex, level: Explanat
 
 /** Libellé d'un échange : « écho n° 2 du ping 1 » ou « ping 1 ». */
 export function formatExchange(exchange: string): string {
+  const dhcp = /^dhcp-(\d+)$/.exec(exchange);
+  if (dhcp) return fill(t.exchangeDhcp, { session: dhcp[1] ?? "" });
   const echo = /^ping-(\d+)#(\d+)$/.exec(exchange);
   if (echo) return fill(t.exchangeEcho, { session: echo[1] ?? "", sequence: echo[2] ?? "" });
   const session = /^ping-(\d+)$/.exec(exchange);
@@ -242,7 +252,7 @@ export function formatExchange(exchange: string): string {
 }
 
 export interface PduLayer {
-  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted";
+  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp";
   readonly title: string;
   readonly osi: string;
   readonly fields: ReadonlyArray<readonly [label: string, value: string]>;
@@ -286,10 +296,22 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
           [f.ipDestination, pdu.destination],
           [f.ttl, String(pdu.ttl)],
           [f.identification, String(pdu.identification)],
-          [f.protocol, v.protocolIcmp],
+          [f.protocol, pdu.payload.kind === "udp" ? v.protocolUdp : v.protocolIcmp],
         ]),
         ...pduLayers(pdu.payload, names),
       ];
+    case "udp":
+      return [layer("udp", [[f.sourcePort, String(pdu.sourcePort)], [f.destinationPort, String(pdu.destinationPort)]]), ...pduLayers(pdu.payload, names)];
+    case "dhcp": {
+      const options = pdu.options;
+      return [layer("dhcp", [
+        [f.type, t.dhcpMessages[pdu.type]], [f.transaction, String(pdu.xid)],
+        [f.broadcastFlag, pdu.broadcast ? v.yes : v.no], [f.clientIp, pdu.clientIp],
+        [f.yourIp, pdu.yourIp], [f.clientMac, names.mac(pdu.clientMac)],
+        ...([[f.serverId, options.serverId], [f.requestedIp, options.requestedIp], [f.subnetMask, options.subnetMask], [f.router, options.router], [f.lease, options.leaseSeconds]] as const)
+          .flatMap(([label, value]) => value === null ? [] : [[label, String(value)] as const]),
+      ])];
+    }
     case "icmp": {
       if (!isIcmpError(pdu)) {
         return [

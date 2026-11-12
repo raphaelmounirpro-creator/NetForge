@@ -1434,7 +1434,7 @@ export class Simulation {
       this.onDhcpClient(device, port, client, datagram.payload, exchange);
       return;
     }
-    this.emit("udp.no-service", { port: datagram.destinationPort }, { device, port, exchange, pdu: packet });
+    this.emit("udp.no-service", { destinationPort: datagram.destinationPort }, { device, port, exchange, pdu: packet });
   }
 
   /** Datagramme UDP diffusé (255.255.255.255, MAC de diffusion) sur une interface, sans routage. */
@@ -1608,6 +1608,11 @@ export class Simulation {
       return;
     }
     if (message.type === "ack" && waiting) {
+      const expectedServer = client.offer?.server ?? client.lease?.server;
+      if (client.phase !== "rebinding" && message.options.serverId !== expectedServer) {
+        this.emit("dhcp.ignored", { type: message.type, reason: "other-server" }, where);
+        return;
+      }
       const lease = offerOf(message, client.lease);
       if (!lease) {
         this.emit("dhcp.ignored", { type: message.type, reason: "incomplete" }, where);
@@ -1808,7 +1813,10 @@ export class Simulation {
         return;
       }
       address = formatIpv4(value);
-      state.dhcpLeases.set(address, { address, mac: message.clientMac, portId: port.portId, state: "offered", expiresAt: null, generation: 0 });
+      // Une offre sans REQUEST ne doit pas immobiliser une adresse pour toujours.
+      const expiresAt = this.clock + fromSeconds(60);
+      state.dhcpLeases.set(address, { address, mac: message.clientMac, portId: port.portId, state: "offered", expiresAt, generation: 0 });
+      this.schedule(expiresAt, { type: "dhcp-server-expiry", deviceId: device.id, address, generation: 0 }, true);
       this.dirtyDevices.add(device.id);
     }
     this.emit("dhcp.offer-sent", { address, mac: message.clientMac, lease: pool.leaseSeconds, reused: existing !== undefined }, where);
@@ -1890,7 +1898,8 @@ export class Simulation {
     const device = this.device(deviceId);
     const state = this.state(deviceId);
     const lease = state.dhcpLeases.get(address);
-    if (lease?.generation !== generation || lease.state !== "bound") return;
+    // Un ancien bail libéré peut partager l'adresse et la génération d'un nouveau bail.
+    if (lease?.generation !== generation || lease.expiresAt !== this.clock) return;
     state.dhcpLeases.delete(address);
     this.dirtyDevices.add(deviceId);
     this.emit("dhcp.lease-expired", { address, mac: lease.mac }, { device, port: device.portById.get(lease.portId) });

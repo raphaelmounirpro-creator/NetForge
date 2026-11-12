@@ -119,7 +119,7 @@ describe("échecs expliqués", () => {
     const trace = settle(sim);
     // TTL 64 au départ : les routeurs reçoivent 64, 63… 2 et relaient (63 fois) ;
     // le 64e saut (R2, sauts pairs) reçoit TTL 1 et abandonne. R1 relaie ensuite l'erreur vers PC1.
-    const echoForwards = find(trace, "ip.forward").filter((entry) => entry.pdu?.kind === "ipv4" && entry.pdu.payload.type === "echo-request");
+    const echoForwards = find(trace, "ip.forward").filter((entry) => entry.pdu?.kind === "ipv4" && entry.pdu.payload.kind === "icmp" && entry.pdu.payload.type === "echo-request");
     expect(echoForwards).toHaveLength(63);
     expect(find(trace, "ip.forward").length - echoForwards.length).toBe(1);
     expect(find(trace, "ip.ttl-expired")).toEqual([expect.objectContaining({ deviceId: "r2", params: { ttl: 1 } })]);

@@ -1,8 +1,8 @@
-import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setInterfaceDhcp, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
-import { ftthScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
+import { dhcpScenario, ftthScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
 
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(result.errors.map((issue) => issue.code).join(", "));
@@ -148,6 +148,11 @@ describe("notation d'une soumission", () => {
 });
 
 describe("fonctions autorisées", () => {
+  it("notent un poste après son attribution DHCP, avec le même budget global de calcul", () => {
+    const project = dhcpScenario();
+    const exercise = exerciseOn(project, { allowed: ["simulation"], steps: [{ kind: "fix", title: "Joindre le réseau distant", instruction: "Vérifiez le service.", criteria: [{ kind: "ping-succeeds", from: "pc1", to: "10.0.0.2" }], points: 10 }], hints: [] });
+    expect(gradeSubmission(exercise, project, [], 0)).toMatchObject({ ok: true, score: 10, max: 10 });
+  });
   it("laissent libres les noms et la disposition", () => {
     const cosmetic = ok(moveDevice(ok(renameDevice(exactRoute, { deviceId: "pc1", name: "Poste-A" })), { deviceId: "pc1", position: { x: 5, y: 5 } }));
     expect(forbiddenChanges(start, cosmetic, exercise.allowed)).toEqual([]);
@@ -175,6 +180,15 @@ describe("fonctions autorisées", () => {
     expect(forbiddenChanges(start, stpOff, ["addressing"])).toEqual(["switching"]);
     const subinterface = ok(setInterfaceIpv4(start, { deviceId: "r1", portId: "ge0.30", ipv4: { address: "192.168.30.1", prefixLength: 24 } }));
     expect(forbiddenChanges(start, subinterface, ["switching"])).toEqual(["addressing"]);
+  });
+
+  it("protègent les clients et les plages DHCP par la fonction adressage", () => {
+    const initial = dhcpScenario();
+    const manual = ok(setInterfaceDhcp(initial, { deviceId: "pc1", portId: "eth0", enabled: false }));
+    const noPool = ok(setDhcpPool(initial, { deviceId: "r1", interfaceId: "ge0", pool: null }));
+    expect(forbiddenChanges(initial, manual, ["simulation", "routes"])).toEqual(["addressing"]);
+    expect(forbiddenChanges(initial, noPool, ["simulation", "routes"])).toEqual(["addressing"]);
+    expect(forbiddenChanges(initial, noPool, ["addressing"])).toEqual([]);
   });
 
   it("n'autorisent le retrait d'une panne optique qu'avec « optics », et jamais son ajout ou sa modification", () => {

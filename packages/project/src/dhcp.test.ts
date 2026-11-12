@@ -78,12 +78,15 @@ describe("DHCP : configuration du client (PC)", () => {
 
   it("refuse un document importé qui mêle adresse manuelle et DHCP", () => {
     const doc = base();
+    const pc = doc.configurations["pc1"];
+    const router = doc.configurations["r1"];
+    if (!pc || !router) throw new Error("configurations attendues");
     const imported: NfgDocument = {
       ...doc,
       configurations: {
         ...doc.configurations,
-        pc1: { ...doc.configurations["pc1"]!, interfaces: { eth0: { ipv4: { address: "192.168.1.10", prefixLength: 24 }, dhcp: true } } },
-        r1: { ...doc.configurations["r1"]!, interfaces: { ...doc.configurations["r1"]!.interfaces, ge2: { ipv4: null, dhcp: true } } },
+        pc1: { ...pc, interfaces: { eth0: { ipv4: { address: "192.168.1.10", prefixLength: 24 }, dhcp: true } } },
+        r1: { ...router, interfaces: { ...router.interfaces, ge2: { ipv4: null, dhcp: true } } },
       },
     };
     expect(validateDocument(imported).map((issue) => issue.code)).toEqual(expect.arrayContaining(["config.dhcp-with-address", "config.dhcp-client-not-supported"]));

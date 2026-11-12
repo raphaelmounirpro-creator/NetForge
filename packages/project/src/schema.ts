@@ -6,16 +6,16 @@ import { STP_PRIORITY_MAX, STP_PRIORITY_STEP } from "./stp.js";
 import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
 
 /**
- * Format d'échange .nfg.json, version 5 (v2 : routes statiques ; v3 : annotations ;
+ * Format d'échange .nfg.json, version 6 (v2 : routes statiques ; v3 : annotations ;
  * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces —,
- * STP par switch, DHCP — plages des routeurs, adressage automatique des postes).
+ * STP par switch ; v6 : DHCP — plages des routeurs, adressage automatique des postes).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -50,7 +50,7 @@ export const DEVICE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/;
 const deviceNameSchema = z.string().regex(DEVICE_NAME_PATTERN, "nom d'équipement invalide");
 
 const portIdSchema = z.string().regex(/^[a-z]{1,8}\d{0,3}$/, "identifiant de port invalide");
-/** Interface : port physique, ou sous-interface « port.vlan » d'un routeur (v5). */
+/** Interface : port physique, ou sous-interface « port.vlan » d'un routeur (v6). */
 const interfaceIdSchema = z.string().regex(/^[a-z]{1,8}\d{0,3}(?:\.\d{1,4})?$/, "identifiant d'interface invalide");
 const ipv4AddressSchema = z.string().refine(isIpv4Address, "adresse IPv4 invalide");
 
@@ -61,11 +61,11 @@ export const ipv4InterfaceSchema = z.strictObject({
 
 const interfaceConfigSchema = z.strictObject({
   ipv4: ipv4InterfaceSchema.nullable(),
-  /** Adressage automatique par DHCP (PC, v5) : adresse, masque et passerelle obtenus pendant la simulation. */
+  /** Adressage automatique par DHCP (PC, v6) : adresse, masque et passerelle obtenus pendant la simulation. */
   dhcp: z.boolean(),
 });
 
-/** Plage d'un serveur DHCP de routeur (v5), rattachée à l'interface qui reçoit les demandes. */
+/** Plage d'un serveur DHCP de routeur (v6), rattachée à l'interface qui reçoit les demandes. */
 const dhcpPoolSchema = z.strictObject({
   start: ipv4AddressSchema,
   end: ipv4AddressSchema,

@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "models": {
     "catalog": 2
   },
@@ -105,13 +105,15 @@
           "ipv4": {
             "address": "192.168.1.10",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": "192.168.1.1",
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw1": {
       "interfaces": {},
@@ -121,7 +123,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "r1": {
       "interfaces": {
@@ -129,19 +132,22 @@
           "ipv4": {
             "address": "192.168.1.1",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         },
         "ge1": {
           "ipv4": {
             "address": "192.168.2.1",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw2": {
       "interfaces": {},
@@ -151,7 +157,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc2": {
       "interfaces": {
@@ -159,13 +166,15 @@
           "ipv4": {
             "address": "192.168.2.10",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": "192.168.2.1",
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     }
   },
   "faults": [],

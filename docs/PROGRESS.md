@@ -1,6 +1,6 @@
 # Suivi d'avancement
 
-Le propriétaire a demandé un commit et un push GitHub le 2026-11-12, en cours de phase 7. Cette demande remplace le report du push en fin de projet. Aucun dépôt distant n'est encore configuré ; publication et CI GitHub non vérifiées.
+Le propriétaire a demandé un commit et un push GitHub le 2026-11-12, en cours de phase 7. Le commit de sauvegarde `735cf16` a été poussé sur `raphaelmounirpro-creator/NetForge`, branche `main` ; identité des SHA local et distant vérifiée. Cette exception concerne ce point de sauvegarde ; les travaux suivants restent locaux jusqu'à une nouvelle demande ou la fin du projet. CI GitHub non vérifiée.
 
 ### Point de sauvegarde demandé le 2026-11-12
 
@@ -19,7 +19,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 7 — Commutation avancée et services IP de base
 
-**État : en cours (démarrée le 2026-11-12).** Tranches 1 (VLAN) et 2 (STP) terminées et vérifiées ; tranche 3 (DHCP) en cours.
+**État : en cours (démarrée le 2026-11-12).** Tranches 1 (VLAN), 2 (STP) et 3 (DHCP) terminées et vérifiées ; DNS minimal reste la prochaine tranche. La phase 7 reste ouverte.
 
 ### Périmètre retenu
 
@@ -44,7 +44,18 @@ La ligne « phase 7 » de la feuille de route (P-01, P-02, P-03, P-06) couvre un
 | VLAN | Tables MAC par VLAN observables ; étiquette 802.1Q dans l'inspecteur ; console et formulaires équivalents | atteint : `vlan.test.ts` (même MAC dans deux VLAN), `cli.test.ts` (documents identiques, configuration rejouée), `vlan.spec.ts` (inspecteur « TPID 0x8100, VID 10 », formulaire puis `show vlans`) |
 | VLAN | Projets version 4 migrés : comportement inchangé (tous les ports en VLAN 1) | atteint : migration testée ; 117 tests du moteur antérieurs inchangés ; parcours navigateur existants réussis |
 | STP | La boucle de commutation de référence converge sans tempête ; un port bloqué ; le ping réussit ; reconvergence après coupure | atteint : `stp.test.ts` (même boucle interrompue sans STP, convergée avec ; écoute 0 s, apprentissage 15 s, transmission 30 s), `stp.spec.ts` (port bloqué, coupure, ping en échec puis réussi, `show spanning-tree`) |
-| DHCP | Un poste obtient adresse et passerelle ; DORA observable ; plage épuisée signalée | ouvert |
+| DHCP | Un poste obtient adresse et passerelle ; DORA observable ; plage épuisée signalée | atteint : `dhcp.test.ts` (DORA, clients distincts, ping distant, épuisement, libération, T1/T2/expiration, VLAN, déterminisme), `dhcp.spec.ts` (formulaires, console, inspecteur et baux) |
+
+### Vérifications de la tranche DHCP (2026-11-12)
+
+- Format **v6** : migration explicite des anciens fichiers v5 (adresses, VLAN et STP conservés) ; fixtures navigateur régénérées depuis le moteur.
+- Lint et typage réussis ; **415 tests** (format 139, moteur 148, interface 73, contrats 2, API 53 sur PostgreSQL réel) et builds réussis. Avertissement Vite conservé : bundle principal 1 141 kB, 338 kB gzip ; Worker 179 kB.
+- Parcours navigateur : **27 parcours réussis** après actualisation de l'attente d'export v5 → v6. Les deux nouveaux parcours DHCP ont aussi réussi isolément. Suites navigateur et compte rejouées séparément : leurs dossiers de traces communs provoquaient une collision lors d'une exécution simultanée.
+- Parcours de compte et évaluations : **5 parcours réussis**, dont création, publication, passage et note 30/30 sur le correcteur v3 ; pile locale isolée arrêtée. Ancienne attente sur « correcteur version 2 » actualisée après vérification du résultat.
+- Inspection visuelle réelle (Edge) : formulaires DHCP et état des baux, thèmes sombre et clair, 1 440 et 1 024 px ; aucun débordement horizontal. Mouvement réduit activé à 1 024 px. Captures locales ignorées par Git ; détecteur Impeccable sans constat sur les composants modifiés.
+- Défauts corrigés : gabarits DHCP absents ; ancien fichier v5 rendu illisible sans migration ; changements DHCP non protégés dans les évaluations ; contrôles de ping exécutés avant l'attribution ; ancienne temporisation supprimant une adresse réattribuée ; offres sans expiration ; champ du port UDP écrasé par le nom de l'interface dans les explications. Les diffusions DHCP reçues par des postes sans service serveur sont expliquées sans les présenter comme des pannes.
+- Correcteur **v3**, moteur **0.4.0**. Références consultées le 2026-11-12 : RFC 2131 et 2132, limites documentées dans [protocols/dhcp.md](protocols/dhcp.md).
+- Environnement : le nettoyage automatique de PostgreSQL et du serveur Vite est bloqué dans le bac à sable Windows ; les processus de test identifiés sont arrêtés avec autorisation, puis les vérifications complètes exécutées avec le nettoyage autorisé. Aucun service distant modifié.
 
 ### Vérifications de la tranche STP (2026-11-12)
 

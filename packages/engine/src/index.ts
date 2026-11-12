@@ -6,7 +6,7 @@
  * ARP, IPv4, ICMP et routage statique. Aucune dépendance au DOM ni à React.
  */
 /** Version du moteur : change dès que la trace produite pour un même scénario peut changer. */
-export const ENGINE_VERSION = "0.3.0";
+export const ENGINE_VERSION = "0.4.0";
 
 export * from "./commands.js";
 export * from "./evaluation.js";

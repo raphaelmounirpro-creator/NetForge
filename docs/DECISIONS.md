@@ -245,3 +245,11 @@ Décision du propriétaire : 15 caractères minimum est jugé trop contraignant 
 - **Validation** : l'avertissement `topology.switch-loop` ne vise plus qu'une boucle contenant un switch sans STP.
 - **Évaluations** : la fonction autorisée devient « switching » (ports de switch et STP) ; `EVALUATOR_VERSION` 2.
 - **Interface** : formulaire STP (onglet Général d'un switch), console (`spanning-tree enable|disable|priority`, `show spanning-tree`), section Spanning Tree du panneau d'exécution, port non transmettant marqué « ⊘ état » sur le canevas de la simulation (symbole neutre : un port bloqué protège, ce n'est pas une panne).
+
+## D-054 — DHCP, format v6 et correcteur v3 (phase 7)
+
+- **Format** : migration explicite v5 → v6 ; interfaces manuelles conservées, clients DHCP désactivés, plages vides. Les fichiers v5 antérieurs restent importables, sans modifier leurs VLAN ou leur Spanning Tree.
+- **Moteur** : DHCP sur UDP/IPv4 réel dans la simulation ; baux uniquement dans l'état d'exécution. Plage par interface de routeur, y compris sous-interface VLAN. Serveur et client utilisent le temps virtuel et le générateur à graine. Les renouvellements sont des temporisations de fond : « Terminer les échanges » ne simule pas indéfiniment de nouveaux baux.
+- **Bornes pédagogiques** : bail de 60 s à 7 jours ; offre réservée 60 s ; quatre essais initiaux déterministes ; une demande à T1 puis T2. Ni relais, ni détection de conflits, ni DHCPv6. Détails et références vérifiées dans [protocols/dhcp.md](protocols/dhcp.md).
+- **Évaluations** : fonction « addressing » pour les clients et les plages DHCP. Les contrôles de ping attendent l'attribution avant d'émettre, dans le même budget global d'événements ; correcteur version 3, moteur version 0.4.0.
+- **Interface** : choix manuel/automatique pour les PC ; plage par interface adressée du routeur ; état des clients et baux, actions de renouvellement et de libération ; catégorie de journal DHCP, inspecteur UDP/DHCP. Les formulaires et la console passent par les mêmes commandes.

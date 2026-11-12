@@ -114,6 +114,19 @@ export function showStp(view: DeviceView, names: NameIndex): string[] {
   return [summary, "", ...table([c.port, c.role, c.stpState, c.cost], stp.ports.map((port) => [port.portId, roles[port.role], states[port.state], String(port.cost)]))];
 }
 
+/** Affiche uniquement les plages et baux calculés par le moteur. */
+export function showDhcp(view: DeviceView, names: NameIndex): string[] {
+  const server = view.dhcpServer;
+  const r = messages.simulation.runtime;
+  if (!server) return [r.dhcpNone];
+  return [
+    ...server.pools.map((pool) => `${pool.portId} : ${fill(r.dhcpPool, { ...pool })}`),
+    ...table([t.columns.ip, t.columns.mac, t.columns.port, t.columns.state, t.columns.expires], server.leases.map((lease) => [
+      lease.address, names.mac(lease.mac), lease.portId, lease.state === "bound" ? r.dhcpBound : r.dhcpOffered, lease.expiresAt === null ? "—" : formatSimTime(lease.expiresAt),
+    ])),
+  ];
+}
+
 /** « ipconfig » : configuration du projet et adresse MAC calculée par le moteur. */
 export function ipconfig(doc: NfgDocument, deviceId: string, view: DeviceView | undefined): string[] {
   const device = doc.topology.devices.find((item) => item.id === deviceId);
@@ -121,14 +134,17 @@ export function ipconfig(doc: NfgDocument, deviceId: string, view: DeviceView | 
   const config = doc.configurations[deviceId];
   const i = t.ipconfig;
   return getModel(device.model).ports.flatMap((port) => {
-    const ipv4 = config?.interfaces[port.id]?.ipv4 ?? null;
+    const automatic = config?.interfaces[port.id]?.dhcp ?? false;
+    const lease = automatic ? view?.dhcpClient?.lease : null;
+    const ipv4 = automatic ? lease : config?.interfaces[port.id]?.ipv4;
     const mac = view?.interfaces.find((item) => item.portId === port.id)?.mac ?? "—";
     return [
       fill(i.title, { port: port.id }),
       fill(i.mac, { value: mac }),
       fill(i.address, { value: ipv4?.address ?? i.none }),
       fill(i.mask, { value: ipv4 ? prefixToMask(ipv4.prefixLength) : i.none }),
-      fill(i.gateway, { value: config?.defaultGateway ?? i.none }),
+      fill(i.gateway, { value: (automatic ? lease?.gateway : config?.defaultGateway) ?? i.none }),
+      ...(automatic ? [messages.properties.dhcpAutomatic, messages.simulation.dhcpPhases[view?.dhcpClient?.phase ?? "init"]] : []),
     ];
   });
 }

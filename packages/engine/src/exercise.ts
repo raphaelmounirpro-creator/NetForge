@@ -209,6 +209,7 @@ export function evaluateCriteria(doc: NfgDocument, criteria: readonly Criterion[
     const created = createSimulation(doc, { seed: 1, parameters: { limits: { maxEvents: EVALUATION_MAX_EVENTS } } });
     if (!created.ok) return { ok: false, issues: created.issues };
     const sim = created.simulation;
+    sim.run({ stopWhenIdle: true, maxEvents: EVALUATION_MAX_EVENTS });
     const outcome = sim.enqueue({ type: "ping", deviceId: criterion.from, destination: criterion.to, count: EVALUATION_ECHOES });
     if (!outcome.ok) {
       results.push({ criterion, passed: false, sent: 0, replies: 0, opticalStatus: null });

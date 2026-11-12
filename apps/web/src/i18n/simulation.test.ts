@@ -2,6 +2,7 @@ import {
   COMMAND_ERROR_CODES,
   TRACE_CODES,
   createSimulation,
+  dhcpScenario,
   lanScenario,
   routedScenario,
   twoRoutersScenario,
@@ -23,6 +24,7 @@ import {
   pingAttemptText,
   pingSummary,
   traceCategory,
+  pduLayers,
 } from "./simulation";
 
 function ok<T extends { ok: boolean }>(result: T): Extract<T, { ok: true }> {
@@ -160,6 +162,28 @@ describe("textes de la trace", () => {
     expect(traceCategory("nic.filtered")).toBe("link");
     expect(traceCategory("ping.reply")).toBe("icmp");
     expect(traceCategory("sim.interrupted")).toBe("system");
+  });
+});
+
+describe("observation DHCP sur des échanges réels", () => {
+  it("explique DORA aux deux niveaux et inspecte les couches UDP/DHCP avec leurs seuls champs modélisés", () => {
+    const { simulation } = ok(createSimulation(dhcpScenario()));
+    const trace = simulation.run({ stopWhenIdle: true, maxEvents: 10_000 }).trace;
+    const names = buildNameIndex(simulation.snapshot().devices);
+    for (const entry of trace) {
+      for (const level of ["beginner", "technical"] as const) {
+        expect(formatTrace(entry, names, level)).not.toMatch(/\{\w+\}|undefined/);
+      }
+    }
+    const discover = trace.find((e) => e.code === "eth.transmit" && e.deviceId === "pc1");
+    if (!discover?.pdu) throw new Error("DISCOVER attendu");
+    const layers = pduLayers(discover.pdu, names);
+    expect(layers.map((l) => l.id)).toEqual(["ethernet", "ipv4", "udp", "dhcp"]);
+    expect(layers[1]?.fields).toContainEqual(["Protocole transporté", "17 (UDP)"]);
+    expect(layers[2]?.fields).toEqual([["Port source", "68"], ["Port destination", "67"]]);
+    expect(layers[3]?.fields).toContainEqual(["Type", "DHCPDISCOVER"]);
+    expect(layers[3]?.fields.some(([key]) => key === "Serveur (option 54)")).toBe(false);
+    expect(traceCategory("dhcp.bound")).toBe("dhcp");
   });
 });
 

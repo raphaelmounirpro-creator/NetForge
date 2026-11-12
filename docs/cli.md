@@ -27,6 +27,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `show arp` (routeur) / `show mac` (switch) | Cache ARP / table MAC (par VLAN) |
 | | `show vlans` (switch) | Ports d'accès par VLAN, puis trunks (VLAN natif, VLAN autorisés) |
 | | `show spanning-tree` (switch) | Racine élue, port racine, puis rôle, état et coût de chaque port |
+| | `show dhcp` (routeur) | Plages et baux calculés par le moteur |
 | | `show config` | Configuration réécrite en commandes (rejouable) |
 | | `clear arp` (routeur) / `clear mac` (switch) | Vide la table apprise |
 | | `configure` | Passe en mode configuration |
@@ -39,6 +40,8 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `spanning-tree priority <priorité>` (switch) | Priorité du pont : multiple de 4096 entre 0 et 61440 (la plus petite devient racine) |
 | Interface (`R1(config ge0)>`) | `address <adresse>/<préfixe>` ou `address <adresse> <masque>` | Adresse IPv4 du port |
 | | `address clear` | Retire l'adresse |
+| | `dhcp pool <début> <fin> [gateway <passerelle>] [lease <durée>]` (routeur) | Plage de l'interface ; défauts : adresse de l'interface, bail de 1 jour |
+| | `dhcp clear` (routeur) | Retire la plage de l'interface |
 | Interface d'un switch (`SW1(config ge1)>`) | `access vlan <vlan>` | Port d'accès dans le VLAN (1 à 4094 ; `access vlan 1` revient au défaut) |
 | | `trunk [native <vlan>] [allowed <liste>\|all]` | Trunk 802.1Q ; par défaut VLAN natif 1 et tous les VLAN autorisés ; liste : `10,20,30-35` |
 | Configuration et interface | `exit` / `end` | Remonte d'un niveau / revient en exploitation |
@@ -52,6 +55,8 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | `ipconfig` | Adresse MAC, adresse IPv4, masque et passerelle |
 | `ipconfig set <adresse> <masque> [passerelle]` | Configure l'interface (et la passerelle) |
 | `ipconfig clear` | Retire l'adresse et la passerelle |
+| `ipconfig dhcp` | Active l'adressage automatique (adresse obtenue pendant la simulation) |
+| `ipconfig renew` / `ipconfig release` | Demande ou renouvelle / libère le bail DHCP |
 | `ping <adresse> [-n <nombre>]` | Échos ICMP (4 par défaut, 20 au plus) ; réponses affichées au fil du calcul |
 | `arp -a` / `arp -d` | Affiche / vide le cache ARP |
 

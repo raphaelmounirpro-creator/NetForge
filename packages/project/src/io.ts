@@ -78,16 +78,29 @@ function migrateV4toV5(doc: Record<string, unknown>): Record<string, unknown> {
     migrated[id] = isRecord(config)
       ? {
           ...config,
-          interfaces: isRecord(config["interfaces"])
-            ? Object.fromEntries(Object.entries(config["interfaces"]).map(([port, value]) => [port, isRecord(value) ? { ...value, dhcp: value["dhcp"] ?? false } : value]))
-            : config["interfaces"],
           switchports: config["switchports"] ?? {},
           stp: config["stp"] ?? (switches.has(id) ? { enabled: false, priority: STP_DEFAULT_PRIORITY } : null),
-          dhcpPools: config["dhcpPools"] ?? {},
         }
       : config;
   }
   return { ...doc, schemaVersion: 5, configurations: migrated };
+}
+
+/** Version 5 → 6 : adressage manuel conservé, aucun serveur DHCP par défaut. */
+function migrateV5toV6(doc: Record<string, unknown>): Record<string, unknown> {
+  const configurations = doc["configurations"];
+  if (!isRecord(configurations)) return { ...doc, schemaVersion: 6 };
+  return {
+    ...doc,
+    schemaVersion: 6,
+    configurations: Object.fromEntries(Object.entries(configurations).map(([id, config]) => [id, isRecord(config) ? {
+      ...config,
+      interfaces: isRecord(config["interfaces"])
+        ? Object.fromEntries(Object.entries(config["interfaces"]).map(([port, value]) => [port, isRecord(value) ? { ...value, dhcp: value["dhcp"] ?? false } : value]))
+        : config["interfaces"],
+      dhcpPools: config["dhcpPools"] ?? {},
+    } : config])),
+  };
 }
 
 function isSwitchModel(model: string): boolean {
@@ -103,6 +116,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   2: migrateV2toV3,
   3: migrateV3toV4,
   4: migrateV4toV5,
+  5: migrateV5toV6,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

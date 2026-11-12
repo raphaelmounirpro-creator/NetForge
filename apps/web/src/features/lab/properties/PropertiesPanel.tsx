@@ -23,6 +23,7 @@ import { useLabStore, type OpenProject } from "../store";
 import { ConnectForm } from "./ConnectForm";
 import { FiberForm } from "./FiberForm";
 import { Ipv4Form } from "./Ipv4Form";
+import { DhcpMode, DhcpPools } from "./DhcpForms";
 import { SubinterfacesSection } from "./SubinterfacesSection";
 import { SwitchportForm } from "./SwitchportForm";
 import { RoutesTab } from "./RoutesTab";
@@ -179,7 +180,8 @@ function InterfacesTab({ projectId, project, device }: { projectId: string; proj
                     disabled={!editable}
                   />
                 )}
-                {model.ipCapable && (
+                {model.kind === "pc" && <DhcpMode projectId={projectId} deviceId={device.id} portId={port.id} automatic={config?.interfaces[port.id]?.dhcp ?? false} disabled={!editable} />}
+                {model.ipCapable && !config?.interfaces[port.id]?.dhcp && (
                   <Ipv4Form
                     key={`${port.id}:${ipv4 ? `${ipv4.address}/${String(ipv4.prefixLength)}` : "-"}`}
                     projectId={projectId}
@@ -195,7 +197,8 @@ function InterfacesTab({ projectId, project, device }: { projectId: string; proj
         })}
       </ul>
       {model.kind === "router" && <SubinterfacesSection projectId={projectId} doc={doc} device={device} disabled={!editable} />}
-      {model.kind === "pc" && (
+      {model.kind === "router" && config && <DhcpPools projectId={projectId} deviceId={device.id} config={config} disabled={!editable} />}
+      {model.kind === "pc" && !Object.values(config?.interfaces ?? {}).some((value) => value.dhcp) && (
         <SingleFieldForm
           key={config?.defaultGateway ?? "-"}
           label={t.gateway}

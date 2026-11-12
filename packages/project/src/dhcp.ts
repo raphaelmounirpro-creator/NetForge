@@ -2,7 +2,7 @@ import { error, type Issue } from "./issues.js";
 import { parseIpv4 } from "./ipv4.js";
 
 /**
- * DHCP (format version 5) : plages d'un serveur sur routeur et adressage
+ * DHCP (format version 6) : plages d'un serveur sur routeur et adressage
  * automatique des postes. Constantes et analyse des saisies partagées par la
  * validation, les commandes, la console et l'interface. Voir
  * docs/protocols/dhcp.md.

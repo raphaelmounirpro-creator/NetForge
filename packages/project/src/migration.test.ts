@@ -34,15 +34,15 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 5", () => {
+describe("migration du format version 1 → 6", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(5);
+    expect(result.document.schemaVersion).toBe(6);
     expect(result.document.models).toEqual({ catalog: 2 });
     expect(result.document.faults).toEqual([]);
-    // Routes (v2), ports de switch, STP et DHCP (v5) : tous les ports en accès dans le VLAN 1, aucun STP hors
+    // Routes (v2), ports de switch, STP (v5) et DHCP (v6) : tous les ports en accès dans le VLAN 1, aucun STP hors
     // switch, adressage manuel conservé, aucun serveur DHCP.
     expect(result.document.configurations["pc1"]).toEqual({
       ...versionOne.configurations.pc1,
@@ -118,7 +118,7 @@ describe("migration du format version 1 → 5", () => {
     const result = parseNfgValue(versionThree);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(5);
+    expect(result.document.schemaVersion).toBe(6);
     expect(result.document.models.catalog).toBe(2);
     expect(result.document.topology.links[0]?.fiber).toBeNull();
     expect(result.document.faults).toEqual([]);
@@ -156,7 +156,15 @@ describe("migration du format version 1 → 5", () => {
     expect(result.document.configurations["r1"]?.stp).toBeNull();
   });
 
-  it("refuse une version 5 sans table de ports de switch", () => {
+  it("migre les anciens fichiers v5 en conservant VLAN, STP, adresses et routes sans activer DHCP", () => {
+    const current = expectOk(setInterfaceIpv4(projectWith(["pc1", "PC"]), { deviceId: "pc1", portId: "eth0", ipv4: { address: "192.168.1.10", prefixLength: 24 } }));
+    const old = { ...current, schemaVersion: 5, configurations: Object.fromEntries(Object.entries(current.configurations).map(([id, { dhcpPools: _pools, ...config }]) => [id, { ...config, interfaces: Object.fromEntries(Object.entries(config.interfaces).map(([port, { dhcp: _dhcp, ...value }]) => [port, value])) }])) };
+    const result = parseNfgValue(old);
+    expect(result.ok && result.document).toEqual(current);
+    expect(old.schemaVersion).toBe(5);
+  });
+
+  it("refuse une version courante sans table de ports de switch", () => {
     const migrated = parseNfgValue(versionOne);
     if (!migrated.ok) throw new Error("migration attendue");
     const configurations = Object.fromEntries(Object.entries(migrated.document.configurations).map(([id, { switchports: _ports, ...config }]) => [id, config]));

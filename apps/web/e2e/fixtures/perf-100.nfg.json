@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "models": {
     "catalog": 2
   },
@@ -1912,7 +1912,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "sw1": {
       "interfaces": {},
@@ -1922,7 +1923,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc1": {
       "interfaces": {
@@ -1930,13 +1932,15 @@
           "ipv4": {
             "address": "10.10.0.1",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc2": {
       "interfaces": {
@@ -1944,13 +1948,15 @@
           "ipv4": {
             "address": "10.10.0.2",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc3": {
       "interfaces": {
@@ -1958,13 +1964,15 @@
           "ipv4": {
             "address": "10.10.0.3",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc4": {
       "interfaces": {
@@ -1972,13 +1980,15 @@
           "ipv4": {
             "address": "10.10.0.4",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc5": {
       "interfaces": {
@@ -1986,13 +1996,15 @@
           "ipv4": {
             "address": "10.10.0.5",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc6": {
       "interfaces": {
@@ -2000,13 +2012,15 @@
           "ipv4": {
             "address": "10.10.0.6",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc7": {
       "interfaces": {
@@ -2014,13 +2028,15 @@
           "ipv4": {
             "address": "10.10.0.7",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc8": {
       "interfaces": {
@@ -2028,13 +2044,15 @@
           "ipv4": {
             "address": "10.10.0.8",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc9": {
       "interfaces": {
@@ -2042,13 +2060,15 @@
           "ipv4": {
             "address": "10.10.0.9",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc10": {
       "interfaces": {
@@ -2056,13 +2076,15 @@
           "ipv4": {
             "address": "10.10.0.10",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw2": {
       "interfaces": {},
@@ -2072,7 +2094,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc11": {
       "interfaces": {
@@ -2080,13 +2103,15 @@
           "ipv4": {
             "address": "10.10.0.11",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc12": {
       "interfaces": {
@@ -2094,13 +2119,15 @@
           "ipv4": {
             "address": "10.10.0.12",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc13": {
       "interfaces": {
@@ -2108,13 +2135,15 @@
           "ipv4": {
             "address": "10.10.0.13",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc14": {
       "interfaces": {
@@ -2122,13 +2151,15 @@
           "ipv4": {
             "address": "10.10.0.14",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc15": {
       "interfaces": {
@@ -2136,13 +2167,15 @@
           "ipv4": {
             "address": "10.10.0.15",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc16": {
       "interfaces": {
@@ -2150,13 +2183,15 @@
           "ipv4": {
             "address": "10.10.0.16",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc17": {
       "interfaces": {
@@ -2164,13 +2199,15 @@
           "ipv4": {
             "address": "10.10.0.17",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc18": {
       "interfaces": {
@@ -2178,13 +2215,15 @@
           "ipv4": {
             "address": "10.10.0.18",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc19": {
       "interfaces": {
@@ -2192,13 +2231,15 @@
           "ipv4": {
             "address": "10.10.0.19",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc20": {
       "interfaces": {
@@ -2206,13 +2247,15 @@
           "ipv4": {
             "address": "10.10.0.20",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw3": {
       "interfaces": {},
@@ -2222,7 +2265,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc21": {
       "interfaces": {
@@ -2230,13 +2274,15 @@
           "ipv4": {
             "address": "10.10.0.21",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc22": {
       "interfaces": {
@@ -2244,13 +2290,15 @@
           "ipv4": {
             "address": "10.10.0.22",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc23": {
       "interfaces": {
@@ -2258,13 +2306,15 @@
           "ipv4": {
             "address": "10.10.0.23",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc24": {
       "interfaces": {
@@ -2272,13 +2322,15 @@
           "ipv4": {
             "address": "10.10.0.24",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc25": {
       "interfaces": {
@@ -2286,13 +2338,15 @@
           "ipv4": {
             "address": "10.10.0.25",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc26": {
       "interfaces": {
@@ -2300,13 +2354,15 @@
           "ipv4": {
             "address": "10.10.0.26",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc27": {
       "interfaces": {
@@ -2314,13 +2370,15 @@
           "ipv4": {
             "address": "10.10.0.27",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc28": {
       "interfaces": {
@@ -2328,13 +2386,15 @@
           "ipv4": {
             "address": "10.10.0.28",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc29": {
       "interfaces": {
@@ -2342,13 +2402,15 @@
           "ipv4": {
             "address": "10.10.0.29",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc30": {
       "interfaces": {
@@ -2356,13 +2418,15 @@
           "ipv4": {
             "address": "10.10.0.30",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw4": {
       "interfaces": {},
@@ -2372,7 +2436,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc31": {
       "interfaces": {
@@ -2380,13 +2445,15 @@
           "ipv4": {
             "address": "10.10.0.31",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc32": {
       "interfaces": {
@@ -2394,13 +2461,15 @@
           "ipv4": {
             "address": "10.10.0.32",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc33": {
       "interfaces": {
@@ -2408,13 +2477,15 @@
           "ipv4": {
             "address": "10.10.0.33",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc34": {
       "interfaces": {
@@ -2422,13 +2493,15 @@
           "ipv4": {
             "address": "10.10.0.34",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc35": {
       "interfaces": {
@@ -2436,13 +2509,15 @@
           "ipv4": {
             "address": "10.10.0.35",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc36": {
       "interfaces": {
@@ -2450,13 +2525,15 @@
           "ipv4": {
             "address": "10.10.0.36",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc37": {
       "interfaces": {
@@ -2464,13 +2541,15 @@
           "ipv4": {
             "address": "10.10.0.37",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc38": {
       "interfaces": {
@@ -2478,13 +2557,15 @@
           "ipv4": {
             "address": "10.10.0.38",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc39": {
       "interfaces": {
@@ -2492,13 +2573,15 @@
           "ipv4": {
             "address": "10.10.0.39",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc40": {
       "interfaces": {
@@ -2506,13 +2589,15 @@
           "ipv4": {
             "address": "10.10.0.40",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw5": {
       "interfaces": {},
@@ -2522,7 +2607,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc41": {
       "interfaces": {
@@ -2530,13 +2616,15 @@
           "ipv4": {
             "address": "10.10.0.41",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc42": {
       "interfaces": {
@@ -2544,13 +2632,15 @@
           "ipv4": {
             "address": "10.10.0.42",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc43": {
       "interfaces": {
@@ -2558,13 +2648,15 @@
           "ipv4": {
             "address": "10.10.0.43",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc44": {
       "interfaces": {
@@ -2572,13 +2664,15 @@
           "ipv4": {
             "address": "10.10.0.44",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc45": {
       "interfaces": {
@@ -2586,13 +2680,15 @@
           "ipv4": {
             "address": "10.10.0.45",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc46": {
       "interfaces": {
@@ -2600,13 +2696,15 @@
           "ipv4": {
             "address": "10.10.0.46",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc47": {
       "interfaces": {
@@ -2614,13 +2712,15 @@
           "ipv4": {
             "address": "10.10.0.47",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc48": {
       "interfaces": {
@@ -2628,13 +2728,15 @@
           "ipv4": {
             "address": "10.10.0.48",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc49": {
       "interfaces": {
@@ -2642,13 +2744,15 @@
           "ipv4": {
             "address": "10.10.0.49",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc50": {
       "interfaces": {
@@ -2656,13 +2760,15 @@
           "ipv4": {
             "address": "10.10.0.50",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw6": {
       "interfaces": {},
@@ -2672,7 +2778,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc51": {
       "interfaces": {
@@ -2680,13 +2787,15 @@
           "ipv4": {
             "address": "10.10.0.51",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc52": {
       "interfaces": {
@@ -2694,13 +2803,15 @@
           "ipv4": {
             "address": "10.10.0.52",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc53": {
       "interfaces": {
@@ -2708,13 +2819,15 @@
           "ipv4": {
             "address": "10.10.0.53",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc54": {
       "interfaces": {
@@ -2722,13 +2835,15 @@
           "ipv4": {
             "address": "10.10.0.54",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc55": {
       "interfaces": {
@@ -2736,13 +2851,15 @@
           "ipv4": {
             "address": "10.10.0.55",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc56": {
       "interfaces": {
@@ -2750,13 +2867,15 @@
           "ipv4": {
             "address": "10.10.0.56",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc57": {
       "interfaces": {
@@ -2764,13 +2883,15 @@
           "ipv4": {
             "address": "10.10.0.57",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc58": {
       "interfaces": {
@@ -2778,13 +2899,15 @@
           "ipv4": {
             "address": "10.10.0.58",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc59": {
       "interfaces": {
@@ -2792,13 +2915,15 @@
           "ipv4": {
             "address": "10.10.0.59",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc60": {
       "interfaces": {
@@ -2806,13 +2931,15 @@
           "ipv4": {
             "address": "10.10.0.60",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw7": {
       "interfaces": {},
@@ -2822,7 +2949,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc61": {
       "interfaces": {
@@ -2830,13 +2958,15 @@
           "ipv4": {
             "address": "10.10.0.61",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc62": {
       "interfaces": {
@@ -2844,13 +2974,15 @@
           "ipv4": {
             "address": "10.10.0.62",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc63": {
       "interfaces": {
@@ -2858,13 +2990,15 @@
           "ipv4": {
             "address": "10.10.0.63",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc64": {
       "interfaces": {
@@ -2872,13 +3006,15 @@
           "ipv4": {
             "address": "10.10.0.64",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc65": {
       "interfaces": {
@@ -2886,13 +3022,15 @@
           "ipv4": {
             "address": "10.10.0.65",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc66": {
       "interfaces": {
@@ -2900,13 +3038,15 @@
           "ipv4": {
             "address": "10.10.0.66",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc67": {
       "interfaces": {
@@ -2914,13 +3054,15 @@
           "ipv4": {
             "address": "10.10.0.67",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc68": {
       "interfaces": {
@@ -2928,13 +3070,15 @@
           "ipv4": {
             "address": "10.10.0.68",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc69": {
       "interfaces": {
@@ -2942,13 +3086,15 @@
           "ipv4": {
             "address": "10.10.0.69",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc70": {
       "interfaces": {
@@ -2956,13 +3102,15 @@
           "ipv4": {
             "address": "10.10.0.70",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw8": {
       "interfaces": {},
@@ -2972,7 +3120,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc71": {
       "interfaces": {
@@ -2980,13 +3129,15 @@
           "ipv4": {
             "address": "10.10.0.71",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc72": {
       "interfaces": {
@@ -2994,13 +3145,15 @@
           "ipv4": {
             "address": "10.10.0.72",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc73": {
       "interfaces": {
@@ -3008,13 +3161,15 @@
           "ipv4": {
             "address": "10.10.0.73",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc74": {
       "interfaces": {
@@ -3022,13 +3177,15 @@
           "ipv4": {
             "address": "10.10.0.74",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc75": {
       "interfaces": {
@@ -3036,13 +3193,15 @@
           "ipv4": {
             "address": "10.10.0.75",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc76": {
       "interfaces": {
@@ -3050,13 +3209,15 @@
           "ipv4": {
             "address": "10.10.0.76",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc77": {
       "interfaces": {
@@ -3064,13 +3225,15 @@
           "ipv4": {
             "address": "10.10.0.77",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc78": {
       "interfaces": {
@@ -3078,13 +3241,15 @@
           "ipv4": {
             "address": "10.10.0.78",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc79": {
       "interfaces": {
@@ -3092,13 +3257,15 @@
           "ipv4": {
             "address": "10.10.0.79",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc80": {
       "interfaces": {
@@ -3106,13 +3273,15 @@
           "ipv4": {
             "address": "10.10.0.80",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "sw9": {
       "interfaces": {},
@@ -3122,7 +3291,8 @@
       "stp": {
         "enabled": false,
         "priority": 32768
-      }
+      },
+      "dhcpPools": {}
     },
     "pc81": {
       "interfaces": {
@@ -3130,13 +3300,15 @@
           "ipv4": {
             "address": "10.10.0.81",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc82": {
       "interfaces": {
@@ -3144,13 +3316,15 @@
           "ipv4": {
             "address": "10.10.0.82",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc83": {
       "interfaces": {
@@ -3158,13 +3332,15 @@
           "ipv4": {
             "address": "10.10.0.83",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc84": {
       "interfaces": {
@@ -3172,13 +3348,15 @@
           "ipv4": {
             "address": "10.10.0.84",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc85": {
       "interfaces": {
@@ -3186,13 +3364,15 @@
           "ipv4": {
             "address": "10.10.0.85",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc86": {
       "interfaces": {
@@ -3200,13 +3380,15 @@
           "ipv4": {
             "address": "10.10.0.86",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc87": {
       "interfaces": {
@@ -3214,13 +3396,15 @@
           "ipv4": {
             "address": "10.10.0.87",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc88": {
       "interfaces": {
@@ -3228,13 +3412,15 @@
           "ipv4": {
             "address": "10.10.0.88",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc89": {
       "interfaces": {
@@ -3242,13 +3428,15 @@
           "ipv4": {
             "address": "10.10.0.89",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pc90": {
       "interfaces": {
@@ -3256,13 +3444,15 @@
           "ipv4": {
             "address": "10.10.0.90",
             "prefixLength": 24
-          }
+          },
+          "dhcp": false
         }
       },
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     }
   },
   "faults": [],

@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "models": {
     "catalog": 2
   },
@@ -294,77 +294,88 @@
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "odf1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "cpl1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "cpl2": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pbo1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pto1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pto2": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "pto3": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "ont1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "ont2": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     },
     "ont3": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
       "switchports": {},
-      "stp": null
+      "stp": null,
+      "dhcpPools": {}
     }
   },
   "faults": [],

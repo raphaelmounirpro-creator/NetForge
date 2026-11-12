@@ -1,7 +1,7 @@
 import { addStaticRoute, setDefaultGateway, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { evaluateCriteria, maxScore, parseExercise, pingObserved, sameNetwork, type Criterion } from "./exercise.js";
-import { twoRoutersScenario } from "./scenarios.js";
+import { dhcpScenario, twoRoutersScenario } from "./scenarios.js";
 import type { PingView } from "./views.js";
 
 function ok(result: CommandResult): NfgDocument {
@@ -15,6 +15,10 @@ const bothWays: Criterion[] = [
 ];
 
 describe("critères comportementaux", () => {
+  it("attendent l'attribution DHCP avant le ping de contrôle", () => {
+    const result = evaluateCriteria(dhcpScenario(), [{ kind: "ping-succeeds", from: "pc1", to: "10.0.0.2" }]);
+    expect(result.ok && result.results[0]).toMatchObject({ passed: true, replies: 2 });
+  });
   it("échouent sur la topologie de départ (route de retour manquante)", () => {
     const result = evaluateCriteria(twoRoutersScenario({ r2Route: false }), bothWays);
     expect(result.ok && result.results.map((item) => item.passed)).toEqual([false, false]);

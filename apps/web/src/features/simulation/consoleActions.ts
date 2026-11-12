@@ -1,6 +1,6 @@
 import { cliPrompt, configurationCommands, interpret, type CliRequest } from "@netforge/project";
 import { fill, formatIssue, messages } from "../../i18n";
-import { formatCliError, helpLines, ipconfig, showArp, showInterfaces, showMac, showRoutes, showStp, showVlans } from "../../i18n/console";
+import { formatCliError, helpLines, ipconfig, showArp, showDhcp, showInterfaces, showMac, showRoutes, showStp, showVlans } from "../../i18n/console";
 import { formatCommandError } from "../../i18n/simulation";
 import { useLabStore } from "../lab/store";
 import { consoleKey, EMPTY_CONSOLE, useConsoleStore } from "./consoleStore";
@@ -97,6 +97,14 @@ async function handleRequest(projectId: string, deviceId: string, key: string, r
     case "show-stp":
       runtime((names) => (view ? showStp(view, names) : []));
       return;
+    case "show-dhcp":
+      runtime((names) => (view ? showDhcp(view, names) : []));
+      return;
+    case "dhcp": {
+      const reply = await simulation.dhcp(deviceId, request.action);
+      consoles.append(key, reply.ok ? "info" : "error", [reply.ok ? messages.simulation.runtime.dhcpQueued : formatCommandError(reply.code, reply.params)]);
+      return;
+    }
     case "clear-table": {
       const reply = await simulation.clearTable(deviceId, request.table);
       consoles.append(key, reply.ok ? "info" : "error", [reply.ok ? t.tableCleared[request.table] : formatCommandError(reply.code, reply.params)]);

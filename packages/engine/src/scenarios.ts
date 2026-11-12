@@ -5,6 +5,8 @@ import {
   connectPorts,
   createProject,
   setDefaultGateway,
+  setDhcpPool,
+  setInterfaceDhcp,
   setFiber,
   setInterfaceIpv4,
   setStp,
@@ -26,6 +28,21 @@ import {
  */
 
 const CREATED_AT = "2026-11-11T08:00:00.000Z";
+
+/** Deux clients automatiques, serveur sur R1 ; réseau distant pour vérifier la passerelle reçue. */
+export function dhcpScenario(options: { singleAddress?: boolean; noServer?: boolean } = {}): NfgDocument {
+  const builder = new ScenarioBuilder("dhcp", "DHCP : attribution et baux")
+    .device("pc1", "PC", 80, 100).device("pc2", "PC", 80, 280)
+    .device("sw1", "S-24", 320, 180).device("r1", "R-200", 560, 180)
+    .device("pc3", "PC", 800, 180)
+    .link("pc1", "eth0", "sw1", "ge1").link("pc2", "eth0", "sw1", "ge2")
+    .link("sw1", "ge3", "r1", "ge0").link("r1", "ge1", "pc3", "eth0")
+    .ip("r1", "ge0", "192.168.1.1/24").ip("r1", "ge1", "10.0.0.1/24")
+    .ip("pc3", "eth0", "10.0.0.2/24").gateway("pc3", "10.0.0.1")
+    .dhcpClient("pc1").dhcpClient("pc2");
+  if (!options.noServer) builder.dhcpPool("r1", "ge0", "192.168.1.100", options.singleAddress ? "192.168.1.100" : "192.168.1.101", "192.168.1.1");
+  return builder.build();
+}
 
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(`scénario invalide : ${result.errors.map((issue) => issue.code).join(", ")}`);
@@ -72,6 +89,16 @@ export class ScenarioBuilder {
 
   gateway(deviceId: string, gateway: string): this {
     this.doc = ok(setDefaultGateway(this.doc, { deviceId, gateway }));
+    return this;
+  }
+
+  dhcpClient(deviceId: string): this {
+    this.doc = ok(setInterfaceDhcp(this.doc, { deviceId, portId: "eth0", enabled: true }));
+    return this;
+  }
+
+  dhcpPool(deviceId: string, portId: string, start: string, end: string, gateway: string, leaseSeconds = 120): this {
+    this.doc = ok(setDhcpPool(this.doc, { deviceId, interfaceId: portId, pool: { start, end, gateway, leaseSeconds } }));
     return this;
   }
 

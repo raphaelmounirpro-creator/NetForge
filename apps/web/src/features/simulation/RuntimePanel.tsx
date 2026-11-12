@@ -40,7 +40,7 @@ function State({ ok, label }: { ok: boolean; label: string }) {
 }
 
 /** Tables observables d'un équipement : uniquement ce que le moteur a calculé. */
-function DeviceRuntime({ device, names }: { device: DeviceView; names: NameIndex }) {
+function DeviceRuntime({ device, names, disabled }: { device: DeviceView; names: NameIndex; disabled: boolean }) {
   const usedPorts = device.interfaces.filter((item) => item.linkId !== null || item.ipv4 !== null);
   const shownPorts = usedPorts.length > 0 ? usedPorts : device.interfaces.slice(0, 1);
   return (
@@ -58,6 +58,24 @@ function DeviceRuntime({ device, names }: { device: DeviceView; names: NameIndex
           />
         ))}
       </EntryList>
+
+      {device.dhcpClient && <EntryList title={t.dhcpClientTitle} empty={null}>
+        <li className="text-sm text-text">{messages.simulation.dhcpPhases[device.dhcpClient.phase]}</li>
+        {device.dhcpClient.lease ? <Entry
+          main={fill(t.dhcpLease, { address: device.dhcpClient.lease.address, prefix: device.dhcpClient.lease.prefixLength, gateway: device.dhcpClient.lease.gateway ?? "—", server: device.dhcpClient.lease.server })}
+          detail={fill(t.dhcpTimes, { obtained: formatSimTime(device.dhcpClient.lease.obtainedAt), renew: formatSimTime(device.dhcpClient.lease.renewAt), rebind: formatSimTime(device.dhcpClient.lease.rebindAt), expires: formatSimTime(device.dhcpClient.lease.expiresAt) })}
+        /> : <li className="text-xs text-text-muted">{t.dhcpNone}</li>}
+        <li className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={disabled} onClick={() => void simulation.dhcp(device.deviceId, "renew")}>{t.dhcpRenew}</Button>
+          <Button size="sm" variant="ghost" disabled={disabled || !device.dhcpClient.lease} onClick={() => void simulation.dhcp(device.deviceId, "release")}>{t.dhcpRelease}</Button>
+        </li>
+      </EntryList>}
+
+      {device.dhcpServer && <EntryList title={t.dhcpServerTitle} empty={null}>
+        {device.dhcpServer.pools.map((pool) => <Entry key={pool.portId} main={pool.portId} detail={fill(t.dhcpPool, { ...pool })} />)}
+        {device.dhcpServer.leases.length === 0 && <li className="text-xs text-text-muted">{t.dhcpNone}</li>}
+        {device.dhcpServer.leases.map((lease) => <Entry key={lease.address} main={`${lease.address} → ${names.mac(lease.mac)}`} detail={fill(t.dhcpLeaseEntry, { state: lease.state === "bound" ? t.dhcpBound : t.dhcpOffered, port: lease.portId, expires: lease.expiresAt === null ? "—" : formatSimTime(lease.expiresAt) })} />)}
+      </EntryList>}
 
       {device.stp && (
         <EntryList title={t.stpTitle} empty={device.stp.enabled ? null : t.stpDisabled}>
@@ -196,7 +214,7 @@ export function RuntimePanel({
       {!session ? (
         <p className="text-sm text-text-muted">{t.notLoaded}</p>
       ) : device ? (
-        <DeviceRuntime device={device} names={names} />
+        <DeviceRuntime device={device} names={names} disabled={disabled} />
       ) : selection?.kind === "link" && linkUp !== undefined ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-text">

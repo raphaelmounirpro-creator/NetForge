@@ -16,9 +16,10 @@ import { createSimulation } from "./simulation.js";
  * EVALUATOR_VERSION change dès qu'une même soumission peut recevoir une note
  * différente (règles de notation, limites, moteur). Version 2 : VLAN et STP
  * (format v5), fonction autorisée « switching » pour la configuration des
- * switches (ports d'accès et trunks, Spanning Tree).
+ * switches (ports d'accès et trunks, Spanning Tree). Version 3 : DHCP (format v6),
+ * configuration des clients et des plages protégée par « addressing ».
  */
-export const EVALUATOR_VERSION = 2;
+export const EVALUATOR_VERSION = 3;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */
@@ -188,10 +189,11 @@ function addressingOf(doc: NfgDocument): string {
   const devices = sortedEntries(doc.configurations).map(([id, config]) => ({
     id,
     addresses: sortedEntries(config.interfaces)
-      .filter(([, value]) => value.ipv4 !== null)
-      .map(([port, value]) => [port, value.ipv4]),
+      .filter(([, value]) => value.ipv4 !== null || value.dhcp)
+      .map(([port, value]) => [port, value.ipv4, value.dhcp]),
+    pools: sortedEntries(config.dhcpPools),
   }));
-  return stable(devices.filter((device) => device.addresses.length > 0));
+  return stable(devices.filter((device) => device.addresses.length > 0 || device.pools.length > 0));
 }
 
 /** Configuration des switches : ports (accès dans un VLAN autre que 1, trunks) et Spanning Tree. */
@@ -268,9 +270,17 @@ function pingCheck(doc: NfgDocument, from: string, to: string): { ok: true; sent
   const created = createSimulation(doc, { seed: 1, parameters: { limits: { maxEvents: max } } });
   if (!created.ok) return { ok: false, issues: created.issues };
   const sim = created.simulation;
+  // Les services de démarrage (DHCP) doivent avoir une chance de configurer le poste.
+  const startup = sim.run({ stopWhenIdle: true, maxEvents: max });
+  const initial = sim.snapshot();
+  if (initial.diagnostic) {
+    const diagnostic = initial.diagnostic;
+    return { ok: false, limit: diagnostic.code === "limit.pending-events" ? "pending-events" : diagnostic.code === "limit.time" ? "time" : "events", max: diagnostic.limit };
+  }
+  if (startup.stop === "budget") return { ok: false, limit: "events", max };
   const outcome = sim.enqueue({ type: "ping", deviceId: from, destination: to, count: ECHOES });
   if (!outcome.ok) return { ok: true, sent: 0, replies: 0, done: false };
-  const run = sim.run({ stopWhenIdle: true, maxEvents: max });
+  const run = sim.run({ stopWhenIdle: true, maxEvents: max - initial.processedEvents });
   const snapshot = sim.snapshot();
   const diagnostic = snapshot.diagnostic;
   if (diagnostic) {
