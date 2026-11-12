@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CATALOG_VERSION, DEVICE_MODEL_IDS } from "./catalog.js";
+import { DHCP_LEASE_MAX, DHCP_LEASE_MIN } from "./dhcp.js";
 import { isIpv4Address } from "./ipv4.js";
 import { STP_PRIORITY_MAX, STP_PRIORITY_STEP } from "./stp.js";
 import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
@@ -7,7 +8,7 @@ import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
 /**
  * Format d'échange .nfg.json, version 5 (v2 : routes statiques ; v3 : annotations ;
  * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces —,
- * et STP par switch).
+ * STP par switch, DHCP — plages des routeurs, adressage automatique des postes).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
@@ -60,6 +61,16 @@ export const ipv4InterfaceSchema = z.strictObject({
 
 const interfaceConfigSchema = z.strictObject({
   ipv4: ipv4InterfaceSchema.nullable(),
+  /** Adressage automatique par DHCP (PC, v5) : adresse, masque et passerelle obtenus pendant la simulation. */
+  dhcp: z.boolean(),
+});
+
+/** Plage d'un serveur DHCP de routeur (v5), rattachée à l'interface qui reçoit les demandes. */
+const dhcpPoolSchema = z.strictObject({
+  start: ipv4AddressSchema,
+  end: ipv4AddressSchema,
+  gateway: ipv4AddressSchema,
+  leaseSeconds: z.int().min(DHCP_LEASE_MIN).max(DHCP_LEASE_MAX),
 });
 
 const vlanIdSchema = z.int().min(VLAN_MIN).max(VLAN_MAX);
@@ -109,6 +120,8 @@ const deviceConfigSchema = z.strictObject({
         .refine((priority) => priority % STP_PRIORITY_STEP === 0, "multiple de 4096"),
     })
     .nullable(),
+  /** Serveur DHCP (routeurs uniquement) : une plage par interface ; vide sans serveur. */
+  dhcpPools: z.record(interfaceIdSchema, dhcpPoolSchema),
 });
 
 const deviceSchema = z.strictObject({

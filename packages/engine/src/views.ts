@@ -18,6 +18,8 @@ export interface InterfaceView {
   readonly up: boolean;
   /** Sous-interface 802.1Q : VLAN encapsulé (null pour un port physique). */
   readonly vlan: number | null;
+  /** Adressage automatique : l'adresse affichée vient d'un bail DHCP. */
+  readonly dhcp: boolean;
 }
 
 export interface MacEntryView {
@@ -72,6 +74,60 @@ export interface StpView {
   readonly ports: readonly StpPortView[];
 }
 
+/**
+ * États du client DHCP (RFC 2131 §4.4) : « selecting » attend une offre,
+ * « requesting » l'accusé de réception ; « bound » : bail en cours ;
+ * « renewing » (T1) et « rebinding » (T2) : prolongation demandée ;
+ * « released » : bail libéré par l'utilisateur ; « failed » : abandon faute de réponse.
+ */
+export type DhcpClientPhase = "init" | "selecting" | "requesting" | "bound" | "renewing" | "rebinding" | "released" | "failed";
+
+export interface DhcpClientView {
+  readonly portId: string;
+  readonly phase: DhcpClientPhase;
+  /** Émissions du message en cours (DISCOVER ou REQUEST). */
+  readonly attempts: number;
+  /** Bail obtenu (null sans bail). */
+  readonly lease: {
+    readonly address: string;
+    readonly prefixLength: number;
+    readonly gateway: string | null;
+    readonly server: string;
+    readonly leaseSeconds: number;
+    readonly obtainedAt: SimTime;
+    /** T1 (renouvellement), T2 (nouvelle demande diffusée) et fin du bail. */
+    readonly renewAt: SimTime;
+    readonly rebindAt: SimTime;
+    readonly expiresAt: SimTime;
+  } | null;
+}
+
+export interface DhcpPoolView {
+  readonly portId: string;
+  readonly start: string;
+  readonly end: string;
+  readonly gateway: string;
+  readonly leaseSeconds: number;
+  readonly size: number;
+  /** Adresses offertes ou attribuées. */
+  readonly used: number;
+}
+
+export interface DhcpLeaseView {
+  readonly address: string;
+  readonly mac: MacAddress;
+  readonly portId: string;
+  /** « offered » : réservée par une offre en attente de la demande du client. */
+  readonly state: "offered" | "bound";
+  readonly expiresAt: SimTime | null;
+}
+
+export interface DhcpServerView {
+  readonly pools: readonly DhcpPoolView[];
+  /** Baux triés par adresse. */
+  readonly leases: readonly DhcpLeaseView[];
+}
+
 export interface DeviceView {
   readonly deviceId: string;
   readonly name: string;
@@ -86,6 +142,10 @@ export interface DeviceView {
   readonly routes: readonly RouteView[];
   /** Spanning Tree (switch uniquement). */
   readonly stp: StpView | null;
+  /** Client DHCP (PC en adressage automatique). */
+  readonly dhcpClient: DhcpClientView | null;
+  /** Serveur DHCP (routeur ayant au moins une plage). */
+  readonly dhcpServer: DhcpServerView | null;
 }
 
 export type PingFailure = "no-address" | "no-route" | "host-unreachable" | "queue-full";

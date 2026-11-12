@@ -25,7 +25,54 @@ import { parseSubinterface, switchportOf } from "./vlan.js";
  * passerelle erronée ou une adresse en double.
  */
 export function validateDocument(doc: NfgDocument): Issue[] {
-  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkFaults(doc)];
+  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkDhcp(doc), ...checkFaults(doc)];
+}
+
+/**
+ * Plages DHCP d'un routeur : interface adressée, plage croissante faite
+ * d'adresses attribuables du réseau de l'interface (erreurs). Passerelle hors
+ * de ce réseau et adresse manuelle d'un autre équipement dans la plage
+ * (risque de conflit) : avertissements, possibles dans un exercice de dépannage.
+ */
+function checkDhcp(doc: NfgDocument): Issue[] {
+  const issues: Issue[] = [];
+  const statics = configuredInterfaces(doc);
+  for (const device of doc.topology.devices) {
+    const config = doc.configurations[device.id];
+    if (!config || getModel(device.model).kind !== "router") continue;
+    for (const [portId, pool] of Object.entries(config.dhcpPools)) {
+      const base = { deviceId: device.id, deviceName: device.name, portId };
+      const ipv4 = config.interfaces[portId]?.ipv4;
+      if (!ipv4) {
+        issues.push(error("dhcp.interface-not-addressed", base));
+        continue;
+      }
+      const start = parseIpv4(pool.start) ?? 0;
+      const end = parseIpv4(pool.end) ?? 0;
+      if (start > end) {
+        issues.push(error("dhcp.invalid-range", { ...base, start: pool.start, end: pool.end }));
+        continue;
+      }
+      const own = parseIpv4(ipv4.address) ?? 0;
+      const usable = (value: number) =>
+        inSameSubnet(value, own, ipv4.prefixLength) && unassignableReason({ address: formatIpv4(value), prefixLength: ipv4.prefixLength }) === null;
+      if (!usable(start) || !usable(end)) {
+        issues.push(error("dhcp.range-outside-subnet", { ...base, start: pool.start, end: pool.end, network: networkCidr(ipv4) }));
+        continue;
+      }
+      if (!inSameSubnet(parseIpv4(pool.gateway) ?? 0, own, ipv4.prefixLength)) {
+        issues.push(warning("dhcp.gateway-outside-subnet", { ...base, gateway: pool.gateway, network: networkCidr(ipv4) }));
+      }
+      for (const other of statics) {
+        const value = parseIpv4(other.ipv4.address) ?? 0;
+        if (other.device.id === device.id || value < start || value > end) continue;
+        issues.push(
+          warning("dhcp.range-contains-static", { ...base, address: other.ipv4.address, otherDeviceId: other.device.id, otherDeviceName: other.device.name, otherPortId: other.portId }),
+        );
+      }
+    }
+  }
+  return issues;
 }
 
 /**
@@ -208,6 +255,23 @@ function checkIntegrity(doc: NfgDocument): Issue[] {
           issues.push(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId }));
         } else if (portConfig.ipv4 !== null && !model.ipCapable) {
           issues.push(error("config.not-ip-capable", { deviceId: device.id, deviceName: device.name }));
+        }
+        if (portConfig.dhcp) {
+          // Adressage automatique : PC seulement, sans adresse ni passerelle manuelles.
+          const params = { deviceId: device.id, deviceName: device.name, portId };
+          if (model.kind !== "pc") issues.push(error("config.dhcp-client-not-supported", params));
+          else if (portConfig.ipv4 !== null) issues.push(error("config.dhcp-with-address", params));
+          else if (config.defaultGateway !== null) issues.push(error("config.dhcp-with-gateway", { ...params, gateway: config.defaultGateway }));
+        }
+      }
+      const poolIds = Object.keys(config.dhcpPools);
+      if (poolIds.length > 0 && model.kind !== "router") {
+        issues.push(error("config.dhcp-server-not-supported", { deviceId: device.id, deviceName: device.name }));
+      }
+      for (const portId of poolIds) {
+        const sub = parseSubinterface(portId);
+        if ((portId.includes(".") && !sub) || !findPort(device.model, sub ? sub.parent : portId)) {
+          issues.push(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId }));
         }
       }
       if (config.stp !== null && model.kind !== "switch") issues.push(error("config.stp-not-supported", { deviceId: device.id, deviceName: device.name }));

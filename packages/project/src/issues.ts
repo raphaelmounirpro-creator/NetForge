@@ -47,6 +47,17 @@ export const ISSUE_CODES = [
   "config.switchports-not-supported",
   "config.stp-not-supported",
   "stp.invalid-priority",
+  // DHCP
+  "config.dhcp-client-not-supported",
+  "config.dhcp-with-address",
+  "config.dhcp-with-gateway",
+  "config.dhcp-server-not-supported",
+  "dhcp.invalid-lease",
+  "dhcp.interface-not-addressed",
+  "dhcp.invalid-range",
+  "dhcp.range-outside-subnet",
+  "dhcp.gateway-outside-subnet",
+  "dhcp.range-contains-static",
   // VLAN
   "vlan.invalid-id",
   "vlan.mode-mismatch",

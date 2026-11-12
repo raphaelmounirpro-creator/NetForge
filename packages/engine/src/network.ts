@@ -16,8 +16,9 @@ import type { SimTime } from "./time.js";
 /**
  * Réseau d'exécution construit à partir d'un document validé. La
  * configuration y est figée : modifier le projet impose de réinitialiser
- * la simulation (docs/DECISIONS.md, D-022). Seuls l'état des liens et la
- * disponibilité des émetteurs évoluent pendant l'exécution.
+ * la simulation (docs/DECISIONS.md, D-022). Seuls évoluent pendant
+ * l'exécution l'état des liens, la disponibilité des émetteurs et l'adresse
+ * (et la passerelle) qu'un poste en DHCP obtient de son serveur.
  */
 export interface RuntimeAddress {
   readonly address: string;
@@ -32,7 +33,10 @@ export interface RuntimePort {
   readonly portId: string;
   readonly mac: MacAddress;
   readonly speedMbps: number;
-  readonly ipv4: RuntimeAddress | null;
+  /** Adresse configurée, ou obtenue par DHCP pendant la simulation (port en DHCP). */
+  ipv4: RuntimeAddress | null;
+  /** Adressage automatique (PC) : l'adresse vient d'un bail DHCP. */
+  readonly dhcp: boolean;
   readonly linkId: string | null;
   /** Sous-interface 802.1Q d'un routeur : VLAN encapsulé (null pour un port physique). */
   readonly vlan: number | null;
@@ -70,10 +74,20 @@ export interface RuntimeDevice {
   readonly kind: DeviceKind;
   readonly ports: readonly RuntimePort[];
   readonly portById: ReadonlyMap<string, RuntimePort>;
-  readonly gateway: { readonly address: string; readonly value: number } | null;
+  /** Passerelle par défaut (PC) : configurée, ou obtenue par DHCP. */
+  gateway: { readonly address: string; readonly value: number } | null;
   readonly staticRoutes: readonly RuntimeStaticRoute[];
   /** Spanning Tree (switches) : activation et priorité du pont ; null ailleurs. */
   readonly stp: { readonly enabled: boolean; readonly priority: number } | null;
+  /** Serveur DHCP (routeur) : plage de chaque interface qui en a une. */
+  readonly dhcpPools: ReadonlyMap<string, RuntimeDhcpPool>;
+}
+
+export interface RuntimeDhcpPool {
+  readonly start: number;
+  readonly end: number;
+  readonly gateway: string;
+  readonly leaseSeconds: number;
 }
 
 export interface RuntimeNetwork {
@@ -82,7 +96,7 @@ export interface RuntimeNetwork {
   readonly links: ReadonlyMap<string, RuntimeLink>;
 }
 
-function runtimeAddress(address: string, prefixLength: number): RuntimeAddress | null {
+export function runtimeAddress(address: string, prefixLength: number): RuntimeAddress | null {
   const value = parseIpv4(address);
   if (value === null) return null;
   return {
@@ -129,6 +143,7 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
         mac: macs.get(key) ?? "",
         speedMbps: spec.speedMbps,
         ipv4: ipv4 ? runtimeAddress(ipv4.address, ipv4.prefixLength) : null,
+        dhcp: model.kind === "pc" && config?.interfaces[spec.id]?.dhcp === true,
         linkId: linkOfPort.get(key) ?? null,
         vlan: null,
         parent: null,
@@ -145,7 +160,7 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
               const sub = parseSubinterface(id);
               const parent = sub ? physical.find((port) => port.portId === sub.parent) : undefined;
               if (!sub || !parent || !value.ipv4) return [];
-              return [{ ...parent, portId: id, ipv4: runtimeAddress(value.ipv4.address, value.ipv4.prefixLength), vlan: sub.vlan, parent: parent.portId, switchport: null, txFreeAt: 0 }];
+              return [{ ...parent, portId: id, ipv4: runtimeAddress(value.ipv4.address, value.ipv4.prefixLength), dhcp: false, vlan: sub.vlan, parent: parent.portId, switchport: null, txFreeAt: 0 }];
             })
             .sort((a, b) => a.parent.localeCompare(b.parent) || a.vlan - b.vlan);
     const ports = [...physical, ...subinterfaces];
@@ -166,6 +181,15 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
       gateway: config?.defaultGateway && gatewayValue !== null ? { address: config.defaultGateway, value: gatewayValue } : null,
       staticRoutes,
       stp: model.kind === "switch" && config?.stp ? { enabled: config.stp.enabled, priority: config.stp.priority } : null,
+      dhcpPools: new Map(
+        model.kind !== "router"
+          ? []
+          : Object.entries(config?.dhcpPools ?? {}).flatMap(([id, pool]) => {
+              const start = parseIpv4(pool.start);
+              const end = parseIpv4(pool.end);
+              return start === null || end === null ? [] : [[id, { start, end, gateway: pool.gateway, leaseSeconds: pool.leaseSeconds }] as const];
+            }),
+      ),
     });
   }
   return { devices, links };

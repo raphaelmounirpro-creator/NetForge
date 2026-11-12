@@ -42,9 +42,24 @@ describe("migration du format version 1 → 5", () => {
     expect(result.document.schemaVersion).toBe(5);
     expect(result.document.models).toEqual({ catalog: 2 });
     expect(result.document.faults).toEqual([]);
-    // Routes (v2), ports de switch et STP (v5) : tous les ports en accès dans le VLAN 1, aucun STP hors switch.
-    expect(result.document.configurations["pc1"]).toEqual({ ...versionOne.configurations.pc1, staticRoutes: [], switchports: {}, stp: null });
-    expect(result.document.configurations["r1"]).toEqual({ ...versionOne.configurations.r1, staticRoutes: [], switchports: {}, stp: null });
+    // Routes (v2), ports de switch, STP et DHCP (v5) : tous les ports en accès dans le VLAN 1, aucun STP hors
+    // switch, adressage manuel conservé, aucun serveur DHCP.
+    expect(result.document.configurations["pc1"]).toEqual({
+      ...versionOne.configurations.pc1,
+      interfaces: { eth0: { ipv4: { address: "192.168.1.10", prefixLength: 24 }, dhcp: false } },
+      staticRoutes: [],
+      switchports: {},
+      stp: null,
+      dhcpPools: {},
+    });
+    expect(result.document.configurations["r1"]).toEqual({
+      ...versionOne.configurations.r1,
+      interfaces: { ge0: { ipv4: { address: "192.168.1.1", prefixLength: 24 }, dhcp: false } },
+      staticRoutes: [],
+      switchports: {},
+      stp: null,
+      dhcpPools: {},
+    });
     // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre.
     expect(result.document.topology).toEqual({
       ...versionOne.topology,

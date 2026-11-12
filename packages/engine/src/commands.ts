@@ -24,6 +24,12 @@ export type SimCommand =
       readonly type: "clear-table";
       readonly deviceId: string;
       readonly table: "arp" | "mac";
+    }
+  | {
+      /** Client DHCP d'un PC : renouveler le bail (ou en obtenir un) ou le libérer. */
+      readonly type: "dhcp";
+      readonly deviceId: string;
+      readonly action: "renew" | "release";
     };
 
 export const COMMAND_ERROR_CODES = [
@@ -33,6 +39,7 @@ export const COMMAND_ERROR_CODES = [
   "command.invalid-count",
   "command.unknown-link",
   "command.wrong-table",
+  "command.not-dhcp-client",
   "command.too-many-pings",
   "command.interrupted",
 ] as const;

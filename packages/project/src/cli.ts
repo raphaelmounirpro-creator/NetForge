@@ -6,11 +6,14 @@ import {
   removeStaticRoute,
   renameDevice,
   setDefaultGateway,
+  setDhcpPool,
+  setInterfaceDhcp,
   setInterfaceIpv4,
   setStp,
   setSwitchport,
   type CommandResult,
 } from "./commands.js";
+import { DHCP_LEASE_DEFAULT, formatLeaseDuration, parseDhcpPoolInput } from "./dhcp.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, prefixToMask } from "./ipv4.js";
 import type { Device, NfgDocument } from "./schema.js";
@@ -41,7 +44,10 @@ export type CliRequest =
   | { readonly kind: "show-config" }
   | { readonly kind: "show-vlans" }
   | { readonly kind: "show-stp" }
+  | { readonly kind: "show-dhcp" }
   | { readonly kind: "ipconfig" }
+  /** Client DHCP d'un PC : renouveler ou libérer le bail (demande d'exécution). */
+  | { readonly kind: "dhcp"; readonly action: "renew" | "release" }
   | { readonly kind: "ping"; readonly destination: string; readonly count: number }
   | { readonly kind: "clear-table"; readonly table: "arp" | "mac" }
   | { readonly kind: "help"; readonly entries: readonly CliHelpEntry[] }
@@ -232,6 +238,36 @@ const COMMANDS: readonly CommandSpec[] = [
       }),
   },
   {
+    id: "ipconfig-dhcp",
+    words: ["ipconfig", "dhcp"],
+    syntax: "",
+    modes: ["operation"],
+    devices: ["pc"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => ok(mode, { edit: (doc) => setInterfaceDhcp(doc, { deviceId: device.id, portId: pcPort(device), enabled: true }) }),
+  },
+  {
+    id: "ipconfig-renew",
+    words: ["ipconfig", "renew"],
+    syntax: "",
+    modes: ["operation"],
+    devices: ["pc"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "dhcp", action: "renew" } }),
+  },
+  {
+    id: "ipconfig-release",
+    words: ["ipconfig", "release"],
+    syntax: "",
+    modes: ["operation"],
+    devices: ["pc"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "dhcp", action: "release" } }),
+  },
+  {
     id: "ping",
     words: ["ping"],
     syntax: "<adresse> [-n <nombre>]",
@@ -372,6 +408,16 @@ const COMMANDS: readonly CommandSpec[] = [
       if (!isStpPriority(priority)) return invalid(mode, [error("stp.invalid-priority", { value: args[0] ?? "", max: STP_PRIORITY_MAX, step: STP_PRIORITY_STEP })]);
       return ok(mode, { edit: (current) => setStp(current, { deviceId: device.id, enabled: stpOf(doc, device).enabled, priority }) });
     },
+  },
+  {
+    id: "show-dhcp",
+    words: ["show", "dhcp"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-dhcp" } }),
   },
   {
     id: "clear-arp",
@@ -527,6 +573,47 @@ const COMMANDS: readonly CommandSpec[] = [
     run: ({ device, mode }) => {
       if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "address clear" });
       return ok(mode, { edit: (doc) => setInterfaceIpv4(doc, { deviceId: device.id, portId: mode.portId, ipv4: null }) });
+    },
+  },
+  {
+    id: "dhcp-pool",
+    words: ["dhcp", "pool"],
+    syntax: "<début> <fin> [gateway <passerelle>] [lease <durée>]",
+    modes: ["interface"],
+    devices: ["router"],
+    required: ["début", "fin"],
+    maxArgs: 6,
+    run: ({ doc, device, mode, args }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "dhcp pool" });
+      const [start = "", end = "", ...options] = args;
+      // Par défaut : l'adresse de l'interface comme passerelle, bail d'un jour.
+      let gateway = doc.configurations[device.id]?.interfaces[mode.portId]?.ipv4?.address ?? "";
+      let lease = formatLeaseDuration(DHCP_LEASE_DEFAULT);
+      for (let index = 0; index < options.length; index += 2) {
+        const keyword = (options[index] ?? "").toLowerCase();
+        const value = options[index + 1];
+        if (keyword !== "gateway" && keyword !== "lease") return fail(mode, "cli.unexpected-argument", { word: options[index] ?? "" });
+        if (value === undefined) return fail(mode, "cli.missing-argument", { argument: keyword === "gateway" ? "passerelle" : "durée" });
+        if (keyword === "gateway") gateway = value;
+        else lease = value;
+      }
+      if (gateway === "") return invalid(mode, [error("dhcp.interface-not-addressed", { deviceId: device.id, deviceName: device.name, portId: mode.portId })]);
+      const parsed = parseDhcpPoolInput({ start, end, gateway, lease });
+      if (!parsed.ok) return invalid(mode, parsed.errors);
+      return ok(mode, { edit: (current) => setDhcpPool(current, { deviceId: device.id, interfaceId: mode.portId, pool: parsed.pool }) });
+    },
+  },
+  {
+    id: "dhcp-clear",
+    words: ["dhcp", "clear"],
+    syntax: "",
+    modes: ["interface"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "dhcp clear" });
+      return ok(mode, { edit: (doc) => setDhcpPool(doc, { deviceId: device.id, interfaceId: mode.portId, pool: null }) });
     },
   },
   {
@@ -729,6 +816,7 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
   const config = doc.configurations[device.id];
   const model = getModel(device.model);
   if (model.kind === "pc") {
+    if (config?.interfaces[pcPort(device)]?.dhcp) return ["ipconfig dhcp"];
     const ipv4 = config?.interfaces[pcPort(device)]?.ipv4;
     if (!ipv4) return [];
     return [["ipconfig set", ipv4.address, prefixToMask(ipv4.prefixLength), config.defaultGateway ?? ""].join(" ").trim()];
@@ -745,6 +833,11 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
       })
       .sort((a, b) => a.vlan - b.vlan);
     for (const sub of subinterfaces) lines.push(`interface ${sub.id}`, `address ${sub.ipv4.address}/${String(sub.ipv4.prefixLength)}`, "exit");
+    // Plages DHCP du port puis de ses sous-interfaces (après leurs adresses).
+    for (const id of [port.id, ...subinterfaces.map((sub) => sub.id)]) {
+      const pool = config?.dhcpPools[id];
+      if (pool) lines.push(`interface ${id}`, `dhcp pool ${pool.start} ${pool.end} gateway ${pool.gateway} lease ${formatLeaseDuration(pool.leaseSeconds)}`, "exit");
+    }
     const switchport = config?.switchports[port.id];
     if (switchport?.mode === "access") lines.push(`interface ${port.id}`, `access vlan ${String(switchport.vlan)}`, "exit");
     if (switchport?.mode === "trunk") {

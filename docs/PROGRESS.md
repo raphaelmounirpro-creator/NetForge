@@ -1,6 +1,13 @@
 # Suivi d'avancement
 
-Push GitHub reporté en fin de projet (consigne du propriétaire) : commits locaux uniquement, CI jamais exécutée sur GitHub.
+Le propriétaire a demandé un commit et un push GitHub le 2026-11-12, en cours de phase 7. Cette demande remplace le report du push en fin de projet. Aucun dépôt distant n'est encore configuré ; publication et CI GitHub non vérifiées.
+
+### Point de sauvegarde demandé le 2026-11-12
+
+- Travaux DHCP en cours sauvegardés comme tels : format, commandes, console et moteur ; tranche non terminée, non validée.
+- `pnpm check` échoue au lint : 5 erreurs (gabarits i18n manquants et assertions non nulles dans les tests DHCP).
+- `pnpm typecheck` échoue dans `packages/engine/src/routing.test.ts:122` : accès à `type` sur un `Ipv4Payload` pouvant désormais être un datagramme UDP.
+- `pnpm test` : 138 tests du format, 135 du moteur et 2 des contrats réussis ; 10 tests web en échec (7 fixtures à régénérer, textes DHCP manquants). Suite interrompue ; résultat API non établi. Build et parcours navigateur non exécutés pour ce point de sauvegarde.
 
 ## Phase 0 — Socle technique : validée par le propriétaire (2026-11-10)
 

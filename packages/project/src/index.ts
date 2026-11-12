@@ -5,6 +5,7 @@
 export * from "./catalog.js";
 export * from "./cli.js";
 export * from "./commands.js";
+export * from "./dhcp.js";
 export * from "./io.js";
 export * from "./ipv4.js";
 export * from "./issues.js";

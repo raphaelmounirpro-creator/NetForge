@@ -1,4 +1,5 @@
 import { CATALOG_VERSION, findPort, getModel, type DeviceModelId } from "./catalog.js";
+import { DHCP_LEASE_MAX, DHCP_LEASE_MIN, isDhcpLease, type DhcpPool } from "./dhcp.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, parseIpv4, parsePrefixOrMask, type Ipv4Interface } from "./ipv4.js";
 import {
@@ -50,7 +51,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {} };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -351,8 +352,63 @@ export function setInterfaceIpv4(
   }
   const config = doc.configurations[device.id] ?? emptyConfig();
   const { [params.portId]: _previous, ...otherInterfaces } = config.interfaces;
-  const interfaces = params.ipv4 ? { ...otherInterfaces, [params.portId]: { ipv4: params.ipv4 } } : otherInterfaces;
+  // Une adresse manuelle remplace l'adressage automatique (DHCP) ; null : interface non configurée.
+  const interfaces = params.ipv4 ? { ...otherInterfaces, [params.portId]: { ipv4: params.ipv4, dhcp: false } } : otherInterfaces;
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, interfaces } } });
+}
+
+/**
+ * Adressage automatique d'un PC (DHCP) : l'interface n'a plus d'adresse
+ * manuelle et le poste plus de passerelle saisie ; il les obtient du serveur
+ * pendant la simulation. Désactivé : interface non configurée.
+ */
+export function setInterfaceDhcp(doc: NfgDocument, params: { deviceId: string; portId: string; enabled: boolean }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (!findPort(device.model, params.portId)) {
+    return fail(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: params.portId }));
+  }
+  if (getModel(device.model).kind !== "pc") {
+    return fail(error("config.dhcp-client-not-supported", { deviceId: device.id, deviceName: device.name, portId: params.portId }));
+  }
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  const { [params.portId]: previous, ...otherInterfaces } = config.interfaces;
+  if (!params.enabled) {
+    // Retour à l'adressage manuel : une adresse déjà saisie est conservée.
+    const interfaces = previous?.ipv4 ? { ...otherInterfaces, [params.portId]: { ipv4: previous.ipv4, dhcp: false } } : otherInterfaces;
+    return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, interfaces } } });
+  }
+  const interfaces = { ...otherInterfaces, [params.portId]: { ipv4: null, dhcp: true } };
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, interfaces, defaultGateway: null } } });
+}
+
+/**
+ * Plage DHCP d'un routeur, rattachée à une interface (port ou sous-interface) ;
+ * null la retire. La validation vérifie qu'elle appartient au réseau de l'interface.
+ */
+export function setDhcpPool(doc: NfgDocument, params: { deviceId: string; interfaceId: string; pool: DhcpPool | null }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "router") {
+    return fail(error("config.dhcp-server-not-supported", { deviceId: device.id, deviceName: device.name }));
+  }
+  const sub = parseSubinterface(params.interfaceId);
+  const portId = sub ? sub.parent : params.interfaceId;
+  if ((params.interfaceId.includes(".") && !sub) || !findPort(device.model, portId)) {
+    return fail(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: params.interfaceId }));
+  }
+  const pool = params.pool;
+  if (pool) {
+    const invalid = [pool.start, pool.end, pool.gateway].find((value) => !isIpv4Address(value));
+    if (invalid !== undefined) return fail(error("ipv4.invalid-address", { value: invalid }));
+    if (!isDhcpLease(pool.leaseSeconds)) {
+      return fail(error("dhcp.invalid-lease", { value: String(pool.leaseSeconds), min: DHCP_LEASE_MIN, max: DHCP_LEASE_MAX }));
+    }
+  }
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  const { [params.interfaceId]: _previous, ...others } = config.dhcpPools;
+  const dhcpPools = pool ? { ...others, [params.interfaceId]: { start: pool.start, end: pool.end, gateway: pool.gateway, leaseSeconds: pool.leaseSeconds } } : others;
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, dhcpPools } } });
 }
 
 /**

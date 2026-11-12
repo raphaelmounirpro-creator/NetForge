@@ -76,7 +76,15 @@ function migrateV4toV5(doc: Record<string, unknown>): Record<string, unknown> {
   const migrated: Record<string, unknown> = {};
   for (const [id, config] of Object.entries(configurations)) {
     migrated[id] = isRecord(config)
-      ? { ...config, switchports: config["switchports"] ?? {}, stp: config["stp"] ?? (switches.has(id) ? { enabled: false, priority: STP_DEFAULT_PRIORITY } : null) }
+      ? {
+          ...config,
+          interfaces: isRecord(config["interfaces"])
+            ? Object.fromEntries(Object.entries(config["interfaces"]).map(([port, value]) => [port, isRecord(value) ? { ...value, dhcp: value["dhcp"] ?? false } : value]))
+            : config["interfaces"],
+          switchports: config["switchports"] ?? {},
+          stp: config["stp"] ?? (switches.has(id) ? { enabled: false, priority: STP_DEFAULT_PRIORITY } : null),
+          dhcpPools: config["dhcpPools"] ?? {},
+        }
       : config;
   }
   return { ...doc, schemaVersion: 5, configurations: migrated };

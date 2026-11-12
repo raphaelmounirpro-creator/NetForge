@@ -1,28 +1,48 @@
-import { carriesVlan, DEFAULT_SWITCHPORT, formatIpv4, parseIpv4, unassignableReason, validateDocument, type Issue, type NfgDocument } from "@netforge/project";
+import {
+  carriesVlan,
+  DEFAULT_SWITCHPORT,
+  formatIpv4,
+  parseIpv4,
+  parsePrefixOrMask,
+  prefixToMask,
+  unassignableReason,
+  validateDocument,
+  type Issue,
+  type NfgDocument,
+} from "@netforge/project";
 import type { CommandErrorCode, CommandOutcome, SimCommand } from "./commands.js";
 import { BROADCAST_MAC, type MacAddress } from "./mac.js";
-import { buildNetwork, isPortUp, peerOf, type RuntimeDevice, type RuntimeNetwork, type RuntimePort } from "./network.js";
+import { buildNetwork, isPortUp, peerOf, runtimeAddress, type RuntimeDevice, type RuntimeDhcpPool, type RuntimeNetwork, type RuntimePort } from "./network.js";
 import { DEFAULT_PARAMETERS, PING_DEFAULTS, type SimulationLimits, type SimulationParameters } from "./parameters.js";
 import {
+  DHCP_CLIENT_PORT,
+  DHCP_SERVER_PORT,
   ETHERNET_WIRE_OVERHEAD_BYTES,
+  LIMITED_BROADCAST,
+  UNSPECIFIED_ADDRESS,
   ZERO_MAC,
   frameBytes,
   isIcmpError,
   type ArpPacket,
+  type DhcpMessage,
+  type DhcpMessageType,
+  type DhcpOptions,
   type EthernetFrame,
   type IcmpError,
-  type IcmpMessage,
   type Ipv4Packet,
+  type Ipv4Payload,
   type Pdu,
+  type UdpDatagram,
 } from "./pdu.js";
 import { Prng } from "./prng.js";
 import { EventQueue } from "./queue.js";
 import { lookup, routeCidr, routingTable, type Route } from "./routing.js";
 import { bridgeIdOf, computeSpanningTree, formatBridgeId, stableState, stpPortKey, type SpanningTree, type StpRole, type StpState } from "./stp.js";
-import { MAX_SIM_TIME, type SimTime } from "./time.js";
+import { MAX_SIM_TIME, fromSeconds, type SimTime } from "./time.js";
 import type { Diagnostic, TraceCode, TraceEntry, TraceParams } from "./trace.js";
 import type {
   DeviceView,
+  DhcpClientPhase,
   LinkView,
   PingAttemptView,
   PingFailure,
@@ -50,7 +70,17 @@ type EventValue =
   | { readonly type: "arp-expiry"; readonly deviceId: string; readonly key: string }
   | { readonly type: "arp-retry"; readonly deviceId: string; readonly key: string }
   | { readonly type: "ping-send"; readonly sessionId: string }
-  | { readonly type: "ping-timeout"; readonly sessionId: string; readonly sequence: number };
+  | { readonly type: "ping-timeout"; readonly sessionId: string; readonly sequence: number }
+  | { readonly type: "dhcp-start"; readonly deviceId: string; readonly portId: string }
+  | { readonly type: "dhcp-retry"; readonly deviceId: string; readonly portId: string; readonly generation: number }
+  | {
+      readonly type: "dhcp-lease";
+      readonly deviceId: string;
+      readonly portId: string;
+      readonly stage: "renew" | "rebind" | "expire";
+      readonly generation: number;
+    }
+  | { readonly type: "dhcp-server-expiry"; readonly deviceId: string; readonly address: string; readonly generation: number };
 
 interface QueuedEvent {
   readonly value: EventValue;
@@ -107,14 +137,59 @@ interface StpPortState {
   generation: number;
 }
 
+/** Bail tenu par un serveur DHCP (routeur), indexé par adresse. */
+interface ServerLease {
+  readonly address: string;
+  readonly mac: MacAddress;
+  /** Interface (et donc plage) qui a reçu la demande. */
+  readonly portId: string;
+  /** « offered » : adresse réservée par une offre, en attente de la demande du client. */
+  state: "offered" | "bound";
+  expiresAt: SimTime | null;
+  generation: number;
+}
+
 interface DeviceState {
   readonly macTable: Map<string, MacEntry>;
   readonly macTimers: Set<string>;
   readonly arp: Map<string, ArpEntry>;
   readonly arpTimers: Set<string>;
   readonly pending: Map<string, PendingResolution>;
+  readonly dhcpLeases: Map<string, ServerLease>;
   nextIdentification: number;
 }
+
+interface DhcpOffer {
+  readonly address: string;
+  readonly prefixLength: number;
+  readonly gateway: string | null;
+  readonly server: string;
+  readonly leaseSeconds: number;
+}
+
+interface DhcpLease extends DhcpOffer {
+  readonly obtainedAt: SimTime;
+  readonly renewAt: SimTime;
+  readonly rebindAt: SimTime;
+  readonly expiresAt: SimTime;
+}
+
+/** Client DHCP d'un port de PC (generation : invalide les temporisations périmées). */
+interface DhcpClient {
+  readonly deviceId: string;
+  readonly portId: string;
+  phase: DhcpClientPhase;
+  xid: number;
+  attempts: number;
+  retrySeq: number;
+  generation: number;
+  exchange: string | null;
+  offer: DhcpOffer | null;
+  lease: DhcpLease | null;
+}
+
+const NO_DHCP_OPTIONS: DhcpOptions = { serverId: null, requestedIp: null, subnetMask: null, router: null, leaseSeconds: null };
+const dhcpClientKey = (deviceId: string, portId: string) => `${deviceId}/${portId}`;
 
 interface PingAttempt {
   readonly sequence: number;
@@ -145,7 +220,7 @@ interface PacketDraft {
   readonly source: string | null;
   readonly destination: string;
   readonly ttl: number;
-  readonly payload: IcmpMessage;
+  readonly payload: Ipv4Payload;
 }
 
 type NoRouteReason = "no-address" | "interfaces-down" | "no-gateway" | "gateway-unreachable" | "no-match";
@@ -223,6 +298,9 @@ export class Simulation {
   /** Spanning Tree courant et état de chaque port participant. */
   private tree: SpanningTree;
   private readonly stpPorts = new Map<string, StpPortState>();
+  /** Clients DHCP (ports de PC en adressage automatique). */
+  private readonly dhcpClients = new Map<string, DhcpClient>();
+  private nextDhcpExchange = 1;
 
   constructor(doc: NfgDocument, options: SimulationOptions = {}) {
     this.seed = options.seed ?? DEFAULT_SEED;
@@ -237,11 +315,31 @@ export class Simulation {
         arp: new Map(),
         arpTimers: new Set(),
         pending: new Map(),
+        dhcpLeases: new Map(),
         nextIdentification: this.prng.nextInt(0x10000),
       });
     }
     this.tree = computeSpanningTree(this.network, this.isUp);
     this.initStp();
+    // Les postes en DHCP demandent une adresse dès le démarrage (sans l'attente aléatoire de 1 à 10 s).
+    for (const device of this.network.devices.values()) {
+      for (const port of device.ports) {
+        if (!port.dhcp) continue;
+        this.dhcpClients.set(dhcpClientKey(device.id, port.portId), {
+          deviceId: device.id,
+          portId: port.portId,
+          phase: "init",
+          xid: 0,
+          attempts: 0,
+          retrySeq: -1,
+          generation: 0,
+          exchange: null,
+          offer: null,
+          lease: null,
+        });
+        this.schedule(0, { type: "dhcp-start", deviceId: device.id, portId: port.portId });
+      }
+    }
   }
 
   // ---------------------------------------------------------------- API publique
@@ -295,6 +393,14 @@ export class Simulation {
         return reject("command.wrong-table", { deviceId: device.id, deviceName: device.name, table: command.table });
       }
       const normalized: SimCommand = { type: "clear-table", deviceId: device.id, table: command.table };
+      this.schedule(this.clock, { type: "command", command: normalized, sessionId: null });
+      this.log.push({ time: this.clock, command: normalized });
+      return { ok: true, sessionId: null };
+    }
+    if (command.type === "dhcp") {
+      if (device.kind !== "pc") return reject("command.not-a-pc", { deviceId: device.id, deviceName: device.name });
+      if (!device.ports.some((port) => port.dhcp)) return reject("command.not-dhcp-client", { deviceId: device.id, deviceName: device.name });
+      const normalized: SimCommand = { type: "dhcp", deviceId: device.id, action: command.action };
       this.schedule(this.clock, { type: "command", command: normalized, sessionId: null });
       this.log.push({ time: this.clock, command: normalized });
       return { ok: true, sessionId: null };
@@ -531,6 +637,20 @@ export class Simulation {
       case "ping-timeout":
         this.onPingTimeout(value.sessionId, value.sequence);
         return;
+      case "dhcp-start": {
+        const client = this.dhcpClients.get(dhcpClientKey(value.deviceId, value.portId));
+        if (client?.phase === "init") this.startDiscover(client);
+        return;
+      }
+      case "dhcp-retry":
+        this.onDhcpRetry(value.deviceId, value.portId, value.generation);
+        return;
+      case "dhcp-lease":
+        this.onDhcpLeaseTimer(value.deviceId, value.portId, value.stage, value.generation);
+        return;
+      case "dhcp-server-expiry":
+        this.onServerLeaseExpiry(value.deviceId, value.address, value.generation);
+        return;
     }
   }
 
@@ -591,6 +711,10 @@ export class Simulation {
     }
     if (command.type === "clear-table") {
       this.clearTable(command.deviceId, command.table);
+      return;
+    }
+    if (command.type === "dhcp") {
+      this.dhcpCommand(command.deviceId, command.action);
       return;
     }
     const session = sessionId ? this.sessions.get(sessionId) : undefined;
@@ -944,11 +1068,18 @@ export class Simulation {
 
   private onArp(device: RuntimeDevice, port: RuntimePort, arp: ArpPacket, exchange: string | null): void {
     const where = { device, port, exchange, pdu: arp };
+    const state = this.state(device.id);
     if (!port.ipv4) {
+      // Réponse à une requête émise avant la perte de l'adresse (DHCPRELEASE en attente de résolution).
+      if (arp.operation === "reply" && arp.targetMac === port.mac && state.pending.has(arpKey(port.portId, arp.senderIp))) {
+        this.emit("arp.reply-received", { senderIp: arp.senderIp, senderMac: arp.senderMac }, where);
+        this.learnArp(device, state, port, arp.senderIp, arp.senderMac, exchange);
+        this.releasePending(device, state, port, arp.senderIp, arp.senderMac);
+        return;
+      }
       this.emit("arp.no-address", { targetIp: arp.targetIp }, where);
       return;
     }
-    const state = this.state(device.id);
     if (arp.targetIp !== port.ipv4.address) {
       this.emit("arp.not-target", { targetIp: arp.targetIp, senderIp: arp.senderIp }, where);
       // RFC 826 : une entrée existante est mise à jour même si la requête vise un autre hôte.
@@ -1119,9 +1250,15 @@ export class Simulation {
   private onIpv4(device: RuntimeDevice, port: RuntimePort, packet: Ipv4Packet, exchange: string | null): void {
     const where = { device, port, exchange, pdu: packet };
     const destination = parseIpv4(packet.destination) ?? 0;
+    // Diffusion limitée : remise à l'équipement (DHCP), jamais relayée.
+    if (packet.destination === LIMITED_BROADCAST) {
+      if (packet.payload.kind === "udp") this.onUdp(device, port, packet, packet.payload, exchange);
+      else this.emit("ip.broadcast-dropped", { destination: packet.destination }, where);
+      return;
+    }
     if (this.ownsAddress(device, destination)) {
       this.emit("ip.local", { destination: packet.destination }, where);
-      this.deliverLocal(device, packet, exchange);
+      this.deliverLocal(device, packet, exchange, port);
       return;
     }
     if (device.kind !== "router") {
@@ -1206,9 +1343,13 @@ export class Simulation {
 
   // ---------------------------------------------------------------- ICMP
 
-  private deliverLocal(device: RuntimeDevice, packet: Ipv4Packet, exchange: string | null): void {
+  private deliverLocal(device: RuntimeDevice, packet: Ipv4Packet, exchange: string | null, port: RuntimePort | null = null): void {
     const message = packet.payload;
     const where = { device, exchange, pdu: packet };
+    if (message.kind === "udp") {
+      if (port) this.onUdp(device, port, packet, message, exchange);
+      return;
+    }
     if (message.type === "echo-request") {
       this.emit("icmp.echo-request", { source: packet.source, identifier: message.identifier, sequence: message.sequence }, where);
       const reply: PacketDraft = {
@@ -1236,6 +1377,8 @@ export class Simulation {
     exchange: string | null,
   ): void {
     const message = offending.payload;
+    // Datagramme UDP : DHCP seulement, jamais relayé (serveur sur le réseau du client) ; rien à signaler.
+    if (message.kind === "udp") return;
     // RFC 1122 §3.2.2 : jamais d'erreur ICMP en réponse à une erreur ICMP.
     if (isIcmpError(message)) {
       this.emit("icmp.error-suppressed", { type, code }, { device, exchange, pdu: offending });
@@ -1277,6 +1420,480 @@ export class Simulation {
       exchange,
     });
     this.checkDone(session);
+  }
+
+  // ---------------------------------------------------------------- UDP et DHCP
+
+  private onUdp(device: RuntimeDevice, port: RuntimePort, packet: Ipv4Packet, datagram: UdpDatagram, exchange: string | null): void {
+    if (datagram.destinationPort === DHCP_SERVER_PORT && device.kind === "router") {
+      this.onDhcpServer(device, port, datagram.payload, exchange);
+      return;
+    }
+    const client = datagram.destinationPort === DHCP_CLIENT_PORT ? this.dhcpClients.get(dhcpClientKey(device.id, port.portId)) : undefined;
+    if (client) {
+      this.onDhcpClient(device, port, client, datagram.payload, exchange);
+      return;
+    }
+    this.emit("udp.no-service", { port: datagram.destinationPort }, { device, port, exchange, pdu: packet });
+  }
+
+  /** Datagramme UDP diffusé (255.255.255.255, MAC de diffusion) sur une interface, sans routage. */
+  private broadcastUdp(device: RuntimeDevice, port: RuntimePort, source: string, sourcePort: number, destinationPort: number, message: DhcpMessage, exchange: string | null): void {
+    const state = this.state(device.id);
+    const identification = state.nextIdentification;
+    state.nextIdentification = (state.nextIdentification + 1) & 0xffff;
+    const packet: Ipv4Packet = {
+      kind: "ipv4",
+      source,
+      destination: LIMITED_BROADCAST,
+      ttl: this.initialTtl(device),
+      identification,
+      payload: { kind: "udp", sourcePort, destinationPort, payload: message },
+    };
+    this.transmit(device, port, { kind: "ethernet", source: port.mac, destination: BROADCAST_MAC, payload: packet }, exchange);
+  }
+
+  private clientPort(client: DhcpClient): { device: RuntimeDevice; port: RuntimePort } | null {
+    const device = this.device(client.deviceId);
+    const port = device.portById.get(client.portId);
+    return port ? { device, port } : null;
+  }
+
+  private newDhcpExchange(): string {
+    const exchange = `dhcp-${String(this.nextDhcpExchange)}`;
+    this.nextDhcpExchange += 1;
+    return exchange;
+  }
+
+  /** Nouvelle transaction : DHCPDISCOVER diffusé depuis 0.0.0.0 (RFC 2131 §4.4.1). */
+  private startDiscover(client: DhcpClient): void {
+    this.cancel(client.retrySeq);
+    client.generation += 1;
+    client.phase = "selecting";
+    client.xid = this.prng.nextInt(0x100000000);
+    client.attempts = 0;
+    client.offer = null;
+    client.exchange = this.newDhcpExchange();
+    this.sendDiscover(client);
+  }
+
+  private sendDiscover(client: DhcpClient): void {
+    const target = this.clientPort(client);
+    if (!target) return;
+    const { device, port } = target;
+    client.attempts += 1;
+    this.dirtyDevices.add(device.id);
+    const message: DhcpMessage = {
+      kind: "dhcp",
+      type: "discover",
+      xid: client.xid,
+      broadcast: true,
+      clientIp: UNSPECIFIED_ADDRESS,
+      yourIp: UNSPECIFIED_ADDRESS,
+      clientMac: port.mac,
+      options: NO_DHCP_OPTIONS,
+    };
+    this.emit("dhcp.discover-sent", { attempt: client.attempts, maxAttempts: this.parameters.dhcpMaxAttempts, xid: client.xid }, {
+      device,
+      port,
+      exchange: client.exchange,
+      pdu: message,
+    });
+    this.broadcastUdp(device, port, UNSPECIFIED_ADDRESS, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, message, client.exchange);
+    this.scheduleDhcpRetry(client);
+  }
+
+  /** Retransmission : 4 s, puis 8, 16… (doublement, RFC 2131 §4.1). */
+  private scheduleDhcpRetry(client: DhcpClient): void {
+    const delay = this.parameters.dhcpRetryTimeout * 2 ** (client.attempts - 1);
+    client.retrySeq = this.schedule(this.clock + delay, { type: "dhcp-retry", deviceId: client.deviceId, portId: client.portId, generation: client.generation });
+  }
+
+  /**
+   * DHCPREQUEST : après une offre (diffusé, identifiant du serveur et adresse
+   * demandée), au renouvellement T1 (envoyé au serveur, ciaddr renseigné) ou
+   * à T2 (diffusé, ciaddr renseigné).
+   */
+  private sendRequest(client: DhcpClient, mode: "selecting" | "renewing" | "rebinding"): void {
+    const target = this.clientPort(client);
+    if (!target) return;
+    const { device, port } = target;
+    client.attempts += 1;
+    this.dirtyDevices.add(device.id);
+    const where = { device, port, exchange: client.exchange };
+    if (mode === "selecting") {
+      const offer = client.offer;
+      if (!offer) return;
+      const message: DhcpMessage = {
+        kind: "dhcp",
+        type: "request",
+        xid: client.xid,
+        broadcast: true,
+        clientIp: UNSPECIFIED_ADDRESS,
+        yourIp: UNSPECIFIED_ADDRESS,
+        clientMac: port.mac,
+        options: { ...NO_DHCP_OPTIONS, serverId: offer.server, requestedIp: offer.address },
+      };
+      this.emit("dhcp.request-sent", { mode, address: offer.address, server: offer.server, attempt: client.attempts, maxAttempts: this.parameters.dhcpMaxAttempts }, {
+        ...where,
+        pdu: message,
+      });
+      this.broadcastUdp(device, port, UNSPECIFIED_ADDRESS, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, message, client.exchange);
+      this.scheduleDhcpRetry(client);
+      return;
+    }
+    const lease = client.lease;
+    if (!lease) return;
+    const message: DhcpMessage = {
+      kind: "dhcp",
+      type: "request",
+      xid: client.xid,
+      broadcast: false,
+      clientIp: lease.address,
+      yourIp: UNSPECIFIED_ADDRESS,
+      clientMac: port.mac,
+      options: NO_DHCP_OPTIONS,
+    };
+    this.emit("dhcp.request-sent", { mode, address: lease.address, server: lease.server, attempt: client.attempts, maxAttempts: 1 }, { ...where, pdu: message });
+    const datagram: UdpDatagram = { kind: "udp", sourcePort: DHCP_CLIENT_PORT, destinationPort: DHCP_SERVER_PORT, payload: message };
+    if (mode === "renewing") {
+      this.sendLocal(device, { source: lease.address, destination: lease.server, ttl: this.initialTtl(device), payload: datagram }, { kind: "local" }, client.exchange);
+    } else {
+      this.broadcastUdp(device, port, lease.address, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, message, client.exchange);
+    }
+  }
+
+  private onDhcpRetry(deviceId: string, portId: string, generation: number): void {
+    const client = this.dhcpClients.get(dhcpClientKey(deviceId, portId));
+    if (client?.generation !== generation) return;
+    if (client.phase !== "selecting" && client.phase !== "requesting") return;
+    if (client.attempts < this.parameters.dhcpMaxAttempts) {
+      if (client.phase === "selecting") this.sendDiscover(client);
+      else this.sendRequest(client, "selecting");
+      return;
+    }
+    const target = this.clientPort(client);
+    client.phase = "failed";
+    this.dirtyDevices.add(deviceId);
+    this.emit("dhcp.gave-up", { attempts: client.attempts, stage: client.offer ? "request" : "discover" }, {
+      device: target?.device,
+      port: target?.port,
+      exchange: client.exchange,
+    });
+  }
+
+  private onDhcpClient(device: RuntimeDevice, port: RuntimePort, client: DhcpClient, message: DhcpMessage, exchange: string | null): void {
+    const where = { device, port, exchange, pdu: message };
+    if (message.clientMac !== port.mac || message.xid !== client.xid) {
+      this.emit("dhcp.ignored", { type: message.type, reason: "other-client" }, where);
+      return;
+    }
+    const waiting = client.phase === "requesting" || client.phase === "renewing" || client.phase === "rebinding";
+    if (message.type === "offer" && client.phase === "selecting") {
+      const offer = offerOf(message);
+      if (!offer) {
+        this.emit("dhcp.ignored", { type: message.type, reason: "incomplete" }, where);
+        return;
+      }
+      this.cancel(client.retrySeq);
+      client.offer = offer;
+      this.emit(
+        "dhcp.offer-received",
+        { address: offer.address, prefixLength: offer.prefixLength, server: offer.server, gateway: offer.gateway, lease: offer.leaseSeconds },
+        where,
+      );
+      client.phase = "requesting";
+      client.attempts = 0;
+      this.sendRequest(client, "selecting");
+      return;
+    }
+    if (message.type === "ack" && waiting) {
+      const lease = offerOf(message, client.lease);
+      if (!lease) {
+        this.emit("dhcp.ignored", { type: message.type, reason: "incomplete" }, where);
+        return;
+      }
+      this.cancel(client.retrySeq);
+      this.bindDhcp(client, device, port, lease, where);
+      return;
+    }
+    if (message.type === "nak" && waiting) {
+      this.cancel(client.retrySeq);
+      this.emit("dhcp.nak-received", { server: message.options.serverId }, where);
+      this.dropLease(client, device, port);
+      this.startDiscover(client);
+      return;
+    }
+    this.emit("dhcp.ignored", { type: message.type, reason: "unexpected", phase: client.phase }, where);
+  }
+
+  /** Bail accordé : adresse et passerelle appliquées, temporisations T1, T2 et fin de bail (RFC 2131 §4.4.5). */
+  private bindDhcp(client: DhcpClient, device: RuntimeDevice, port: RuntimePort, offer: DhcpOffer, where: Where): void {
+    const renewed = client.lease?.address === offer.address;
+    const duration = fromSeconds(offer.leaseSeconds);
+    const lease: DhcpLease = {
+      ...offer,
+      obtainedAt: this.clock,
+      renewAt: this.clock + Math.round(duration * 0.5),
+      rebindAt: this.clock + Math.round(duration * 0.875),
+      expiresAt: this.clock + duration,
+    };
+    client.lease = lease;
+    client.offer = null;
+    client.phase = "bound";
+    client.attempts = 0;
+    client.generation += 1;
+    port.ipv4 = runtimeAddress(lease.address, lease.prefixLength);
+    const gateway = lease.gateway === null ? null : parseIpv4(lease.gateway);
+    device.gateway = lease.gateway !== null && gateway !== null ? { address: lease.gateway, value: gateway } : null;
+    this.dirtyDevices.add(device.id);
+    this.emit(
+      "dhcp.bound",
+      {
+        address: lease.address,
+        prefixLength: lease.prefixLength,
+        gateway: lease.gateway,
+        server: lease.server,
+        lease: lease.leaseSeconds,
+        renewAt: lease.renewAt,
+        expiresAt: lease.expiresAt,
+        renewed,
+      },
+      where,
+    );
+    this.schedule(lease.renewAt, { type: "dhcp-lease", deviceId: device.id, portId: port.portId, stage: "renew", generation: client.generation }, true);
+  }
+
+  private dropLease(client: DhcpClient, device: RuntimeDevice, port: RuntimePort): void {
+    if (!client.lease) return;
+    client.lease = null;
+    port.ipv4 = null;
+    device.gateway = null;
+    this.dirtyDevices.add(device.id);
+  }
+
+  private onDhcpLeaseTimer(deviceId: string, portId: string, stage: "renew" | "rebind" | "expire", generation: number): void {
+    const client = this.dhcpClients.get(dhcpClientKey(deviceId, portId));
+    const lease = client?.lease;
+    if (client?.generation !== generation || !lease) return;
+    const target = this.clientPort(client);
+    if (!target) return;
+    if (stage === "renew") {
+      client.phase = "renewing";
+      client.xid = this.prng.nextInt(0x100000000);
+      client.exchange = this.newDhcpExchange();
+      client.attempts = 0;
+      this.sendRequest(client, "renewing");
+      this.schedule(lease.rebindAt, { type: "dhcp-lease", deviceId, portId, stage: "rebind", generation }, true);
+      return;
+    }
+    if (stage === "rebind") {
+      client.phase = "rebinding";
+      client.attempts = 0;
+      this.sendRequest(client, "rebinding");
+      this.schedule(lease.expiresAt, { type: "dhcp-lease", deviceId, portId, stage: "expire", generation }, true);
+      return;
+    }
+    // Fin du bail sans accusé de réception : l'adresse est abandonnée, nouvelle demande (état INIT).
+    this.emit("dhcp.expired", { address: lease.address, server: lease.server }, { device: target.device, port: target.port, exchange: client.exchange });
+    this.dropLease(client, target.device, target.port);
+    this.startDiscover(client);
+  }
+
+  /** ipconfig renew / release, à la demande de l'utilisateur. */
+  private dhcpCommand(deviceId: string, action: "renew" | "release"): void {
+    const client = [...this.dhcpClients.values()].find((item) => item.deviceId === deviceId);
+    const target = client ? this.clientPort(client) : null;
+    if (!client || !target) return;
+    const { device, port } = target;
+    const lease = client.lease;
+    if (action === "renew") {
+      this.emit("command.dhcp-renew", { address: lease?.address ?? null }, { device, port });
+      if (lease && (client.phase === "bound" || client.phase === "renewing" || client.phase === "rebinding")) {
+        this.cancel(client.retrySeq);
+        client.phase = "renewing";
+        client.xid = this.prng.nextInt(0x100000000);
+        client.exchange = this.newDhcpExchange();
+        client.attempts = 0;
+        this.sendRequest(client, "renewing");
+        return;
+      }
+      this.startDiscover(client);
+      return;
+    }
+    this.emit("command.dhcp-release", { address: lease?.address ?? null }, { device, port });
+    this.cancel(client.retrySeq);
+    client.generation += 1;
+    client.phase = "released";
+    client.offer = null;
+    client.attempts = 0;
+    this.dirtyDevices.add(device.id);
+    if (!lease) return;
+    // DHCPRELEASE envoyé au serveur (ciaddr, identifiant du serveur), puis adresse abandonnée.
+    client.xid = this.prng.nextInt(0x100000000);
+    client.exchange = this.newDhcpExchange();
+    const message: DhcpMessage = {
+      kind: "dhcp",
+      type: "release",
+      xid: client.xid,
+      broadcast: false,
+      clientIp: lease.address,
+      yourIp: UNSPECIFIED_ADDRESS,
+      clientMac: port.mac,
+      options: { ...NO_DHCP_OPTIONS, serverId: lease.server },
+    };
+    this.emit("dhcp.release-sent", { address: lease.address, server: lease.server }, { device, port, exchange: client.exchange, pdu: message });
+    this.sendLocal(
+      device,
+      { source: lease.address, destination: lease.server, ttl: this.initialTtl(device), payload: { kind: "udp", sourcePort: DHCP_CLIENT_PORT, destinationPort: DHCP_SERVER_PORT, payload: message } },
+      { kind: "local" },
+      client.exchange,
+    );
+    this.dropLease(client, device, port);
+  }
+
+  // ---------------------------------------------------------------- Serveur DHCP (routeur)
+
+  private onDhcpServer(device: RuntimeDevice, port: RuntimePort, message: DhcpMessage, exchange: string | null): void {
+    const where = { device, port, exchange, pdu: message };
+    const pool = device.dhcpPools.get(port.portId);
+    if (!pool || !port.ipv4) {
+      this.emit("dhcp.no-pool", { type: message.type }, where);
+      return;
+    }
+    const state = this.state(device.id);
+    if (message.type === "discover") {
+      this.offerAddress(device, port, state, pool, message, where);
+      return;
+    }
+    if (message.type === "request") {
+      this.answerRequest(device, port, state, pool, message, where);
+      return;
+    }
+    if (message.type === "release") {
+      const lease = state.dhcpLeases.get(message.clientIp);
+      if (lease?.mac !== message.clientMac) {
+        this.emit("dhcp.ignored", { type: message.type, reason: "unknown-lease" }, where);
+        return;
+      }
+      state.dhcpLeases.delete(lease.address);
+      this.dirtyDevices.add(device.id);
+      this.emit("dhcp.released", { address: lease.address, mac: lease.mac }, where);
+      return;
+    }
+    this.emit("dhcp.ignored", { type: message.type, reason: "unexpected" }, where);
+  }
+
+  /** Bail (ou offre) d'un client dans la plage d'une interface. */
+  private leaseOf(state: DeviceState, mac: MacAddress, portId: string): ServerLease | undefined {
+    for (const lease of state.dhcpLeases.values()) if (lease.mac === mac && lease.portId === portId) return lease;
+    return undefined;
+  }
+
+  /** Plus petite adresse libre de la plage : ni adresse du routeur, ni offerte, ni attribuée. */
+  private freeAddress(device: RuntimeDevice, state: DeviceState, pool: RuntimeDhcpPool): number | null {
+    for (let value = pool.start; value <= pool.end; value += 1) {
+      if (!this.ownsAddress(device, value) && !state.dhcpLeases.has(formatIpv4(value))) return value;
+    }
+    return null;
+  }
+
+  private offerAddress(device: RuntimeDevice, port: RuntimePort, state: DeviceState, pool: RuntimeDhcpPool, message: DhcpMessage, where: Where): void {
+    const existing = this.leaseOf(state, message.clientMac, port.portId);
+    let address = existing?.address;
+    if (address === undefined) {
+      const value = this.freeAddress(device, state, pool);
+      if (value === null) {
+        this.emit("dhcp.pool-exhausted", { size: pool.end - pool.start + 1, start: formatIpv4(pool.start), end: formatIpv4(pool.end) }, where);
+        return;
+      }
+      address = formatIpv4(value);
+      state.dhcpLeases.set(address, { address, mac: message.clientMac, portId: port.portId, state: "offered", expiresAt: null, generation: 0 });
+      this.dirtyDevices.add(device.id);
+    }
+    this.emit("dhcp.offer-sent", { address, mac: message.clientMac, lease: pool.leaseSeconds, reused: existing !== undefined }, where);
+    this.replyDhcp(device, port, pool, message, "offer", address, where.exchange ?? null);
+  }
+
+  private answerRequest(device: RuntimeDevice, port: RuntimePort, state: DeviceState, pool: RuntimeDhcpPool, message: DhcpMessage, where: Where): void {
+    const own = port.ipv4?.address ?? "";
+    const exchange = where.exchange ?? null;
+    const serverId = message.options.serverId;
+    if (serverId !== null) {
+      // Réponse à une offre : le client désigne le serveur retenu (SELECTING).
+      const lease = this.leaseOf(state, message.clientMac, port.portId);
+      if (serverId !== own) {
+        if (lease?.state === "offered") state.dhcpLeases.delete(lease.address);
+        this.dirtyDevices.add(device.id);
+        this.emit("dhcp.not-selected", { server: serverId }, where);
+        return;
+      }
+      if (!lease || lease.address !== message.options.requestedIp) {
+        this.emit("dhcp.nak-sent", { address: message.options.requestedIp, reason: "not-offered" }, where);
+        this.replyDhcp(device, port, pool, message, "nak", null, exchange);
+        return;
+      }
+      this.confirmLease(device, lease, pool, where);
+      this.replyDhcp(device, port, pool, message, "ack", lease.address, exchange);
+      return;
+    }
+    // Renouvellement (T1, envoyé au serveur) ou nouvelle demande (T2, diffusée) : ciaddr renseigné.
+    const lease = state.dhcpLeases.get(message.clientIp);
+    if (lease?.mac !== message.clientMac || lease.portId !== port.portId || lease.state !== "bound") {
+      this.emit("dhcp.nak-sent", { address: message.clientIp, reason: "unknown-lease" }, where);
+      this.replyDhcp(device, port, pool, message, "nak", null, exchange);
+      return;
+    }
+    this.confirmLease(device, lease, pool, where);
+    this.replyDhcp(device, port, pool, message, "ack", lease.address, exchange);
+  }
+
+  private confirmLease(device: RuntimeDevice, lease: ServerLease, pool: RuntimeDhcpPool, where: Where): void {
+    const renewed = lease.state === "bound";
+    lease.state = "bound";
+    lease.expiresAt = this.clock + fromSeconds(pool.leaseSeconds);
+    lease.generation += 1;
+    this.dirtyDevices.add(device.id);
+    this.emit("dhcp.ack-sent", { address: lease.address, mac: lease.mac, lease: pool.leaseSeconds, expiresAt: lease.expiresAt, renewed }, where);
+    this.schedule(lease.expiresAt, { type: "dhcp-server-expiry", deviceId: device.id, address: lease.address, generation: lease.generation }, true);
+  }
+
+  /**
+   * Réponse du serveur : diffusée tant que le client n'a pas d'adresse
+   * (drapeau BROADCAST) et pour un refus, envoyée à ciaddr sinon (RFC 2131 §4.1).
+   */
+  private replyDhcp(device: RuntimeDevice, port: RuntimePort, pool: RuntimeDhcpPool, request: DhcpMessage, type: DhcpMessageType, address: string | null, exchange: string | null): void {
+    const own = port.ipv4;
+    if (!own) return;
+    const message: DhcpMessage = {
+      kind: "dhcp",
+      type,
+      xid: request.xid,
+      broadcast: request.broadcast,
+      clientIp: request.clientIp,
+      yourIp: address ?? UNSPECIFIED_ADDRESS,
+      clientMac: request.clientMac,
+      options:
+        type === "nak"
+          ? { ...NO_DHCP_OPTIONS, serverId: own.address }
+          : { serverId: own.address, requestedIp: null, subnetMask: prefixToMask(own.prefixLength), router: pool.gateway, leaseSeconds: pool.leaseSeconds },
+    };
+    if (type !== "nak" && request.clientIp !== UNSPECIFIED_ADDRESS) {
+      const datagram: UdpDatagram = { kind: "udp", sourcePort: DHCP_SERVER_PORT, destinationPort: DHCP_CLIENT_PORT, payload: message };
+      this.sendLocal(device, { source: own.address, destination: request.clientIp, ttl: this.initialTtl(device), payload: datagram }, { kind: "local" }, exchange);
+      return;
+    }
+    this.broadcastUdp(device, port, own.address, DHCP_SERVER_PORT, DHCP_CLIENT_PORT, message, exchange);
+  }
+
+  private onServerLeaseExpiry(deviceId: string, address: string, generation: number): void {
+    const device = this.device(deviceId);
+    const state = this.state(deviceId);
+    const lease = state.dhcpLeases.get(address);
+    if (lease?.generation !== generation || lease.state !== "bound") return;
+    state.dhcpLeases.delete(address);
+    this.dirtyDevices.add(deviceId);
+    this.emit("dhcp.lease-expired", { address, mac: lease.mac }, { device, port: device.portById.get(lease.portId) });
   }
 
   // ---------------------------------------------------------------- Application ping
@@ -1408,6 +2025,47 @@ export class Simulation {
     };
   }
 
+  private dhcpClientView(device: RuntimeDevice): DeviceView["dhcpClient"] {
+    const client = [...this.dhcpClients.values()].find((item) => item.deviceId === device.id);
+    if (!client) return null;
+    const lease = client.lease;
+    return {
+      portId: client.portId,
+      phase: client.phase,
+      attempts: client.attempts,
+      lease: lease && {
+        address: lease.address,
+        prefixLength: lease.prefixLength,
+        gateway: lease.gateway,
+        server: lease.server,
+        leaseSeconds: lease.leaseSeconds,
+        obtainedAt: lease.obtainedAt,
+        renewAt: lease.renewAt,
+        rebindAt: lease.rebindAt,
+        expiresAt: lease.expiresAt,
+      },
+    };
+  }
+
+  private dhcpServerView(device: RuntimeDevice, state: DeviceState): DeviceView["dhcpServer"] {
+    if (device.dhcpPools.size === 0) return null;
+    const leases = [...state.dhcpLeases.values()];
+    return {
+      pools: [...device.dhcpPools.entries()].map(([portId, pool]) => ({
+        portId,
+        start: formatIpv4(pool.start),
+        end: formatIpv4(pool.end),
+        gateway: pool.gateway,
+        leaseSeconds: pool.leaseSeconds,
+        size: pool.end - pool.start + 1,
+        used: leases.filter((lease) => lease.portId === portId).length,
+      })),
+      leases: leases
+        .map((lease) => ({ address: lease.address, mac: lease.mac, portId: lease.portId, state: lease.state, expiresAt: lease.expiresAt }))
+        .sort((a, b) => (parseIpv4(a.address) ?? 0) - (parseIpv4(b.address) ?? 0)),
+    };
+  }
+
   private deviceView(device: RuntimeDevice): DeviceView {
     const state = this.state(device.id);
     const aging = this.parameters.macAgingTime;
@@ -1423,6 +2081,7 @@ export class Simulation {
         linkId: port.linkId,
         up: this.isUp(port),
         vlan: port.vlan,
+        dhcp: port.dhcp,
       })),
       macTable: [...state.macTable.values()]
         .map((entry) => ({ vlan: entry.vlan, mac: entry.mac, portId: entry.portId, updatedAt: entry.updatedAt, expiresAt: entry.updatedAt + aging }))
@@ -1437,6 +2096,8 @@ export class Simulation {
         queued: pending.queue.length,
       })),
       stp: this.stpView(device),
+      dhcpClient: this.dhcpClientView(device),
+      dhcpServer: this.dhcpServerView(device, state),
       routes:
         device.kind === "switch"
           ? []
@@ -1451,6 +2112,16 @@ export class Simulation {
             })),
     };
   }
+}
+
+/** Offre ou accusé de réception complet (adresse, masque, serveur, bail) ; le bail en cours complète un ACK partiel. */
+function offerOf(message: DhcpMessage, current: DhcpOffer | null = null): DhcpOffer | null {
+  const { subnetMask, serverId, leaseSeconds, router } = message.options;
+  const prefixLength = subnetMask === null ? (current?.prefixLength ?? null) : parsePrefixOrMask(subnetMask);
+  const server = serverId ?? current?.server ?? null;
+  const seconds = leaseSeconds ?? current?.leaseSeconds ?? null;
+  if (message.yourIp === UNSPECIFIED_ADDRESS || prefixLength === null || server === null || seconds === null) return null;
+  return { address: message.yourIp, prefixLength, gateway: router ?? (subnetMask === null ? (current?.gateway ?? null) : null), server, leaseSeconds: seconds };
 }
 
 function reject(code: CommandErrorCode, params: TraceParams): CommandOutcome {

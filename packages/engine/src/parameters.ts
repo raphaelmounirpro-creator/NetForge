@@ -29,6 +29,10 @@ export interface SimulationParameters {
   readonly routerInitialTtl: number;
   /** STP : durée de chacun des états d'écoute et d'apprentissage (Forward Delay, 15 s par défaut). */
   readonly stpForwardDelay: SimTime;
+  /** DHCP : attente avant la première retransmission (4 s), doublée ensuite (RFC 2131 §4.1, sans tirage aléatoire). */
+  readonly dhcpRetryTimeout: SimTime;
+  /** DHCP : émissions d'un même message avant abandon (4 : à 0, 4, 12 puis 28 s ; abandon à 60 s). */
+  readonly dhcpMaxAttempts: number;
   readonly limits: SimulationLimits;
 }
 
@@ -62,6 +66,8 @@ export const DEFAULT_PARAMETERS: SimulationParameters = {
   hostInitialTtl: 64,
   routerInitialTtl: 255,
   stpForwardDelay: 15_000_000_000,
+  dhcpRetryTimeout: fromSeconds(4),
+  dhcpMaxAttempts: 4,
   limits: DEFAULT_LIMITS,
 };
 

@@ -3,7 +3,8 @@ import type { MacAddress } from "./mac.js";
 /**
  * Unités de données réellement modélisées, en unions discriminées qui
  * suivent l'encapsulation : Ethernet transporte ARP ou IPv4 ; IPv4
- * transporte ICMP. Seuls ces champs existent ; aucun octet n'est inventé.
+ * transporte ICMP ou UDP ; UDP transporte DHCP. Seuls ces champs existent ;
+ * aucun octet n'est inventé.
  * Les adresses IPv4 sont en notation décimale pointée.
  */
 
@@ -45,13 +46,66 @@ export interface IcmpError {
 
 export type IcmpMessage = IcmpEcho | IcmpError;
 
+/** Type de message DHCP (option 53, RFC 2132 §9.6) : 1 DISCOVER, 2 OFFER, 3 REQUEST, 5 ACK, 6 NAK, 7 RELEASE. */
+export type DhcpMessageType = "discover" | "offer" | "request" | "ack" | "nak" | "release";
+
+/**
+ * Message DHCP (RFC 2131) : champs fixes utiles (xid, drapeau BROADCAST,
+ * ciaddr, yiaddr, chaddr) et options modélisées (RFC 2132). L'opération
+ * BOOTP (1 requête du client, 2 réponse du serveur) se déduit du type.
+ */
+export interface DhcpMessage {
+  readonly kind: "dhcp";
+  readonly type: DhcpMessageType;
+  /** Identifiant de transaction choisi par le client, recopié par le serveur. */
+  readonly xid: number;
+  /** Drapeau BROADCAST : le client demande des réponses diffusées. */
+  readonly broadcast: boolean;
+  /** ciaddr : adresse actuelle du client (0.0.0.0 avant le premier bail). */
+  readonly clientIp: string;
+  /** yiaddr : adresse attribuée au client (0.0.0.0 hors OFFER et ACK). */
+  readonly yourIp: string;
+  /** chaddr : adresse matérielle du client. */
+  readonly clientMac: MacAddress;
+  readonly options: DhcpOptions;
+}
+
+export interface DhcpOptions {
+  /** Option 54 : identifiant du serveur (son adresse sur le réseau du client). */
+  readonly serverId: string | null;
+  /** Option 50 : adresse demandée (REQUEST après une offre). */
+  readonly requestedIp: string | null;
+  /** Option 1 : masque de sous-réseau. */
+  readonly subnetMask: string | null;
+  /** Option 3 : passerelle (Router). */
+  readonly router: string | null;
+  /** Option 51 : durée du bail, en secondes. */
+  readonly leaseSeconds: number | null;
+}
+
+export interface UdpDatagram {
+  readonly kind: "udp";
+  readonly sourcePort: number;
+  readonly destinationPort: number;
+  readonly payload: DhcpMessage;
+}
+
+/** Ports UDP de DHCP (RFC 2131 §4.1) : 67 serveur, 68 client. */
+export const DHCP_SERVER_PORT = 67;
+export const DHCP_CLIENT_PORT = 68;
+/** Diffusion limitée (255.255.255.255) : reçue par tout le segment, jamais relayée par un routeur. */
+export const LIMITED_BROADCAST = "255.255.255.255";
+export const UNSPECIFIED_ADDRESS = "0.0.0.0";
+
+export type Ipv4Payload = IcmpMessage | UdpDatagram;
+
 export interface Ipv4Packet {
   readonly kind: "ipv4";
   readonly source: string;
   readonly destination: string;
   readonly ttl: number;
   readonly identification: number;
-  readonly payload: IcmpMessage;
+  readonly payload: Ipv4Payload;
 }
 
 export interface EthernetFrame {
@@ -67,7 +121,7 @@ export interface EthernetFrame {
   readonly payload: ArpPacket | Ipv4Packet;
 }
 
-export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage;
+export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage;
 
 export const ZERO_MAC: MacAddress = "00:00:00:00:00:00";
 
@@ -86,6 +140,23 @@ export const ETHERNET_WIRE_OVERHEAD_BYTES = 20;
 const ARP_BYTES = 28;
 const IPV4_HEADER_BYTES = 20;
 const ICMP_HEADER_BYTES = 8;
+const UDP_HEADER_BYTES = 8;
+/** Champs fixes de DHCP, de « op » à « file » (236 octets, RFC 2131 tableau 1), puis le « magic cookie » (4). */
+const DHCP_FIXED_BYTES = 236 + 4;
+/** Option de type de message (3 octets) et option de fin (1). */
+const DHCP_TYPE_AND_END_BYTES = 3 + 1;
+/** Options de 4 octets de données : code, longueur et valeur (6 octets chacune). */
+const DHCP_ADDRESS_OPTION_BYTES = 6;
+
+/** Taille du message DHCP : champs fixes et options présentes, sans octets de bourrage. */
+export function dhcpBytes(message: DhcpMessage): number {
+  const options = Object.values(message.options).filter((value) => value !== null).length;
+  return DHCP_FIXED_BYTES + DHCP_TYPE_AND_END_BYTES + options * DHCP_ADDRESS_OPTION_BYTES;
+}
+
+export function udpBytes(datagram: UdpDatagram): number {
+  return UDP_HEADER_BYTES + dhcpBytes(datagram.payload);
+}
 
 export function icmpBytes(message: IcmpMessage): number {
   // Une erreur ICMP recopie l'en-tête IP (20 octets) et 8 octets du datagramme fautif.
@@ -95,7 +166,12 @@ export function icmpBytes(message: IcmpMessage): number {
 }
 
 export function ipv4Bytes(packet: Ipv4Packet): number {
-  return IPV4_HEADER_BYTES + icmpBytes(packet.payload);
+  return IPV4_HEADER_BYTES + (packet.payload.kind === "udp" ? udpBytes(packet.payload) : icmpBytes(packet.payload));
+}
+
+/** Numéro de protocole IPv4 (IANA) : 1 ICMP, 17 UDP. */
+export function ipProtocol(packet: Ipv4Packet): number {
+  return packet.payload.kind === "udp" ? 17 : 1;
 }
 
 /** Taille de la trame, en-tête et FCS compris, complétée au minimum Ethernet de 64 octets. */
