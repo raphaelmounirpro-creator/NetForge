@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "models": {
     "catalog": 2
   },
@@ -292,57 +292,68 @@
     "olt1": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "odf1": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "cpl1": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "cpl2": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pbo1": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pto1": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pto2": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pto3": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "ont1": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "ont2": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "ont3": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     }
   },
   "faults": [],

@@ -4,8 +4,11 @@ import {
   isOptical,
   networkAddress,
   parseIpv4,
+  parseSubinterface,
+  switchportOf,
   type DeviceKind,
   type NfgDocument,
+  type Switchport,
 } from "@netforge/project";
 import { assignMacs, type MacAddress } from "./mac.js";
 import type { SimTime } from "./time.js";
@@ -31,6 +34,12 @@ export interface RuntimePort {
   readonly speedMbps: number;
   readonly ipv4: RuntimeAddress | null;
   readonly linkId: string | null;
+  /** Sous-interface 802.1Q d'un routeur : VLAN encapsulé (null pour un port physique). */
+  readonly vlan: number | null;
+  /** Sous-interface : port physique qui la porte (même MAC, même lien). */
+  readonly parent: string | null;
+  /** Port de switch : configuration VLAN effective (accès VLAN 1 par défaut) ; null ailleurs. */
+  readonly switchport: Switchport | null;
   /** Instant où l'émetteur du port redevient libre : les trames partent une à une. */
   txFreeAt: SimTime;
 }
@@ -109,7 +118,7 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
   for (const device of sortedDevices) {
     const model = getModel(device.model);
     const config = doc.configurations[device.id];
-    const ports: RuntimePort[] = model.ports.map((spec) => {
+    const physical: RuntimePort[] = model.ports.map((spec) => {
       const key = `${device.id}/${spec.id}`;
       const ipv4 = config?.interfaces[spec.id]?.ipv4;
       return {
@@ -119,9 +128,25 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
         speedMbps: spec.speedMbps,
         ipv4: ipv4 ? runtimeAddress(ipv4.address, ipv4.prefixLength) : null,
         linkId: linkOfPort.get(key) ?? null,
+        vlan: null,
+        parent: null,
+        switchport: model.kind === "switch" ? switchportOf(config?.switchports, spec.id) : null,
         txFreeAt: 0,
       };
     });
+    // Sous-interfaces 802.1Q (routeurs) : ports logiques triés par port parent puis VLAN.
+    const subinterfaces: RuntimePort[] =
+      model.kind !== "router"
+        ? []
+        : Object.entries(config?.interfaces ?? {})
+            .flatMap(([id, value]) => {
+              const sub = parseSubinterface(id);
+              const parent = sub ? physical.find((port) => port.portId === sub.parent) : undefined;
+              if (!sub || !parent || !value.ipv4) return [];
+              return [{ ...parent, portId: id, ipv4: runtimeAddress(value.ipv4.address, value.ipv4.prefixLength), vlan: sub.vlan, parent: parent.portId, switchport: null, txFreeAt: 0 }];
+            })
+            .sort((a, b) => a.parent.localeCompare(b.parent) || a.vlan - b.vlan);
+    const ports = [...physical, ...subinterfaces];
     const gatewayValue = config?.defaultGateway ? parseIpv4(config.defaultGateway) : null;
     const staticRoutes: RuntimeStaticRoute[] = [];
     for (const route of config?.staticRoutes ?? []) {

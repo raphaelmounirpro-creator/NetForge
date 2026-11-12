@@ -19,6 +19,7 @@ import {
   type StaticRoute,
 } from "./schema.js";
 import { validateDocument } from "./validation.js";
+import { DEFAULT_VLAN, VLAN_MAX, VLAN_MIN, isVlanId, normalizeVlans, parseSubinterface, type Switchport } from "./vlan.js";
 
 /**
  * Commandes d'édition : fonctions pures, partagées par les formulaires et la
@@ -48,7 +49,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [] };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {} };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -328,7 +329,15 @@ export function setInterfaceIpv4(
 ): CommandResult {
   const device = findDevice(doc, params.deviceId);
   if (!device) return deviceNotFound(params.deviceId);
-  if (!findPort(device.model, params.portId)) {
+  if (params.portId.includes(".")) {
+    // Sous-interface 802.1Q « port.vlan » (routeurs) : la validation du document vérifie le reste.
+    const sub = parseSubinterface(params.portId);
+    if (!sub) return fail(error("config.invalid-subinterface", { deviceId: device.id, deviceName: device.name, portId: params.portId }));
+    if (getModel(device.model).kind !== "router") {
+      return fail(error("config.subinterface-not-supported", { deviceId: device.id, deviceName: device.name, portId: params.portId }));
+    }
+    if (!findPort(device.model, sub.parent)) return fail(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: sub.parent }));
+  } else if (!findPort(device.model, params.portId)) {
     return fail(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: params.portId }));
   }
   if (!getModel(device.model).ipCapable) {
@@ -341,6 +350,36 @@ export function setInterfaceIpv4(
   const { [params.portId]: _previous, ...otherInterfaces } = config.interfaces;
   const interfaces = params.ipv4 ? { ...otherInterfaces, [params.portId]: { ipv4: params.ipv4 } } : otherInterfaces;
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, interfaces } } });
+}
+
+/**
+ * Port de switch (VLAN) : accès dans un VLAN, trunk (VLAN natif, VLAN
+ * autorisés), ou null pour revenir au défaut (accès VLAN 1).
+ */
+export function setSwitchport(doc: NfgDocument, params: { deviceId: string; portId: string; switchport: Switchport | null }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "switch") return fail(error("config.switchports-not-supported", { deviceId: device.id, deviceName: device.name }));
+  if (!findPort(device.model, params.portId)) {
+    return fail(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: params.portId }));
+  }
+  const port = params.switchport;
+  if (port) {
+    const vlans = port.mode === "access" ? [port.vlan] : [port.nativeVlan, ...(port.allowedVlans === "all" ? [] : port.allowedVlans)];
+    const invalid = vlans.find((vlan) => !isVlanId(vlan));
+    if (invalid !== undefined) return fail(error("vlan.invalid-id", { value: String(invalid), min: VLAN_MIN, max: VLAN_MAX }));
+    if (port.mode === "trunk" && port.allowedVlans !== "all" && port.allowedVlans.length === 0) return fail(error("vlan.invalid-id", { value: "", min: VLAN_MIN, max: VLAN_MAX }));
+  }
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  const { [params.portId]: _previous, ...others } = config.switchports;
+  const stored: DeviceConfig["switchports"][string] | null =
+    port === null || (port.mode === "access" && port.vlan === DEFAULT_VLAN)
+      ? null
+      : port.mode === "access"
+        ? { mode: "access", vlan: port.vlan }
+        : { mode: "trunk", nativeVlan: port.nativeVlan, allowedVlans: port.allowedVlans === "all" ? "all" : normalizeVlans(port.allowedVlans) };
+  const switchports = stored ? { ...others, [params.portId]: stored } : others;
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, switchports } } });
 }
 
 export function setDefaultGateway(

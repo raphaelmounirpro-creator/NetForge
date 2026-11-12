@@ -6,6 +6,7 @@ Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2) et calcule le bilan optiq
 |---|---|
 | [Moteur : temps, événements, déterminisme, limites](moteur.md) | Socle d'exécution |
 | [Ethernet et commutation](ethernet-commutation.md) | Pédagogique simplifié |
+| [VLAN 802.1Q et routage inter-VLAN](vlan.md) | Pédagogique simplifié |
 | [ARP](arp.md) | Pédagogique simplifié |
 | [Adressage IPv4 (configuration)](ipv4-adressage.md) | Pédagogique simplifié — configuration et validation |
 | [IPv4 : acheminement et routage statique](ipv4-routage.md) | Pédagogique simplifié |
@@ -39,7 +40,7 @@ La trace (et l'inspecteur prévu en phase 3) n'affiche que ces champs ; aucun oc
 
 | Unité | Couche OSI (pédagogique) | Champs | Transporte |
 |---|---|---|---|
-| Trame Ethernet | 2 · liaison | MAC source, MAC destination (EtherType déduit du contenu ; taille calculée) | ARP ou IPv4 |
+| Trame Ethernet | 2 · liaison | MAC source, MAC destination, étiquette 802.1Q (VID) si présente (EtherType déduit du contenu ; taille calculée) | ARP ou IPv4 |
 | ARP | entre 2 et 3 · résolution d'adresse | opération, MAC et IP de l'émetteur, MAC et IP de la cible | — |
 | IPv4 | 3 · réseau | source, destination, TTL, identification (protocole transporté : ICMP) | ICMP |
 | ICMP écho | 3 · contrôle et diagnostic | type, identifiant, séquence, longueur des données | — |

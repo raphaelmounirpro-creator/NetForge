@@ -1,6 +1,6 @@
 import { cliPrompt, configurationCommands, interpret, type CliRequest } from "@netforge/project";
 import { fill, formatIssue, messages } from "../../i18n";
-import { formatCliError, helpLines, ipconfig, showArp, showInterfaces, showMac, showRoutes } from "../../i18n/console";
+import { formatCliError, helpLines, ipconfig, showArp, showInterfaces, showMac, showRoutes, showVlans } from "../../i18n/console";
 import { formatCommandError } from "../../i18n/simulation";
 import { useLabStore } from "../lab/store";
 import { consoleKey, EMPTY_CONSOLE, useConsoleStore } from "./consoleStore";
@@ -78,6 +78,9 @@ async function handleRequest(projectId: string, deviceId: string, key: string, r
     }
     case "ipconfig":
       consoles.append(key, "output", ipconfig(doc, deviceId, view));
+      return;
+    case "show-vlans":
+      consoles.append(key, "output", showVlans(doc, deviceId));
       return;
     case "show-interfaces":
       runtime(() => (view ? showInterfaces(view) : []));

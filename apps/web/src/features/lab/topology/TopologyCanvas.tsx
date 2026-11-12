@@ -270,24 +270,33 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
                 const posB = positionOf(b.deviceId);
                 if (!posA || !posB) return [];
                 const distance = Math.hypot(posB.x - posA.x, posB.y - posA.y) || 1;
-                const ratio = Math.min(0.4, PORT_LABEL_DISTANCE / distance);
                 return [
-                  { end: a, x: posA.x + (posB.x - posA.x) * ratio, y: posA.y + (posB.y - posA.y) * ratio },
-                  { end: b, x: posB.x + (posA.x - posB.x) * ratio, y: posB.y + (posA.y - posB.y) * ratio },
-                ].map(({ end, x, y }) => (
-                  <Text
-                    key={`${link.id}-${end.deviceId}`}
-                    text={end.portId}
-                    x={x - 20}
-                    y={y - 14}
-                    width={40}
-                    align="center"
-                    fontSize={10}
-                    fontFamily="ui-monospace, Consolas, monospace"
-                    fill={colors["text-muted"]}
-                    listening={false}
-                  />
-                ));
+                  { end: a, from: posA, to: posB },
+                  { end: b, from: posB, to: posA },
+                ].map(({ end, from, to }) => {
+                  // VLAN d'un port de switch configuré (le VLAN 1 par défaut n'est pas annoté) ;
+                  // l'étiquette, plus longue, est éloignée du symbole pour ne pas couvrir son nom.
+                  const switchport = doc.configurations[end.deviceId]?.switchports[end.portId];
+                  const text = switchport ? `${end.portId}·${switchport.mode === "trunk" ? "trunk" : `V${String(switchport.vlan)}`}` : end.portId;
+                  const width = Math.max(40, text.length * 6.5);
+                  const ratio = Math.min(switchport ? 0.45 : 0.4, (switchport ? PORT_LABEL_DISTANCE + 24 : PORT_LABEL_DISTANCE) / distance);
+                  const x = from.x + (to.x - from.x) * ratio;
+                  const y = from.y + (to.y - from.y) * ratio;
+                  return (
+                    <Text
+                      key={`${link.id}-${end.deviceId}`}
+                      text={text}
+                      x={x - width / 2}
+                      y={y - 14}
+                      width={width}
+                      align="center"
+                      fontSize={10}
+                      fontFamily="ui-monospace, Consolas, monospace"
+                      fill={colors["text-muted"]}
+                      listening={false}
+                    />
+                  );
+                });
               })}
             {/* Fibre : sa longueur, écrite au milieu du lien, la distingue d'un câble cuivre. */}
             {showPortLabels &&

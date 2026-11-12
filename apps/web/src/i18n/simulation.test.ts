@@ -5,10 +5,12 @@ import {
   lanScenario,
   routedScenario,
   twoRoutersScenario,
+  VLAN_SCENARIO,
+  vlanScenario,
   type SimCommand,
   type TraceEntry,
 } from "@netforge/engine";
-import { addStaticRoute, disconnect, setDefaultGateway, setInterfaceIpv4, type NfgDocument } from "@netforge/project";
+import { addStaticRoute, disconnect, setDefaultGateway, setInterfaceIpv4, setSwitchport, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import {
   buildNameIndex,
@@ -79,6 +81,25 @@ function allScenarios() {
     run(twoRoutersScenario({ r1Route: false }), [{ type: "ping", deviceId: "pc1", destination: "10.0.2.10", count: 1 }]),
     run(loop, [{ type: "ping", deviceId: "pc1", destination: "10.0.9.9", count: 1 }]),
     run(lanScenario(), [{ type: "ping", deviceId: "pc1", destination: "192.168.1.11", count: 1 }], { parameters: { limits: { maxEvents: 5 } } }),
+    // VLAN : trunk étiqueté, routage inter-VLAN, puis chaque refus (accès, trunk, sous-interface, poste).
+    run(vlanScenario(), [
+      { type: "ping", deviceId: "pc1", destination: VLAN_SCENARIO.pc3, count: 1 },
+      { type: "ping", deviceId: "pc1", destination: VLAN_SCENARIO.pc2, count: 1 },
+    ]),
+    run(ok(setSwitchport(vlanScenario({ trunkAllowed: "all" }), { deviceId: "sw2", portId: "ge24", switchport: { mode: "trunk", nativeVlan: 1, allowedVlans: [20] } })).document, [
+      { type: "ping", deviceId: "pc1", destination: VLAN_SCENARIO.pc3, count: 1 },
+    ]),
+    run(ok(setSwitchport(vlanScenario(), { deviceId: "sw2", portId: "ge1", switchport: { mode: "trunk", nativeVlan: 1, allowedVlans: [10] } })).document, [
+      { type: "ping", deviceId: "pc1", destination: VLAN_SCENARIO.pc3, count: 1 },
+    ]),
+    run(
+      ok(setSwitchport(ok(setSwitchport(vlanScenario(), { deviceId: "sw1", portId: "ge23", switchport: { mode: "trunk", nativeVlan: 1, allowedVlans: "all" } })).document, { deviceId: "sw1", portId: "ge2", switchport: { mode: "access", vlan: 30 } }))
+        .document,
+      [{ type: "ping", deviceId: "pc2", destination: "192.168.20.1", count: 1 }],
+    ),
+    run(ok(setSwitchport(vlanScenario(), { deviceId: "sw2", portId: "ge24", switchport: { mode: "access", vlan: 10 } })).document, [
+      { type: "ping", deviceId: "pc1", destination: VLAN_SCENARIO.pc3, count: 1 },
+    ]),
   ];
 }
 
@@ -98,6 +119,7 @@ describe("textes de la trace", () => {
     }
     // Les scénarios couvrent l'essentiel des codes (les autres sont vérifiés par leur gabarit).
     expect(seen.size).toBeGreaterThan(40);
+    for (const code of ["vlan.tagged-dropped", "vlan.not-allowed", "vlan.no-subinterface", "nic.tagged-dropped"]) expect(seen, code).toContain(code);
   });
 
   it("prévoit un gabarit pour chaque code de trace", () => {

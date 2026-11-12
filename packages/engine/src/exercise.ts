@@ -99,7 +99,7 @@ export const exerciseSchema = z.strictObject({
   objective: text(1000),
   statement: text(2000),
   /** Fonctions utiles à l'exercice (indicatif en phase 3). */
-  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics"])).max(6),
+  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics", "vlans"])).max(7),
   project: z.unknown(),
   steps: z.array(stepSchema).min(1).max(12),
   hints: z.array(text(600)).max(5),

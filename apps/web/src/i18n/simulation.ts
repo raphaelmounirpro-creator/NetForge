@@ -88,6 +88,7 @@ export function traceCategory(code: TraceCode): TraceCategory {
     case "nic":
       return "link";
     case "switch":
+    case "vlan":
       return "switch";
     case "arp":
       return "arp";
@@ -111,6 +112,10 @@ const LOSS_OR_ERROR_CODES: ReadonlySet<TraceCode> = new Set<TraceCode>([
   "eth.no-link",
   "eth.link-down",
   "eth.lost-in-transit",
+  "vlan.tagged-dropped",
+  "vlan.not-allowed",
+  "vlan.no-subinterface",
+  "nic.tagged-dropped",
   "arp.queue-full",
   "arp.failed",
   "ip.no-route",
@@ -163,6 +168,14 @@ function templateKey(entry: TraceEntry): keyof typeof messages.trace {
     case "ip.route":
     case "ip.forward":
       return `${entry.code}.${params["nextHop"] === null ? "direct" : "via"}`;
+    case "eth.transmit":
+      return typeof params["vlan"] === "number" ? "eth.transmit.tagged" : entry.code;
+    // VLAN autre que le VLAN 1 : la phrase précise le domaine de diffusion.
+    case "switch.learn":
+    case "switch.forward":
+    case "switch.flood-broadcast":
+    case "switch.flood-unknown":
+      return typeof params["vlan"] === "number" && params["vlan"] !== 1 ? `${entry.code}.vlan` : entry.code;
     case "ip.no-route": {
       const key = `ip.no-route.${String(params["reason"])}`;
       return key in messages.trace ? (key as keyof typeof messages.trace) : "ip.no-route.no-match";
@@ -239,6 +252,8 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
         layer("ethernet", [
           [f.macSource, names.mac(pdu.source)],
           [f.macDestination, names.mac(pdu.destination)],
+          // Étiquette 802.1Q présente seulement sur une trame étiquetée (trunk, sous-interface).
+          ...(pdu.vlan === undefined ? [] : [[f.vlanTag, fill(v.vlanTag, { vlan: pdu.vlan })] as const]),
           [f.etherType, pdu.payload.kind === "arp" ? v.etherTypeArp : v.etherTypeIpv4],
           [f.size, fill(v.bytes, { bytes: frameBytes(pdu) })],
         ]),

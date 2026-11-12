@@ -16,9 +16,13 @@ export interface InterfaceView {
   readonly ipv4: string | null;
   readonly linkId: string | null;
   readonly up: boolean;
+  /** Sous-interface 802.1Q : VLAN encapsulé (null pour un port physique). */
+  readonly vlan: number | null;
 }
 
 export interface MacEntryView {
+  /** VLAN de l'entrée : un switch tient une table par VLAN. */
+  readonly vlan: number;
   readonly mac: MacAddress;
   readonly portId: string;
   readonly updatedAt: SimTime;
@@ -54,7 +58,7 @@ export interface DeviceView {
   readonly name: string;
   readonly kind: DeviceKind;
   readonly interfaces: readonly InterfaceView[];
-  /** Table MAC (switch uniquement), triée par adresse. */
+  /** Table MAC (switch uniquement), triée par VLAN puis adresse. */
   readonly macTable: readonly MacEntryView[];
   /** Cache ARP (PC et routeur), trié par port puis adresse. */
   readonly arpCache: readonly ArpEntryView[];

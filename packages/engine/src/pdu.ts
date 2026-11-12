@@ -58,6 +58,12 @@ export interface EthernetFrame {
   readonly kind: "ethernet";
   readonly source: MacAddress;
   readonly destination: MacAddress;
+  /**
+   * Étiquette IEEE 802.1Q telle que présente sur le câble : numéro de VLAN
+   * (VID) d'une trame étiquetée, absente sinon. Seul le VID est modélisé
+   * (priorité et DEI ne le sont pas).
+   */
+  readonly vlan?: number | undefined;
   readonly payload: ArpPacket | Ipv4Packet;
 }
 
@@ -71,6 +77,8 @@ export function etherType(frame: EthernetFrame): number {
 }
 
 const ETHERNET_HEADER_BYTES = 14;
+/** Étiquette 802.1Q : TPID 0x8100 (2 octets) et TCI (2 octets). */
+export const DOT1Q_TAG_BYTES = 4;
 const ETHERNET_FCS_BYTES = 4;
 const ETHERNET_MIN_FRAME_BYTES = 64;
 /** Préambule (7), délimiteur (1) et intervalle minimal entre trames (12). */
@@ -93,7 +101,8 @@ export function ipv4Bytes(packet: Ipv4Packet): number {
 /** Taille de la trame, en-tête et FCS compris, complétée au minimum Ethernet de 64 octets. */
 export function frameBytes(frame: EthernetFrame): number {
   const payload = frame.payload.kind === "arp" ? ARP_BYTES : ipv4Bytes(frame.payload);
-  return Math.max(ETHERNET_MIN_FRAME_BYTES, ETHERNET_HEADER_BYTES + payload + ETHERNET_FCS_BYTES);
+  const tag = frame.vlan === undefined ? 0 : DOT1Q_TAG_BYTES;
+  return Math.max(ETHERNET_MIN_FRAME_BYTES, ETHERNET_HEADER_BYTES + tag + payload + ETHERNET_FCS_BYTES);
 }
 
 export function isIcmpError(message: IcmpMessage): message is IcmpError {

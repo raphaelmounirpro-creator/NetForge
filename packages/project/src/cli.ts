@@ -7,11 +7,13 @@ import {
   renameDevice,
   setDefaultGateway,
   setInterfaceIpv4,
+  setSwitchport,
   type CommandResult,
 } from "./commands.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, prefixToMask } from "./ipv4.js";
 import type { Device, NfgDocument } from "./schema.js";
+import { DEFAULT_VLAN, VLAN_MAX, VLAN_MIN, formatVlanList, isVlanId, parseSubinterface, parseVlanList, subinterfaceId } from "./vlan.js";
 
 /**
  * Console des équipements (CLI originale de NetForge).
@@ -35,6 +37,7 @@ export type CliRequest =
   | { readonly kind: "show-arp" }
   | { readonly kind: "show-mac" }
   | { readonly kind: "show-config" }
+  | { readonly kind: "show-vlans" }
   | { readonly kind: "ipconfig" }
   | { readonly kind: "ping"; readonly destination: string; readonly count: number }
   | { readonly kind: "clear-table"; readonly table: "arp" | "mac" }
@@ -134,6 +137,13 @@ function chain(first: CommandResult, next: (doc: NfgDocument) => CommandResult):
   if (!first.ok) return first;
   const second = next(first.document);
   return second.ok ? { ...second, warnings: [...first.warnings, ...second.warnings] } : second;
+}
+
+/** Numéro de VLAN écrit en décimal sans zéro initial, de 1 à 4094 ; null sinon. */
+function vlanNumber(text: string): number | null {
+  if (!/^[1-9]\d{0,3}$/.test(text)) return null;
+  const vlan = Number(text);
+  return isVlanId(vlan) ? vlan : null;
 }
 
 function pcPort(device: Device): string {
@@ -302,6 +312,16 @@ const COMMANDS: readonly CommandSpec[] = [
     run: ({ mode }) => ok(mode, { request: { kind: "show-config" } }),
   },
   {
+    id: "show-vlans",
+    words: ["show", "vlans"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["switch"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-vlans" } }),
+  },
+  {
     id: "clear-arp",
     words: ["clear", "arp"],
     syntax: "",
@@ -366,16 +386,65 @@ const COMMANDS: readonly CommandSpec[] = [
   {
     id: "interface",
     words: ["interface"],
-    syntax: "<port>",
+    syntax: "<port>[.<vlan>]",
     modes: ["config", "interface"],
-    devices: ["router"],
+    devices: NETWORK_DEVICES,
     required: ["port"],
     maxArgs: 1,
     run: ({ device, mode, args }) => {
-      const ports = getModel(device.model).ports.map((port) => port.id);
+      const model = getModel(device.model);
+      const ports = model.ports.map((port) => port.id);
       const port = (args[0] ?? "").toLowerCase();
+      // Sous-interface 802.1Q « port.vlan » : routeurs seulement.
+      const sub = model.kind === "router" ? parseSubinterface(port) : null;
+      if (sub && ports.includes(sub.parent)) return ok({ kind: "interface", portId: subinterfaceId(sub.parent, sub.vlan) });
       if (!ports.includes(port)) return fail(mode, "cli.unknown-port", { port: args[0] ?? "", ports: ports.join(", ") });
       return ok({ kind: "interface", portId: port });
+    },
+  },
+  {
+    id: "access-vlan",
+    words: ["access", "vlan"],
+    syntax: "<vlan>",
+    modes: ["interface"],
+    devices: ["switch"],
+    required: ["vlan"],
+    maxArgs: 1,
+    run: ({ device, mode, args }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "access vlan" });
+      const vlan = vlanNumber(args[0] ?? "");
+      if (vlan === null) return invalid(mode, [error("vlan.invalid-id", { value: args[0] ?? "", min: VLAN_MIN, max: VLAN_MAX })]);
+      return ok(mode, { edit: (doc) => setSwitchport(doc, { deviceId: device.id, portId: mode.portId, switchport: { mode: "access", vlan } }) });
+    },
+  },
+  {
+    id: "trunk",
+    words: ["trunk"],
+    syntax: "[native <vlan>] [allowed <liste>|all]",
+    modes: ["interface"],
+    devices: ["switch"],
+    required: [],
+    maxArgs: 4,
+    run: ({ device, mode, args }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "trunk" });
+      let nativeVlan = DEFAULT_VLAN;
+      let allowedVlans: "all" | number[] = "all";
+      for (let index = 0; index < args.length; index += 2) {
+        const keyword = (args[index] ?? "").toLowerCase();
+        const value = args[index + 1];
+        if (keyword !== "native" && keyword !== "allowed") return fail(mode, "cli.unexpected-argument", { word: args[index] ?? "" });
+        if (value === undefined) return fail(mode, "cli.missing-argument", { argument: keyword === "native" ? "vlan" : "liste" });
+        if (keyword === "native") {
+          const vlan = vlanNumber(value);
+          if (vlan === null) return invalid(mode, [error("vlan.invalid-id", { value, min: VLAN_MIN, max: VLAN_MAX })]);
+          nativeVlan = vlan;
+        } else {
+          const list = parseVlanList(value);
+          if (list === null) return invalid(mode, [error("vlan.invalid-id", { value, min: VLAN_MIN, max: VLAN_MAX })]);
+          allowedVlans = list;
+        }
+      }
+      return ok(mode, { edit: (doc) => setSwitchport(doc, { deviceId: device.id, portId: mode.portId, switchport: { mode: "trunk", nativeVlan, allowedVlans } }) });
     },
   },
   {
@@ -615,8 +684,20 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
   const lines = ["configure", `hostname ${device.name}`];
   for (const port of model.ports) {
     const ipv4 = config?.interfaces[port.id]?.ipv4;
-    if (!ipv4) continue;
-    lines.push(`interface ${port.id}`, `address ${ipv4.address}/${String(ipv4.prefixLength)}`, "exit");
+    if (ipv4) lines.push(`interface ${port.id}`, `address ${ipv4.address}/${String(ipv4.prefixLength)}`, "exit");
+    // Sous-interfaces 802.1Q du port, par VLAN croissant.
+    const subinterfaces = Object.entries(config?.interfaces ?? {})
+      .flatMap(([id, value]) => {
+        const sub = parseSubinterface(id);
+        return sub?.parent === port.id && value.ipv4 ? [{ id, vlan: sub.vlan, ipv4: value.ipv4 }] : [];
+      })
+      .sort((a, b) => a.vlan - b.vlan);
+    for (const sub of subinterfaces) lines.push(`interface ${sub.id}`, `address ${sub.ipv4.address}/${String(sub.ipv4.prefixLength)}`, "exit");
+    const switchport = config?.switchports[port.id];
+    if (switchport?.mode === "access") lines.push(`interface ${port.id}`, `access vlan ${String(switchport.vlan)}`, "exit");
+    if (switchport?.mode === "trunk") {
+      lines.push(`interface ${port.id}`, ["trunk", `native ${String(switchport.nativeVlan)}`, `allowed ${formatVlanList(switchport.allowedVlans)}`].join(" "), "exit");
+    }
   }
   for (const route of config?.staticRoutes ?? []) {
     lines.push(`route add ${route.destination}/${String(route.prefixLength)} via ${route.nextHop}`);

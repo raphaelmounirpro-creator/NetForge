@@ -2,7 +2,7 @@
 // scénarios versionnés du moteur. Usage : pnpm build:packages, puis
 // node apps/web/e2e/fixtures/generate.mjs (un test unitaire vérifie la synchronisation).
 import { writeFileSync } from "node:fs";
-import { ftthScenario, performanceScenario, routedScenario, switchLoopScenario, twoRoutersScenario } from "@netforge/engine";
+import { ftthScenario, performanceScenario, routedScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "@netforge/engine";
 import { serializeNfg } from "@netforge/project";
 
 const fixtures = {
@@ -11,6 +11,7 @@ const fixtures = {
   "perf-100.nfg.json": performanceScenario(),
   "switch-loop.nfg.json": switchLoopScenario(),
   "ftth.nfg.json": ftthScenario(),
+  "vlan.nfg.json": vlanScenario(),
 };
 
 for (const [name, doc] of Object.entries(fixtures)) {

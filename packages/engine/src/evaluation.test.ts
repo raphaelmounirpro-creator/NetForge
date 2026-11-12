@@ -1,8 +1,8 @@
-import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setInterfaceIpv4, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setInterfaceIpv4, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
-import { ftthScenario, performanceScenario, switchLoopScenario, twoRoutersScenario } from "./scenarios.js";
+import { ftthScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
 
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(result.errors.map((issue) => issue.code).join(", "));
@@ -164,6 +164,15 @@ describe("fonctions autorisées", () => {
   it("acceptent ces changements quand l'exercice les autorise", () => {
     const readdressed = ok(setInterfaceIpv4(exactRoute, { deviceId: "pc2", portId: "eth0", ipv4: { address: "10.0.2.20", prefixLength: 24 } }));
     expect(forbiddenChanges(start, readdressed, ["routes", "addressing"])).toEqual([]);
+  });
+
+  it("ne laissent modifier les VLAN des ports de switch qu'avec « vlans » ; les sous-interfaces relèvent de l'adressage", () => {
+    const start = vlanScenario();
+    const moved = ok(setSwitchport(start, { deviceId: "sw1", portId: "ge1", switchport: { mode: "access", vlan: 20 } }));
+    expect(forbiddenChanges(start, moved, ["simulation", "addressing"])).toEqual(["vlans"]);
+    expect(forbiddenChanges(start, moved, ["vlans"])).toEqual([]);
+    const subinterface = ok(setInterfaceIpv4(start, { deviceId: "r1", portId: "ge0.30", ipv4: { address: "192.168.30.1", prefixLength: 24 } }));
+    expect(forbiddenChanges(start, subinterface, ["vlans"])).toEqual(["addressing"]);
   });
 
   it("n'autorisent le retrait d'une panne optique qu'avec « optics », et jamais son ajout ou sa modification", () => {

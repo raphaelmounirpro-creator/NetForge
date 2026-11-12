@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "models": {
     "catalog": 2
   },
@@ -109,12 +109,14 @@
         }
       },
       "defaultGateway": "192.168.1.1",
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw1": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "r1": {
       "interfaces": {
@@ -132,12 +134,14 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw2": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc2": {
       "interfaces": {
@@ -149,7 +153,8 @@
         }
       },
       "defaultGateway": "192.168.2.1",
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     }
   },
   "faults": [],

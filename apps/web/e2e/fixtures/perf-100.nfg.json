@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "models": {
     "catalog": 2
   },
@@ -1907,12 +1907,14 @@
     "sw0": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw1": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc1": {
       "interfaces": {
@@ -1924,7 +1926,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc2": {
       "interfaces": {
@@ -1936,7 +1939,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc3": {
       "interfaces": {
@@ -1948,7 +1952,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc4": {
       "interfaces": {
@@ -1960,7 +1965,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc5": {
       "interfaces": {
@@ -1972,7 +1978,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc6": {
       "interfaces": {
@@ -1984,7 +1991,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc7": {
       "interfaces": {
@@ -1996,7 +2004,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc8": {
       "interfaces": {
@@ -2008,7 +2017,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc9": {
       "interfaces": {
@@ -2020,7 +2030,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc10": {
       "interfaces": {
@@ -2032,12 +2043,14 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw2": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc11": {
       "interfaces": {
@@ -2049,7 +2062,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc12": {
       "interfaces": {
@@ -2061,7 +2075,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc13": {
       "interfaces": {
@@ -2073,7 +2088,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc14": {
       "interfaces": {
@@ -2085,7 +2101,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc15": {
       "interfaces": {
@@ -2097,7 +2114,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc16": {
       "interfaces": {
@@ -2109,7 +2127,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc17": {
       "interfaces": {
@@ -2121,7 +2140,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc18": {
       "interfaces": {
@@ -2133,7 +2153,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc19": {
       "interfaces": {
@@ -2145,7 +2166,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc20": {
       "interfaces": {
@@ -2157,12 +2179,14 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw3": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc21": {
       "interfaces": {
@@ -2174,7 +2198,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc22": {
       "interfaces": {
@@ -2186,7 +2211,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc23": {
       "interfaces": {
@@ -2198,7 +2224,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc24": {
       "interfaces": {
@@ -2210,7 +2237,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc25": {
       "interfaces": {
@@ -2222,7 +2250,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc26": {
       "interfaces": {
@@ -2234,7 +2263,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc27": {
       "interfaces": {
@@ -2246,7 +2276,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc28": {
       "interfaces": {
@@ -2258,7 +2289,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc29": {
       "interfaces": {
@@ -2270,7 +2302,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc30": {
       "interfaces": {
@@ -2282,12 +2315,14 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw4": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc31": {
       "interfaces": {
@@ -2299,7 +2334,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc32": {
       "interfaces": {
@@ -2311,7 +2347,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc33": {
       "interfaces": {
@@ -2323,7 +2360,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc34": {
       "interfaces": {
@@ -2335,7 +2373,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc35": {
       "interfaces": {
@@ -2347,7 +2386,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc36": {
       "interfaces": {
@@ -2359,7 +2399,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc37": {
       "interfaces": {
@@ -2371,7 +2412,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc38": {
       "interfaces": {
@@ -2383,7 +2425,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc39": {
       "interfaces": {
@@ -2395,7 +2438,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc40": {
       "interfaces": {
@@ -2407,12 +2451,14 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw5": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc41": {
       "interfaces": {
@@ -2424,7 +2470,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc42": {
       "interfaces": {
@@ -2436,7 +2483,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc43": {
       "interfaces": {
@@ -2448,7 +2496,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc44": {
       "interfaces": {
@@ -2460,7 +2509,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc45": {
       "interfaces": {
@@ -2472,7 +2522,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc46": {
       "interfaces": {
@@ -2484,7 +2535,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc47": {
       "interfaces": {
@@ -2496,7 +2548,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc48": {
       "interfaces": {
@@ -2508,7 +2561,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc49": {
       "interfaces": {
@@ -2520,7 +2574,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc50": {
       "interfaces": {
@@ -2532,12 +2587,14 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw6": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc51": {
       "interfaces": {
@@ -2549,7 +2606,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc52": {
       "interfaces": {
@@ -2561,7 +2619,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc53": {
       "interfaces": {
@@ -2573,7 +2632,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc54": {
       "interfaces": {
@@ -2585,7 +2645,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc55": {
       "interfaces": {
@@ -2597,7 +2658,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc56": {
       "interfaces": {
@@ -2609,7 +2671,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc57": {
       "interfaces": {
@@ -2621,7 +2684,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc58": {
       "interfaces": {
@@ -2633,7 +2697,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc59": {
       "interfaces": {
@@ -2645,7 +2710,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc60": {
       "interfaces": {
@@ -2657,12 +2723,14 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw7": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc61": {
       "interfaces": {
@@ -2674,7 +2742,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc62": {
       "interfaces": {
@@ -2686,7 +2755,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc63": {
       "interfaces": {
@@ -2698,7 +2768,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc64": {
       "interfaces": {
@@ -2710,7 +2781,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc65": {
       "interfaces": {
@@ -2722,7 +2794,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc66": {
       "interfaces": {
@@ -2734,7 +2807,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc67": {
       "interfaces": {
@@ -2746,7 +2820,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc68": {
       "interfaces": {
@@ -2758,7 +2833,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc69": {
       "interfaces": {
@@ -2770,7 +2846,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc70": {
       "interfaces": {
@@ -2782,12 +2859,14 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw8": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc71": {
       "interfaces": {
@@ -2799,7 +2878,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc72": {
       "interfaces": {
@@ -2811,7 +2891,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc73": {
       "interfaces": {
@@ -2823,7 +2904,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc74": {
       "interfaces": {
@@ -2835,7 +2917,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc75": {
       "interfaces": {
@@ -2847,7 +2930,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc76": {
       "interfaces": {
@@ -2859,7 +2943,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc77": {
       "interfaces": {
@@ -2871,7 +2956,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc78": {
       "interfaces": {
@@ -2883,7 +2969,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc79": {
       "interfaces": {
@@ -2895,7 +2982,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc80": {
       "interfaces": {
@@ -2907,12 +2995,14 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "sw9": {
       "interfaces": {},
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc81": {
       "interfaces": {
@@ -2924,7 +3014,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc82": {
       "interfaces": {
@@ -2936,7 +3027,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc83": {
       "interfaces": {
@@ -2948,7 +3040,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc84": {
       "interfaces": {
@@ -2960,7 +3053,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc85": {
       "interfaces": {
@@ -2972,7 +3066,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc86": {
       "interfaces": {
@@ -2984,7 +3079,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc87": {
       "interfaces": {
@@ -2996,7 +3092,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc88": {
       "interfaces": {
@@ -3008,7 +3105,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc89": {
       "interfaces": {
@@ -3020,7 +3118,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     },
     "pc90": {
       "interfaces": {
@@ -3032,7 +3131,8 @@
         }
       },
       "defaultGateway": null,
-      "staticRoutes": []
+      "staticRoutes": [],
+      "switchports": {}
     }
   },
   "faults": [],

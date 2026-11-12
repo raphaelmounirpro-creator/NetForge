@@ -24,16 +24,20 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 |---|---|---|
 | Exploitation (`R1>`) | `show interfaces` | État des ports : MAC, IPv4, actif ou non |
 | | `show routes` (routeur) | Table de routage calculée (routes inactives comprises) |
-| | `show arp` (routeur) / `show mac` (switch) | Cache ARP / table MAC |
+| | `show arp` (routeur) / `show mac` (switch) | Cache ARP / table MAC (par VLAN) |
+| | `show vlans` (switch) | Ports d'accès par VLAN, puis trunks (VLAN natif, VLAN autorisés) |
 | | `show config` | Configuration réécrite en commandes (rejouable) |
 | | `clear arp` (routeur) / `clear mac` (switch) | Vide la table apprise |
 | | `configure` | Passe en mode configuration |
 | Configuration (`R1(config)>`) | `hostname <nom>` | Renomme l'équipement |
-| | `interface <port>` (routeur) | Passe en mode interface (`R1(config ge0)>`) |
+| | `interface <port>` | Passe en mode interface (`R1(config ge0)>`, `SW1(config ge1)>`) |
+| | `interface <port>.<vlan>` (routeur) | Sous-interface 802.1Q (`R1(config ge0.10)>`) : son numéro est le VLAN encapsulé |
 | | `route add <réseau>/<préfixe> via <prochain-saut>` | Ajoute une route statique (masque décimal accepté) |
 | | `route delete <réseau>/<préfixe>` | Retire une route statique |
 | Interface (`R1(config ge0)>`) | `address <adresse>/<préfixe>` ou `address <adresse> <masque>` | Adresse IPv4 du port |
 | | `address clear` | Retire l'adresse |
+| Interface d'un switch (`SW1(config ge1)>`) | `access vlan <vlan>` | Port d'accès dans le VLAN (1 à 4094 ; `access vlan 1` revient au défaut) |
+| | `trunk [native <vlan>] [allowed <liste>\|all]` | Trunk 802.1Q ; par défaut VLAN natif 1 et tous les VLAN autorisés ; liste : `10,20,30-35` |
 | Configuration et interface | `exit` / `end` | Remonte d'un niveau / revient en exploitation |
 
 `show …`, `help` et `cls` sont disponibles dans tous les modes.
@@ -51,5 +55,5 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 ## Limites
 
 - Pas de ping depuis un routeur ni de traceroute (prévus avec les outils de supervision).
-- Pas de VLAN, de description de port ni d'arrêt administratif d'interface (phase 7).
+- Pas de description de port ni d'arrêt administratif d'interface ; pas de base de VLAN ni de noms de VLAN ([protocols/vlan.md](protocols/vlan.md)).
 - La console n'est disponible que dans la vue Simulation.

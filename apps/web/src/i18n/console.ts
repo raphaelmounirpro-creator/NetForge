@@ -1,5 +1,5 @@
 import type { DeviceView } from "@netforge/engine";
-import { getModel, prefixToMask, type CliError, type CliHelpEntry, type NfgDocument } from "@netforge/project";
+import { formatVlanList, getModel, prefixToMask, switchportOf, type CliError, type CliHelpEntry, type NfgDocument } from "@netforge/project";
 import { fill, messages } from "./index";
 import { formatSimTime, type NameIndex } from "./simulation";
 
@@ -74,9 +74,29 @@ export function showArp(view: DeviceView, names: NameIndex): string[] {
 export function showMac(view: DeviceView, names: NameIndex): string[] {
   const c = t.columns;
   return table(
-    [c.mac, c.port, c.expires],
-    view.macTable.map((entry) => [names.mac(entry.mac), entry.portId, formatSimTime(entry.expiresAt)]),
+    [c.vlan, c.mac, c.port, c.expires],
+    view.macTable.map((entry) => [String(entry.vlan), names.mac(entry.mac), entry.portId, formatSimTime(entry.expiresAt)]),
   );
+}
+
+/** « show vlans » : ports d'accès par VLAN, puis trunks (configuration du projet). */
+export function showVlans(doc: NfgDocument, deviceId: string): string[] {
+  const device = doc.topology.devices.find((item) => item.id === deviceId);
+  if (!device) return [];
+  const c = t.columns;
+  const switchports = doc.configurations[deviceId]?.switchports;
+  const ports = getModel(device.model).ports.map((port) => ({ id: port.id, config: switchportOf(switchports, port.id) }));
+  const byVlan = new Map<number, string[]>();
+  for (const port of ports) {
+    if (port.config.mode !== "access") continue;
+    byVlan.set(port.config.vlan, [...(byVlan.get(port.config.vlan) ?? []), port.id]);
+  }
+  const access = table(
+    [c.vlan, c.ports],
+    [...byVlan.entries()].sort(([a], [b]) => a - b).map(([vlan, ids]) => [String(vlan), ids.join(", ")]),
+  );
+  const trunks = ports.flatMap((port) => (port.config.mode === "trunk" ? [[port.id, String(port.config.nativeVlan), formatVlanList(port.config.allowedVlans)]] : []));
+  return trunks.length === 0 ? access : [...access, "", ...table([c.trunk, c.native, c.allowed], trunks)];
 }
 
 /** « ipconfig » : configuration du projet et adresse MAC calculée par le moteur. */

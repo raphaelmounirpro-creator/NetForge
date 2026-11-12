@@ -28,6 +28,11 @@ export const TRACE_CODES = [
   "switch.filter",
   "switch.expire",
   "switch.flush",
+  // VLAN 802.1Q
+  "vlan.tagged-dropped",
+  "vlan.not-allowed",
+  "vlan.no-subinterface",
+  "nic.tagged-dropped",
   // ARP
   "arp.cache-hit",
   "arp.cache-miss",

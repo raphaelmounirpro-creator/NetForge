@@ -7,6 +7,7 @@ import {
   setDefaultGateway,
   setFiber,
   setInterfaceIpv4,
+  setSwitchport,
   type CommandResult,
   type DeviceModelId,
   type FaultKind,
@@ -67,6 +68,18 @@ export class ScenarioBuilder {
   route(deviceId: string, cidr: string, nextHop: string): this {
     const [destination = "", prefix = "0"] = cidr.split("/");
     this.doc = ok(addStaticRoute(this.doc, { deviceId, route: { destination, prefixLength: Number(prefix), nextHop } }));
+    return this;
+  }
+
+  /** Port de switch en accès dans un VLAN. */
+  access(deviceId: string, portId: string, vlan: number): this {
+    this.doc = ok(setSwitchport(this.doc, { deviceId, portId, switchport: { mode: "access", vlan } }));
+    return this;
+  }
+
+  /** Port de switch en trunk 802.1Q. */
+  trunk(deviceId: string, portId: string, allowedVlans: "all" | number[] = "all", nativeVlan = 1): this {
+    this.doc = ok(setSwitchport(this.doc, { deviceId, portId, switchport: { mode: "trunk", nativeVlan, allowedVlans } }));
     return this;
   }
 
@@ -165,6 +178,54 @@ export function twoRoutersScenario(options: { r1Route?: boolean; r2Route?: boole
   if (options.r1Route ?? true) builder.route("r1", "10.0.2.0/24", "10.0.12.2");
   if (options.r2Route ?? true) builder.route("r2", "10.0.1.0/24", "10.0.12.1");
   return builder.build();
+}
+
+export const VLAN_SCENARIO = {
+  /** VLAN 10 : PC1 (SW1) et PC3 (SW2) ; VLAN 20 : PC2 (SW1) ; PC4 en VLAN 20 mais adressé dans le réseau du VLAN 10. */
+  pc1: "192.168.10.11",
+  pc2: "192.168.20.12",
+  pc3: "192.168.10.13",
+  pc4: "192.168.10.14",
+} as const;
+
+/**
+ * VLAN et routage inter-VLAN (« router-on-a-stick ») : SW1 et SW2 reliés par
+ * un trunk (l5, VLAN 10 et 20 autorisés) ; R1 relié à SW1 par un trunk (l6)
+ * avec les sous-interfaces ge0.10 et ge0.20. PC4, en VLAN 20, porte une
+ * adresse du réseau du VLAN 10 : ses diffusions ARP restent dans le VLAN 20.
+ */
+export function vlanScenario(options: { trunkAllowed?: "all" | number[] } = {}): NfgDocument {
+  return new ScenarioBuilder("scenario-vlan", "VLAN et routage inter-VLAN")
+    .device("pc1", "PC", 100, 380)
+    .device("pc2", "PC", 260, 380)
+    .device("sw1", "S-24", 180, 220)
+    .device("sw2", "S-24", 500, 220)
+    .device("pc3", "PC", 440, 380)
+    .device("pc4", "PC", 580, 380)
+    .device("r1", "R-200", 180, 60)
+    .link("pc1", "eth0", "sw1", "ge1")
+    .link("pc2", "eth0", "sw1", "ge2")
+    .link("pc3", "eth0", "sw2", "ge1")
+    .link("pc4", "eth0", "sw2", "ge2")
+    .link("sw1", "ge24", "sw2", "ge24")
+    .link("r1", "ge0", "sw1", "ge23")
+    .access("sw1", "ge1", 10)
+    .access("sw1", "ge2", 20)
+    .access("sw2", "ge1", 10)
+    .access("sw2", "ge2", 20)
+    .trunk("sw1", "ge24", options.trunkAllowed ?? [10, 20])
+    .trunk("sw2", "ge24", options.trunkAllowed ?? [10, 20])
+    .trunk("sw1", "ge23", [10, 20])
+    .ip("r1", "ge0.10", "192.168.10.1/24")
+    .ip("r1", "ge0.20", "192.168.20.1/24")
+    .ip("pc1", "eth0", `${VLAN_SCENARIO.pc1}/24`)
+    .ip("pc2", "eth0", `${VLAN_SCENARIO.pc2}/24`)
+    .ip("pc3", "eth0", `${VLAN_SCENARIO.pc3}/24`)
+    .ip("pc4", "eth0", `${VLAN_SCENARIO.pc4}/24`)
+    .gateway("pc1", "192.168.10.1")
+    .gateway("pc2", "192.168.20.1")
+    .gateway("pc3", "192.168.10.1")
+    .build();
 }
 
 /**

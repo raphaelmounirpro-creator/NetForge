@@ -8,6 +8,7 @@ import {
   renameDevice,
   renameProject,
   setDefaultGateway,
+  switchportOf,
   validateDocument,
   type Device,
   type Issue,
@@ -22,6 +23,8 @@ import { useLabStore, type OpenProject } from "../store";
 import { ConnectForm } from "./ConnectForm";
 import { FiberForm } from "./FiberForm";
 import { Ipv4Form } from "./Ipv4Form";
+import { SubinterfacesSection } from "./SubinterfacesSection";
+import { SwitchportForm } from "./SwitchportForm";
 import { RoutesTab } from "./RoutesTab";
 import { SingleFieldForm } from "./SingleFieldForm";
 
@@ -156,6 +159,16 @@ function InterfacesTab({ projectId, project, device }: { projectId: string; proj
                     <span className="text-xs text-text-muted">{t.free}</span>
                   )}
                 </div>
+                {model.kind === "switch" && (
+                  <SwitchportForm
+                    key={`${port.id}:${JSON.stringify(switchportOf(config?.switchports, port.id))}`}
+                    projectId={projectId}
+                    deviceId={device.id}
+                    portId={port.id}
+                    current={switchportOf(config?.switchports, port.id)}
+                    disabled={!editable}
+                  />
+                )}
                 {model.ipCapable && (
                   <Ipv4Form
                     key={`${port.id}:${ipv4 ? `${ipv4.address}/${String(ipv4.prefixLength)}` : "-"}`}
@@ -171,6 +184,7 @@ function InterfacesTab({ projectId, project, device }: { projectId: string; proj
           );
         })}
       </ul>
+      {model.kind === "router" && <SubinterfacesSection projectId={projectId} doc={doc} device={device} disabled={!editable} />}
       {model.kind === "pc" && (
         <SingleFieldForm
           key={config?.defaultGateway ?? "-"}

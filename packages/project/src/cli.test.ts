@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cliPrompt, complete, configurationCommands, interpret, OPERATION_MODE, type CliMode, type CliResult } from "./cli.js";
-import { addStaticRoute, connectDevices, setDefaultGateway, setInterfaceIpv4, type CommandResult } from "./commands.js";
+import { addStaticRoute, connectDevices, setDefaultGateway, setInterfaceIpv4, setSwitchport, type CommandResult } from "./commands.js";
 import type { NfgDocument } from "./schema.js";
 import { expectOk, projectWith } from "./test-helpers.js";
 
@@ -46,7 +46,7 @@ describe("console : mêmes commandes métier que les formulaires", () => {
     let viaForm = expectOk(setInterfaceIpv4(base(), { deviceId: "pc1", portId: "eth0", ipv4: { address: "192.168.1.10", prefixLength: 24 } }));
     viaForm = expectOk(setDefaultGateway(viaForm, { deviceId: "pc1", gateway: "192.168.1.1" }));
     expect(viaCli).toEqual(viaForm);
-    expect(session(viaCli, "pc1", ["ipconfig clear"]).doc.configurations["pc1"]).toEqual({ interfaces: {}, defaultGateway: null, staticRoutes: [] });
+    expect(session(viaCli, "pc1", ["ipconfig clear"]).doc.configurations["pc1"]).toEqual({ interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {} });
   });
 
   it("refuse avec les mêmes validations que les formulaires", () => {
@@ -199,5 +199,47 @@ describe("console : configuration réécrite en commandes", () => {
   it("réécrit la configuration d'un PC en une ligne ipconfig", () => {
     const configured = session(base(), "pc1", ["ipconfig set 192.168.1.10/24 192.168.1.1"]).doc;
     expect(configurationCommands(configured, "pc1")).toEqual(["ipconfig set 192.168.1.10 255.255.255.0 192.168.1.1"]);
+  });
+});
+
+describe("console : VLAN", () => {
+  it("port d'accès et trunk : documents identiques à ceux des formulaires", () => {
+    const viaCli = session(base(), "sw1", ["configure", "interface ge1", "access vlan 10", "exit", "interface ge24", "trunk native 99 allowed 20,10,30-31", "end"]).doc;
+    let viaForms = expectOk(setSwitchport(base(), { deviceId: "sw1", portId: "ge1", switchport: { mode: "access", vlan: 10 } }));
+    viaForms = expectOk(setSwitchport(viaForms, { deviceId: "sw1", portId: "ge24", switchport: { mode: "trunk", nativeVlan: 99, allowedVlans: [10, 20, 30, 31] } }));
+    expect(viaCli.configurations["sw1"]).toEqual(viaForms.configurations["sw1"]);
+    // « trunk » seul : VLAN natif 1, tous les VLAN autorisés.
+    const plain = session(base(), "sw1", ["configure", "interface ge2", "trunk"]).doc;
+    expect(plain.configurations["sw1"]?.switchports["ge2"]).toEqual({ mode: "trunk", nativeVlan: 1, allowedVlans: "all" });
+  });
+
+  it("sous-interface de routeur : invite, adresse, document identique au formulaire", () => {
+    const run = session(base(), "r1", ["configure", "interface ge0.10", "address 192.168.10.1/24"]);
+    const router = base().topology.devices.find((device) => device.id === "r1");
+    if (!router) throw new Error("routeur attendu");
+    expect(cliPrompt(router, run.mode)).toBe("R1(config ge0.10)>");
+    const viaForm = expectOk(setInterfaceIpv4(base(), { deviceId: "r1", portId: "ge0.10", ipv4: { address: "192.168.10.1", prefixLength: 24 } }));
+    expect(run.doc.configurations["r1"]).toEqual(viaForm.configurations["r1"]);
+  });
+
+  it("refuse un VLAN invalide, un mot inattendu et une sous-interface sur un switch", () => {
+    const badVlan = session(base(), "sw1", ["configure", "interface ge1", "access vlan 5000"]).last;
+    expect(badVlan.ok ? null : badVlan.issues.map((issue) => issue.code)).toEqual(["vlan.invalid-id"]);
+    expect(errorOf(session(base(), "sw1", ["configure", "interface ge1", "trunk natif 10"]).last)?.code).toBe("cli.unexpected-argument");
+    expect(errorOf(session(base(), "sw1", ["configure", "interface ge1", "trunk allowed"]).last)?.code).toBe("cli.missing-argument");
+    expect(errorOf(session(base(), "sw1", ["configure", "interface ge1.10"]).last)?.code).toBe("cli.unknown-port");
+    expect(interpret(base(), "sw1", OPERATION_MODE, "show vlans")).toMatchObject({ ok: true, request: { kind: "show-vlans" } });
+  });
+
+  it("rejouer la configuration d'un switch et d'un routeur à sous-interfaces redonne la même configuration", () => {
+    const configured = session(base(), "sw1", ["configure", "interface ge1", "access vlan 10", "exit", "interface ge24", "trunk native 99 allowed 10,20", "end"]).doc;
+    const commands = configurationCommands(configured, "sw1");
+    expect(commands).toEqual(["configure", "hostname SW1", "interface ge1", "access vlan 10", "exit", "interface ge24", "trunk native 99 allowed 10,20", "exit", "end"]);
+    expect(session(base(), "sw1", commands).doc.configurations["sw1"]).toEqual(configured.configurations["sw1"]);
+
+    const router = session(base(), "r1", ["configure", "interface ge0.20", "address 192.168.20.1/24", "exit", "interface ge0.10", "address 192.168.10.1/24", "end"]).doc;
+    const routerCommands = configurationCommands(router, "r1");
+    expect(routerCommands.slice(2, 8)).toEqual(["interface ge0.10", "address 192.168.10.1/24", "exit", "interface ge0.20", "address 192.168.20.1/24", "exit"]);
+    expect(session(base(), "r1", routerCommands).doc.configurations["r1"]).toEqual(router.configurations["r1"]);
   });
 });

@@ -1,5 +1,5 @@
 import { ftthScenario, lanScenario } from "@netforge/engine";
-import { parseNfgValue, renameProject, serializeNfg, type NfgDocument } from "@netforge/project";
+import { CURRENT_SCHEMA_VERSION, parseNfgValue, renameProject, serializeNfg, type NfgDocument } from "@netforge/project";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Browser, expectStatus, signedIn, startTestApp, type TestApp } from "../test-support/test-app.js";
 
@@ -105,7 +105,7 @@ describe("projets du compte", () => {
     const read = await browser.get(`/api/projects/${ID_A}`);
     expect(read.headers["content-type"]).toMatch(/^application\/json/);
     expect(read.headers["x-content-type-options"]).toBe("nosniff");
-    expect((read.body as { document: NfgDocument }).document.schemaVersion).toBe(4);
+    expect((read.body as { document: NfgDocument }).document.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect((read.body as { document: NfgDocument }).document.metadata.name).toBe("<img src=x onerror=alert(1)>");
   });
 

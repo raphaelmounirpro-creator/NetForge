@@ -55,6 +55,21 @@ function migrateV3toV4(doc: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * Version 4 → 5 : VLAN. Chaque configuration reçoit une table de ports de
+ * switch vide : tous les ports restent en accès dans le VLAN 1, comportement
+ * identique à la version 4.
+ */
+function migrateV4toV5(doc: Record<string, unknown>): Record<string, unknown> {
+  const configurations = doc["configurations"];
+  if (!isRecord(configurations)) return { ...doc, schemaVersion: 5 };
+  const migrated: Record<string, unknown> = {};
+  for (const [id, config] of Object.entries(configurations)) {
+    migrated[id] = isRecord(config) ? { ...config, switchports: config["switchports"] ?? {} } : config;
+  }
+  return { ...doc, schemaVersion: 5, configurations: migrated };
+}
+
+/**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
  */
@@ -62,6 +77,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   1: migrateV1toV2,
   2: migrateV2toV3,
   3: migrateV3toV4,
+  4: migrateV4toV5,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

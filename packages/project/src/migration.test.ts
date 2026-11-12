@@ -34,16 +34,17 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 4", () => {
+describe("migration du format version 1 → 5", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(4);
+    expect(result.document.schemaVersion).toBe(5);
     expect(result.document.models).toEqual({ catalog: 2 });
     expect(result.document.faults).toEqual([]);
-    expect(result.document.configurations["pc1"]).toEqual({ ...versionOne.configurations.pc1, staticRoutes: [] });
-    expect(result.document.configurations["r1"]).toEqual({ ...versionOne.configurations.r1, staticRoutes: [] });
+    // Routes (v2) et ports de switch (v5) vides : tous les ports restent en accès dans le VLAN 1.
+    expect(result.document.configurations["pc1"]).toEqual({ ...versionOne.configurations.pc1, staticRoutes: [], switchports: {} });
+    expect(result.document.configurations["r1"]).toEqual({ ...versionOne.configurations.r1, staticRoutes: [], switchports: {} });
     // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre.
     expect(result.document.topology).toEqual({
       ...versionOne.topology,
@@ -102,10 +103,29 @@ describe("migration du format version 1 → 4", () => {
     const result = parseNfgValue(versionThree);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(4);
+    expect(result.document.schemaVersion).toBe(5);
     expect(result.document.models.catalog).toBe(2);
     expect(result.document.topology.links[0]?.fiber).toBeNull();
     expect(result.document.faults).toEqual([]);
+  });
+
+  it("migre un fichier version 4 en ajoutant des ports de switch vides (VLAN 1 partout)", () => {
+    const migrated = parseNfgValue(versionOne);
+    if (!migrated.ok) throw new Error("migration attendue");
+    const versionFour = {
+      ...migrated.document,
+      schemaVersion: 4,
+      configurations: Object.fromEntries(Object.entries(migrated.document.configurations).map(([id, { switchports: _ports, ...config }]) => [id, config])),
+    };
+    const result = parseNfgValue(versionFour);
+    expect(result.ok && result.document).toEqual(migrated.document);
+  });
+
+  it("refuse une version 5 sans table de ports de switch", () => {
+    const migrated = parseNfgValue(versionOne);
+    if (!migrated.ok) throw new Error("migration attendue");
+    const configurations = Object.fromEntries(Object.entries(migrated.document.configurations).map(([id, { switchports: _ports, ...config }]) => [id, config]));
+    expect(errorCodes({ ...migrated.document, configurations })).toEqual(["import.schema", "import.schema"]);
   });
 
   it("refuse une version 4 sans liste de pannes ni propriété de fibre", () => {

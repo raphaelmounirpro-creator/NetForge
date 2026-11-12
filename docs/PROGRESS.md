@@ -10,6 +10,42 @@ Détail des preuves : commits `6b49de3` à `aff43fc`. Limites restantes : Docker
 
 Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests unitaires seulement ; éditeur prévu pour ≥ 1 024 px.
 
+## Phase active : 7 — Commutation avancée et services IP de base
+
+**État : en cours (démarrée le 2026-11-12).** Tranche 1 (VLAN) terminée et vérifiée ; tranche 2 (STP) en cours.
+
+### Périmètre retenu
+
+La ligne « phase 7 » de la feuille de route (P-01, P-02, P-03, P-06) couvre une dizaine de protocoles : elle est découpée (spécification §17, « ne pas développer un module entier sans découpage »). Chaque tranche est livrée complète (format, moteur, console et formulaires équivalents, observation, documentation de protocole, tests) avant la suivante.
+
+- Dépend de : phases 2 et 3 (moteur Ethernet/ARP/IPv4, console, inspecteur), phase 1 (format et commandes).
+- Inclus, dans l'ordre :
+  1. **VLAN 802.1Q** : ports d'accès et trunks (VLAN natif, VLAN autorisés), tables MAC par VLAN, diffusion limitée au VLAN, étiquette 802.1Q visible dans l'inspecteur, routage inter-VLAN par sous-interfaces de routeur (« router-on-a-stick »). Format .nfg.json version 5 (migration explicite).
+  2. **STP** (802.1D, sous-ensemble pédagogique) : élection de la racine par BPDU, coûts, rôles et états des ports, blocage d'une boucle, reconvergence après une coupure.
+  3. **DHCP** : serveur sur routeur (plages, passerelle, durée de bail), postes en adressage automatique, échange DORA dans le journal, table des baux.
+  4. **DNS minimal** (si les tranches précédentes sont terminées) : noms enregistrés sur un serveur, résolution par les postes.
+- Exclus (restent dans la feuille de route) : RSTP, agrégation, LLDP, sécurité de port, VTP, VLAN voix ; IPv6 (P-02) ; relais DHCP ; HTTP/HTTPS, FTP/TFTP, SMTP/POP3, Syslog, NTP, SSH, SNMP ; traceroute, Wi-Fi et clients applicatifs (P-06).
+- Données : aucune donnée personnelle ; projets enrichis (configuration de ports de commutateur, sous-interfaces, puis STP et DHCP).
+
+### Scénarios d'acceptation
+
+| Tranche | Critère | État |
+|---|---|---|
+| VLAN | Deux postes du même réseau IP mais de VLAN différents ne communiquent pas (l'ARP reste dans son VLAN) | atteint : `vlan.test.ts` (aucune requête ARP reçue par PC1, diffusions limitées au VLAN 20) |
+| VLAN | Un même VLAN traverse deux commutateurs par un trunk ; VLAN natif sans étiquette ; VLAN non autorisé bloqué | atteint : `vlan.test.ts` (trames étiquetées sur le trunk seulement, natif sans étiquette, `vlan.not-allowed`) |
+| VLAN | Routage inter-VLAN par sous-interfaces : un poste du VLAN 10 joint un poste du VLAN 20 | atteint : `vlan.test.ts`, `vlan.spec.ts` (ping réussi dans le navigateur) |
+| VLAN | Tables MAC par VLAN observables ; étiquette 802.1Q dans l'inspecteur ; console et formulaires équivalents | atteint : `vlan.test.ts` (même MAC dans deux VLAN), `cli.test.ts` (documents identiques, configuration rejouée), `vlan.spec.ts` (inspecteur « TPID 0x8100, VID 10 », formulaire puis `show vlans`) |
+| VLAN | Projets version 4 migrés : comportement inchangé (tous les ports en VLAN 1) | atteint : migration testée ; 117 tests du moteur antérieurs inchangés ; parcours navigateur existants réussis |
+| STP | La boucle de commutation de référence converge sans tempête ; un port bloqué ; le ping réussit ; reconvergence après coupure | ouvert |
+| DHCP | Un poste obtient adresse et passerelle ; DORA observable ; plage épuisée signalée | ouvert |
+
+### Vérifications de la tranche VLAN (2026-11-12, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- `pnpm check` : lint, typecheck, **368 tests** (format 116, moteur 127, interface 70, contrats 2, API 53) et builds réussis.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **24 parcours** réussis (dont `vlan.spec.ts`) ; `pnpm test:e2e:accounts` : **5 parcours** réussis.
+- Inspection visuelle (Edge, 1440 px) : formulaires de port de switch et de sous-interfaces, canevas annoté. Défaut trouvé et corrigé : étiquettes de port annotées qui couvraient le nom du switch (éloignées du symbole).
+- Défauts trouvés par les tests et corrigés : configuration vide d'un équipement ajouté comptée comme changement d'adressage (évaluations) ; ports de switch non protégés par les fonctions autorisées des évaluations (fonction « vlans », correcteur version 2) ; test d'API qui attendait la version 4 du format en dur.
+
 ## Phase 6 — Exercices éditables et notes vérifiées : validée par le propriétaire (2026-11-12)
 
 **État : terminée et validée le 2026-11-12, déployée le même jour.** Tous les critères de la phase sont vérifiés localement (moteur, API sur PostgreSQL réel, parcours navigateur). Production : migration additive appliquée à la base Neon par le build de prévisualisation ; prévisualisation puis https://netforge-amber.vercel.app vérifiées (base prête, sécurité inchangée, nouvelles routes protégées : 401 sans session ; pages Parcours, /exercices et /evaluation/… sans erreur ni violation de la politique de contenu dans Edge). Parcours connecté complet non rejoué en production (comptes de test impossibles sans boîte de courrier lisible) : vérifié en local de bout en bout.

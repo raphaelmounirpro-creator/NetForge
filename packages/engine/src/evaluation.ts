@@ -14,9 +14,10 @@ import { createSimulation } from "./simulation.js";
  * une note.
  *
  * EVALUATOR_VERSION change dès qu'une même soumission peut recevoir une note
- * différente (règles de notation, limites, moteur).
+ * différente (règles de notation, limites, moteur). Version 2 : VLAN (format
+ * v5) et fonction autorisée « vlans » pour la configuration des ports de switch.
  */
-export const EVALUATOR_VERSION = 1;
+export const EVALUATOR_VERSION = 2;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */
@@ -29,7 +30,7 @@ export const EVALUATION_LIMITS = {
 } as const;
 
 /** Fonctions autorisées qui correspondent à des modifications du projet (les autres sont des moyens d'agir). */
-export const GUARDED_FUNCTIONS = ["topology", "addressing", "routes", "optics"] as const;
+export const GUARDED_FUNCTIONS = ["topology", "addressing", "routes", "optics", "vlans"] as const;
 export type GuardedFunction = (typeof GUARDED_FUNCTIONS)[number];
 /** Modification refusée : une fonction non autorisée, ou des pannes ajoutées ou modifiées (jamais permis). */
 export type ForbiddenChange = GuardedFunction | "faults";
@@ -119,7 +120,7 @@ const publicExerciseSchema = z.strictObject({
   level: z.enum(["beginner", "intermediate", "advanced"]),
   objective: shortText,
   statement: shortText,
-  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics"])).max(6),
+  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics", "vlans"])).max(7),
   project: z.unknown(),
   steps: z.array(publicStepSchema).min(1).max(12),
   hintCount: z.int().min(0).max(5),
@@ -192,6 +193,15 @@ function addressingOf(doc: NfgDocument): string {
   return stable(devices.filter((device) => device.addresses.length > 0));
 }
 
+/** Ports de switch configurés (accès dans un VLAN autre que 1, trunks). */
+function vlansOf(doc: NfgDocument): string {
+  return stable(
+    sortedEntries(doc.configurations)
+      .filter(([, config]) => Object.keys(config.switchports).length > 0)
+      .map(([id, config]) => [id, sortedEntries(config.switchports)]),
+  );
+}
+
 function routesOf(doc: NfgDocument): string {
   return stable(
     sortedEntries(doc.configurations)
@@ -202,7 +212,8 @@ function routesOf(doc: NfgDocument): string {
 
 /**
  * Modifications du projet soumis qui dépassent les fonctions autorisées.
- * Noms, disposition, notes et métadonnées restent libres. « optics » permet
+ * Noms, disposition, notes et métadonnées restent libres. Les sous-interfaces
+ * relèvent de l'adressage ; les ports de switch (accès, trunk) de « vlans ». « optics » permet
  * de retirer des pannes (interventions), jamais d'en ajouter ou d'en modifier.
  */
 export function forbiddenChanges(initial: NfgDocument, submitted: NfgDocument, allowed: readonly string[]): ForbiddenChange[] {
@@ -210,6 +221,7 @@ export function forbiddenChanges(initial: NfgDocument, submitted: NfgDocument, a
   if (!allowed.includes("topology") && topologyOf(initial) !== topologyOf(submitted)) violations.push("topology");
   if (!allowed.includes("addressing") && addressingOf(initial) !== addressingOf(submitted)) violations.push("addressing");
   if (!allowed.includes("routes") && routesOf(initial) !== routesOf(submitted)) violations.push("routes");
+  if (!allowed.includes("vlans") && vlansOf(initial) !== vlansOf(submitted)) violations.push("vlans");
   const initialFaults = new Map(initial.faults.map((fault) => [fault.id, stable(fault)]));
   if (submitted.faults.some((fault) => initialFaults.get(fault.id) !== stable(fault))) violations.push("faults");
   else if (submitted.faults.length !== initial.faults.length && !allowed.includes("optics")) violations.push("optics");

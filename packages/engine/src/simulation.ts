@@ -1,4 +1,4 @@
-import { formatIpv4, parseIpv4, unassignableReason, validateDocument, type Issue, type NfgDocument } from "@netforge/project";
+import { carriesVlan, DEFAULT_SWITCHPORT, formatIpv4, parseIpv4, unassignableReason, validateDocument, type Issue, type NfgDocument } from "@netforge/project";
 import type { CommandErrorCode, CommandOutcome, SimCommand } from "./commands.js";
 import { BROADCAST_MAC, type MacAddress } from "./mac.js";
 import { buildNetwork, isPortUp, peerOf, type RuntimeDevice, type RuntimeNetwork, type RuntimePort } from "./network.js";
@@ -44,7 +44,7 @@ type EventValue =
       readonly exchange: string | null;
     }
   | { readonly type: "loopback"; readonly deviceId: string; readonly packet: Ipv4Packet; readonly exchange: string | null }
-  | { readonly type: "mac-aging"; readonly deviceId: string; readonly mac: MacAddress }
+  | { readonly type: "mac-aging"; readonly deviceId: string; readonly key: string }
   | { readonly type: "arp-expiry"; readonly deviceId: string; readonly key: string }
   | { readonly type: "arp-retry"; readonly deviceId: string; readonly key: string }
   | { readonly type: "ping-send"; readonly sessionId: string }
@@ -59,7 +59,10 @@ interface QueuedEvent {
 
 // ---------------------------------------------------------------- État des équipements
 
+/** Entrée de table MAC, propre à un VLAN (clé « vlan|mac »). */
 interface MacEntry {
+  readonly vlan: number;
+  readonly mac: MacAddress;
   portId: string;
   updatedAt: SimTime;
 }
@@ -90,9 +93,11 @@ interface PendingResolution {
   readonly queue: QueuedPacket[];
 }
 
+const macKey = (vlan: number, mac: MacAddress): string => `${String(vlan)}|${mac}`;
+
 interface DeviceState {
-  readonly macTable: Map<MacAddress, MacEntry>;
-  readonly macTimers: Set<MacAddress>;
+  readonly macTable: Map<string, MacEntry>;
+  readonly macTimers: Set<string>;
   readonly arp: Map<string, ArpEntry>;
   readonly arpTimers: Set<string>;
   readonly pending: Map<string, PendingResolution>;
@@ -490,7 +495,7 @@ export class Simulation {
         return;
       }
       case "mac-aging":
-        this.onMacAging(value.deviceId, value.mac);
+        this.onMacAging(value.deviceId, value.key);
         return;
       case "arp-expiry":
         this.onArpExpiry(value.deviceId, value.key);
@@ -622,9 +627,9 @@ export class Simulation {
       if (!up && device.kind === "switch") {
         const state = this.state(device.id);
         let count = 0;
-        for (const [mac, entry] of state.macTable) {
+        for (const [key, entry] of state.macTable) {
           if (entry.portId === end.portId) {
-            state.macTable.delete(mac);
+            state.macTable.delete(key);
             count += 1;
           }
         }
@@ -635,8 +640,27 @@ export class Simulation {
 
   // ---------------------------------------------------------------- Couche liaison
 
-  /** Émet une trame sur un port : sérialisation à la vitesse du lien puis propagation. */
-  private transmit(device: RuntimeDevice, port: RuntimePort, frame: EthernetFrame, exchange: string | null): boolean {
+  /**
+   * Étiquette 802.1Q posée à l'émission : sous-interface de routeur → son
+   * VLAN ; port de switch en trunk → VLAN de la trame sauf VLAN natif ;
+   * sinon aucune (accès, PC, port physique de routeur).
+   */
+  private tagFor(device: RuntimeDevice, port: RuntimePort, vlan: number | null): number | null {
+    if (device.kind !== "switch") return port.vlan;
+    const switchport = port.switchport;
+    return switchport?.mode === "trunk" && vlan !== null && vlan !== switchport.nativeVlan ? vlan : null;
+  }
+
+  /**
+   * Émet une trame sur un port : sérialisation à la vitesse du lien puis
+   * propagation. Une sous-interface émet sur son port physique. `vlan` : VLAN
+   * de la trame dans un switch (étiquette des trunks).
+   */
+  private transmit(device: RuntimeDevice, logical: RuntimePort, untagged: EthernetFrame, exchange: string | null, vlan: number | null = null): boolean {
+    const port = logical.parent === null ? logical : (device.portById.get(logical.parent) ?? logical);
+    const tag = this.tagFor(device, logical, vlan);
+    const { vlan: _previous, ...bare } = untagged;
+    const frame: EthernetFrame = tag === null ? bare : { ...bare, vlan: tag };
     const where = { device, port, exchange, pdu: frame };
     if (port.linkId === null) {
       this.emit("eth.no-link", {}, where);
@@ -658,7 +682,7 @@ export class Simulation {
     const arrival = departure + serialization + this.parameters.propagationDelay;
     this.emit(
       "eth.transmit",
-      { linkId: link.id, toDeviceId: peer.deviceId, toPortId: peer.portId, bytes, departure, arrival },
+      { linkId: link.id, toDeviceId: peer.deviceId, toPortId: peer.portId, bytes, departure, arrival, vlan: tag },
       where,
     );
     this.schedule(arrival, { type: "frame", deviceId: peer.deviceId, portId: peer.portId, linkId: link.id, frame, exchange });
@@ -674,55 +698,86 @@ export class Simulation {
       return;
     }
     if (device.kind === "switch") {
-      this.switchFrame(device, port, frame, exchange);
+      const vlan = this.classify(device, port, frame, exchange);
+      if (vlan !== null) this.switchFrame(device, port, frame, exchange, vlan);
       return;
     }
-    if (frame.destination !== port.mac && frame.destination !== BROADCAST_MAC) {
-      this.emit("nic.filtered", { destination: frame.destination, own: port.mac }, { device, port, exchange, pdu: frame });
+    // Trame étiquetée : remise à la sous-interface du VLAN (routeur), sinon refusée.
+    let logical = port;
+    if (frame.vlan !== undefined) {
+      const sub = device.kind === "router" ? device.ports.find((item) => item.parent === port.portId && item.vlan === frame.vlan) : undefined;
+      if (!sub) {
+        this.emit(device.kind === "router" ? "vlan.no-subinterface" : "nic.tagged-dropped", { vlan: frame.vlan }, { device, port, exchange, pdu: frame });
+        return;
+      }
+      logical = sub;
+    }
+    if (frame.destination !== logical.mac && frame.destination !== BROADCAST_MAC) {
+      this.emit("nic.filtered", { destination: frame.destination, own: logical.mac }, { device, port: logical, exchange, pdu: frame });
       return;
     }
-    if (frame.payload.kind === "arp") this.onArp(device, port, frame.payload, exchange);
-    else this.onIpv4(device, port, frame.payload, exchange);
+    if (frame.payload.kind === "arp") this.onArp(device, logical, frame.payload, exchange);
+    else this.onIpv4(device, logical, frame.payload, exchange);
+  }
+
+  /**
+   * VLAN d'une trame entrant dans un switch (IEEE 802.1Q) : port d'accès →
+   * son VLAN (trame étiquetée refusée) ; trunk → étiquette, ou VLAN natif
+   * sans étiquette (VLAN non autorisé refusé). null : trame refusée.
+   */
+  private classify(device: RuntimeDevice, port: RuntimePort, frame: EthernetFrame, exchange: string | null): number | null {
+    const switchport = port.switchport ?? DEFAULT_SWITCHPORT;
+    const where = { device, port, exchange, pdu: frame };
+    if (switchport.mode === "access") {
+      if (frame.vlan === undefined) return switchport.vlan;
+      this.emit("vlan.tagged-dropped", { vlan: frame.vlan, accessVlan: switchport.vlan }, where);
+      return null;
+    }
+    const vlan = frame.vlan ?? switchport.nativeVlan;
+    if (carriesVlan(switchport, vlan)) return vlan;
+    this.emit("vlan.not-allowed", { vlan, tagged: frame.vlan !== undefined }, where);
+    return null;
   }
 
   // ---------------------------------------------------------------- Commutation
 
-  private switchFrame(device: RuntimeDevice, port: RuntimePort, frame: EthernetFrame, exchange: string | null): void {
+  private switchFrame(device: RuntimeDevice, port: RuntimePort, frame: EthernetFrame, exchange: string | null, vlan: number): void {
     const state = this.state(device.id);
     const where = { device, port, exchange, pdu: frame };
-    this.learnMac(device, state, port, frame.source, where);
+    this.learnMac(device, state, port, frame.source, vlan, where);
 
     if (frame.destination === BROADCAST_MAC) {
-      this.flood(device, port, frame, exchange, "switch.flood-broadcast");
+      this.flood(device, port, frame, exchange, vlan, "switch.flood-broadcast");
       return;
     }
-    const entry = state.macTable.get(frame.destination);
+    const entry = state.macTable.get(macKey(vlan, frame.destination));
     if (!entry) {
-      this.flood(device, port, frame, exchange, "switch.flood-unknown");
+      this.flood(device, port, frame, exchange, vlan, "switch.flood-unknown");
       return;
     }
     if (entry.portId === port.portId) {
-      this.emit("switch.filter", { mac: frame.destination }, where);
+      this.emit("switch.filter", { mac: frame.destination, vlan }, where);
       return;
     }
     const out = device.portById.get(entry.portId);
     if (!out) return;
-    this.emit("switch.forward", { mac: frame.destination, outPort: entry.portId }, where);
-    this.transmit(device, out, frame, exchange);
+    this.emit("switch.forward", { mac: frame.destination, outPort: entry.portId, vlan }, where);
+    this.transmit(device, out, frame, exchange, vlan);
   }
 
-  private learnMac(device: RuntimeDevice, state: DeviceState, port: RuntimePort, mac: MacAddress, where: Where): void {
+  private learnMac(device: RuntimeDevice, state: DeviceState, port: RuntimePort, mac: MacAddress, vlan: number, where: Where): void {
     const aging = this.parameters.macAgingTime;
-    const entry = state.macTable.get(mac);
+    const key = macKey(vlan, mac);
+    const entry = state.macTable.get(key);
     if (!entry) {
-      state.macTable.set(mac, { portId: port.portId, updatedAt: this.clock });
-      this.emit("switch.learn", { mac, expiresAt: this.clock + aging }, where);
-      if (!state.macTimers.has(mac)) {
-        state.macTimers.add(mac);
-        this.schedule(this.clock + aging, { type: "mac-aging", deviceId: device.id, mac }, true);
+      state.macTable.set(key, { vlan, mac, portId: port.portId, updatedAt: this.clock });
+      this.emit("switch.learn", { mac, expiresAt: this.clock + aging, vlan }, where);
+      if (!state.macTimers.has(key)) {
+        state.macTimers.add(key);
+        this.schedule(this.clock + aging, { type: "mac-aging", deviceId: device.id, key }, true);
       }
     } else if (entry.portId !== port.portId) {
-      this.emit("switch.move", { mac, previousPort: entry.portId }, where);
+      this.emit("switch.move", { mac, previousPort: entry.portId, vlan }, where);
       entry.portId = port.portId;
       entry.updatedAt = this.clock;
     } else {
@@ -736,34 +791,36 @@ export class Simulation {
     ingress: RuntimePort,
     frame: EthernetFrame,
     exchange: string | null,
+    vlan: number,
     code: "switch.flood-broadcast" | "switch.flood-unknown",
   ): void {
-    const outPorts = device.ports.filter((port) => port !== ingress && this.isUp(port));
-    this.emit(code, { mac: frame.destination, outPorts: outPorts.map((port) => port.portId).join(", "), count: outPorts.length }, {
+    // Diffusion limitée au VLAN : ports actifs qui le transportent, sauf le port d'entrée.
+    const outPorts = device.ports.filter((port) => port !== ingress && this.isUp(port) && (port.switchport === null || carriesVlan(port.switchport, vlan)));
+    this.emit(code, { mac: frame.destination, outPorts: outPorts.map((port) => port.portId).join(", "), count: outPorts.length, vlan }, {
       device,
       port: ingress,
       exchange,
       pdu: frame,
     });
-    for (const port of outPorts) this.transmit(device, port, frame, exchange);
+    for (const port of outPorts) this.transmit(device, port, frame, exchange, vlan);
   }
 
-  private onMacAging(deviceId: string, mac: MacAddress): void {
+  private onMacAging(deviceId: string, key: string): void {
     const device = this.device(deviceId);
     const state = this.state(deviceId);
-    state.macTimers.delete(mac);
-    const entry = state.macTable.get(mac);
+    state.macTimers.delete(key);
+    const entry = state.macTable.get(key);
     if (!entry) return;
     const expiresAt = entry.updatedAt + this.parameters.macAgingTime;
     if (expiresAt <= this.clock) {
-      state.macTable.delete(mac);
+      state.macTable.delete(key);
       this.dirtyDevices.add(deviceId);
-      this.emit("switch.expire", { mac }, { device, port: device.portById.get(entry.portId) });
+      this.emit("switch.expire", { mac: entry.mac, vlan: entry.vlan }, { device, port: device.portById.get(entry.portId) });
       return;
     }
     // Entrée rafraîchie depuis : la vérification est reportée à sa nouvelle échéance.
-    state.macTimers.add(mac);
-    this.schedule(expiresAt, { type: "mac-aging", deviceId, mac }, true);
+    state.macTimers.add(key);
+    this.schedule(expiresAt, { type: "mac-aging", deviceId, key }, true);
   }
 
   // ---------------------------------------------------------------- ARP
@@ -1230,10 +1287,11 @@ export class Simulation {
         ipv4: port.ipv4 ? `${port.ipv4.address}/${String(port.ipv4.prefixLength)}` : null,
         linkId: port.linkId,
         up: this.isUp(port),
+        vlan: port.vlan,
       })),
-      macTable: [...state.macTable]
-        .map(([mac, entry]) => ({ mac, portId: entry.portId, updatedAt: entry.updatedAt, expiresAt: entry.updatedAt + aging }))
-        .sort((a, b) => (a.mac < b.mac ? -1 : 1)),
+      macTable: [...state.macTable.values()]
+        .map((entry) => ({ vlan: entry.vlan, mac: entry.mac, portId: entry.portId, updatedAt: entry.updatedAt, expiresAt: entry.updatedAt + aging }))
+        .sort((a, b) => a.vlan - b.vlan || (a.mac < b.mac ? -1 : a.mac > b.mac ? 1 : 0)),
       arpCache: [...state.arp.values()]
         .map((entry) => ({ ip: entry.ip, mac: entry.mac, portId: entry.portId, expiresAt: entry.updatedAt + lifetime }))
         .sort((a, b) => a.portId.localeCompare(b.portId) || (parseIpv4(a.ip) ?? 0) - (parseIpv4(b.ip) ?? 0)),

@@ -13,6 +13,7 @@ import {
   type UnassignableReason,
 } from "./ipv4.js";
 import { LIMITS, type Device, type FaultKind, type Link, type NfgDocument, type StaticRoute } from "./schema.js";
+import { parseSubinterface, switchportOf } from "./vlan.js";
 
 /**
  * Validation sémantique d'un document déjà conforme au schéma.
@@ -24,7 +25,51 @@ import { LIMITS, type Device, type FaultKind, type Link, type NfgDocument, type 
  * passerelle erronée ou une adresse en double.
  */
 export function validateDocument(doc: NfgDocument): Issue[] {
-  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkFaults(doc)];
+  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkFaults(doc)];
+}
+
+/**
+ * Incohérences VLAN fréquentes, signalées sans bloquer (cas d'étude) : modes
+ * différents ou VLAN natifs différents aux deux extrémités d'un lien entre
+ * switches, sous-interfaces de routeur reliées à un port d'accès.
+ */
+function checkVlans(doc: NfgDocument): Issue[] {
+  const devices = new Map(doc.topology.devices.map((device) => [device.id, device]));
+  const issues: Issue[] = [];
+  const kindOf = (id: string) => {
+    const device = devices.get(id);
+    return device ? getModel(device.model).kind : null;
+  };
+  for (const link of doc.topology.links) {
+    const [a, b] = link.endpoints;
+    const deviceA = devices.get(a.deviceId);
+    const deviceB = devices.get(b.deviceId);
+    if (!deviceA || !deviceB) continue;
+    if (kindOf(a.deviceId) === "switch" && kindOf(b.deviceId) === "switch") {
+      const portA = switchportOf(doc.configurations[a.deviceId]?.switchports, a.portId);
+      const portB = switchportOf(doc.configurations[b.deviceId]?.switchports, b.portId);
+      const params = { linkId: link.id, deviceId: deviceA.id, deviceName: deviceA.name, portId: a.portId, otherDeviceId: deviceB.id, otherDeviceName: deviceB.name, otherPortId: b.portId };
+      if (portA.mode !== portB.mode) issues.push(warning("vlan.mode-mismatch", params));
+      else if (portA.mode === "trunk" && portB.mode === "trunk" && portA.nativeVlan !== portB.nativeVlan) {
+        issues.push(warning("vlan.native-mismatch", { ...params, vlan: portA.nativeVlan, otherVlan: portB.nativeVlan }));
+      }
+      continue;
+    }
+    for (const [router, sw] of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      if (kindOf(router.deviceId) !== "router" || kindOf(sw.deviceId) !== "switch") continue;
+      const interfaces = doc.configurations[router.deviceId]?.interfaces ?? {};
+      const hasSubinterfaces = Object.keys(interfaces).some((id) => parseSubinterface(id)?.parent === router.portId);
+      const switchDevice = devices.get(sw.deviceId);
+      const routerDevice = devices.get(router.deviceId);
+      if (hasSubinterfaces && switchDevice && routerDevice && switchportOf(doc.configurations[sw.deviceId]?.switchports, sw.portId).mode === "access") {
+        issues.push(warning("vlan.subinterfaces-on-access-port", { deviceId: routerDevice.id, deviceName: routerDevice.name, portId: router.portId, otherDeviceId: switchDevice.id, otherDeviceName: switchDevice.name, otherPortId: sw.portId }));
+      }
+    }
+  }
+  return issues;
 }
 
 /**
@@ -153,11 +198,24 @@ function checkIntegrity(doc: NfgDocument): Issue[] {
     } else {
       const model = getModel(device.model);
       for (const [portId, portConfig] of Object.entries(config.interfaces)) {
-        if (!findPort(device.model, portId)) {
+        if (portId.includes(".")) {
+          // Sous-interface 802.1Q (v5) : routeur seulement, port parent existant, VLAN 1 à 4094.
+          const sub = parseSubinterface(portId);
+          if (!sub) issues.push(error("config.invalid-subinterface", { deviceId: device.id, deviceName: device.name, portId }));
+          else if (model.kind !== "router") issues.push(error("config.subinterface-not-supported", { deviceId: device.id, deviceName: device.name, portId }));
+          else if (!findPort(device.model, sub.parent)) issues.push(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: sub.parent }));
+        } else if (!findPort(device.model, portId)) {
           issues.push(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId }));
         } else if (portConfig.ipv4 !== null && !model.ipCapable) {
           issues.push(error("config.not-ip-capable", { deviceId: device.id, deviceName: device.name }));
         }
+      }
+      const switchportIds = Object.keys(config.switchports);
+      if (switchportIds.length > 0 && model.kind !== "switch") {
+        issues.push(error("config.switchports-not-supported", { deviceId: device.id, deviceName: device.name }));
+      }
+      for (const portId of switchportIds) {
+        if (!findPort(device.model, portId)) issues.push(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId }));
       }
       if (config.defaultGateway !== null && model.kind !== "pc") {
         issues.push(error("config.gateway-not-supported", { deviceId: device.id, deviceName: device.name }));
@@ -199,6 +257,14 @@ export function configuredInterfaces(doc: NfgDocument): ConfiguredInterface[] {
     for (const port of getModel(device.model).ports) {
       const ipv4 = config.interfaces[port.id]?.ipv4;
       if (ipv4) result.push({ device, portId: port.id, ipv4 });
+      // Sous-interfaces du port, par VLAN croissant.
+      const subinterfaces = Object.entries(config.interfaces)
+        .flatMap(([id, value]) => {
+          const sub = parseSubinterface(id);
+          return sub?.parent === port.id && value.ipv4 ? [{ id, vlan: sub.vlan, ipv4: value.ipv4 }] : [];
+        })
+        .sort((a, b) => a.vlan - b.vlan);
+      for (const sub of subinterfaces) result.push({ device, portId: sub.id, ipv4: sub.ipv4 });
     }
   }
   return result;

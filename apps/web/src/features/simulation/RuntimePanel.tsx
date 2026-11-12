@@ -60,9 +60,9 @@ function DeviceRuntime({ device, names }: { device: DeviceView; names: NameIndex
         <EntryList title={t.macTable} empty={device.macTable.length === 0 ? t.macEmpty : null}>
           {device.macTable.map((entry) => (
             <Entry
-              key={entry.mac}
+              key={`${String(entry.vlan)}-${entry.mac}`}
               main={names.mac(entry.mac)}
-              detail={fill(t.macDetail, { port: entry.portId, expires: formatSimTime(entry.expiresAt) })}
+              detail={fill(t.macDetail, { vlan: entry.vlan, port: entry.portId, expires: formatSimTime(entry.expiresAt) })}
             />
           ))}
         </EntryList>

@@ -1,17 +1,18 @@
 import { z } from "zod";
 import { CATALOG_VERSION, DEVICE_MODEL_IDS } from "./catalog.js";
 import { isIpv4Address } from "./ipv4.js";
+import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
 
 /**
- * Format d'échange .nfg.json, version 4 (v2 : routes statiques ; v3 : annotations ;
- * v4 : fibres optiques et pannes).
+ * Format d'échange .nfg.json, version 5 (v2 : routes statiques ; v3 : annotations ;
+ * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -46,6 +47,8 @@ export const DEVICE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/;
 const deviceNameSchema = z.string().regex(DEVICE_NAME_PATTERN, "nom d'équipement invalide");
 
 const portIdSchema = z.string().regex(/^[a-z]{1,8}\d{0,3}$/, "identifiant de port invalide");
+/** Interface : port physique, ou sous-interface « port.vlan » d'un routeur (v5). */
+const interfaceIdSchema = z.string().regex(/^[a-z]{1,8}\d{0,3}(?:\.\d{1,4})?$/, "identifiant d'interface invalide");
 const ipv4AddressSchema = z.string().refine(isIpv4Address, "adresse IPv4 invalide");
 
 export const ipv4InterfaceSchema = z.strictObject({
@@ -57,6 +60,25 @@ const interfaceConfigSchema = z.strictObject({
   ipv4: ipv4InterfaceSchema.nullable(),
 });
 
+const vlanIdSchema = z.int().min(VLAN_MIN).max(VLAN_MAX);
+
+/** Port de switch (v5) : accès dans un VLAN, ou trunk 802.1Q (VLAN natif sans étiquette, VLAN autorisés). */
+const switchportSchema = z.discriminatedUnion("mode", [
+  z.strictObject({ mode: z.literal("access"), vlan: vlanIdSchema }),
+  z.strictObject({
+    mode: z.literal("trunk"),
+    nativeVlan: vlanIdSchema,
+    allowedVlans: z.union([
+      z.literal("all"),
+      z
+        .array(vlanIdSchema)
+        .min(1)
+        .max(VLAN_MAX)
+        .refine((vlans) => vlans.every((vlan, index) => index === 0 || vlan > (vlans[index - 1] ?? 0)), "liste triée sans doublon"),
+    ]),
+  }),
+]);
+
 /** Route statique d'un routeur : réseau de destination et prochain saut. */
 export const staticRouteSchema = z.strictObject({
   /** Adresse du réseau de destination (bits d'hôte à zéro). */
@@ -66,12 +88,14 @@ export const staticRouteSchema = z.strictObject({
 });
 
 const deviceConfigSchema = z.strictObject({
-  /** Configuration par port ; un port absent n'est pas configuré. */
-  interfaces: z.record(portIdSchema, interfaceConfigSchema),
+  /** Configuration par interface (port ou sous-interface) ; une interface absente n'est pas configurée. */
+  interfaces: z.record(interfaceIdSchema, interfaceConfigSchema),
   /** Passerelle par défaut (PC uniquement). */
   defaultGateway: ipv4AddressSchema.nullable(),
   /** Routes statiques (routeurs uniquement), dans l'ordre de saisie. */
   staticRoutes: z.array(staticRouteSchema).max(LIMITS.maxStaticRoutes),
+  /** Ports de switch (switches uniquement) ; un port absent est en accès dans le VLAN 1. */
+  switchports: z.record(portIdSchema, switchportSchema),
 });
 
 const deviceSchema = z.strictObject({
