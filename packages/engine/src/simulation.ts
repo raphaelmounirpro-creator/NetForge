@@ -18,6 +18,7 @@ import {
 import { Prng } from "./prng.js";
 import { EventQueue } from "./queue.js";
 import { lookup, routeCidr, routingTable, type Route } from "./routing.js";
+import { bridgeIdOf, computeSpanningTree, formatBridgeId, stableState, stpPortKey, type SpanningTree, type StpRole, type StpState } from "./stp.js";
 import { MAX_SIM_TIME, type SimTime } from "./time.js";
 import type { Diagnostic, TraceCode, TraceEntry, TraceParams } from "./trace.js";
 import type {
@@ -45,6 +46,7 @@ type EventValue =
     }
   | { readonly type: "loopback"; readonly deviceId: string; readonly packet: Ipv4Packet; readonly exchange: string | null }
   | { readonly type: "mac-aging"; readonly deviceId: string; readonly key: string }
+  | { readonly type: "stp-timer"; readonly deviceId: string; readonly portId: string; readonly generation: number }
   | { readonly type: "arp-expiry"; readonly deviceId: string; readonly key: string }
   | { readonly type: "arp-retry"; readonly deviceId: string; readonly key: string }
   | { readonly type: "ping-send"; readonly sessionId: string }
@@ -94,6 +96,16 @@ interface PendingResolution {
 }
 
 const macKey = (vlan: number, mac: MacAddress): string => `${String(vlan)}|${mac}`;
+
+/** État STP courant d'un port de switch participant (generation : annule les temporisations périmées). */
+interface StpPortState {
+  readonly deviceId: string;
+  readonly portId: string;
+  role: StpRole;
+  state: StpState;
+  cost: number;
+  generation: number;
+}
 
 interface DeviceState {
   readonly macTable: Map<string, MacEntry>;
@@ -208,6 +220,9 @@ export class Simulation {
   private timeOverflow = false;
   private current: { readonly id: number; readonly parent: number | null } | null = null;
   private out: TraceEntry[] = [];
+  /** Spanning Tree courant et état de chaque port participant. */
+  private tree: SpanningTree;
+  private readonly stpPorts = new Map<string, StpPortState>();
 
   constructor(doc: NfgDocument, options: SimulationOptions = {}) {
     this.seed = options.seed ?? DEFAULT_SEED;
@@ -225,6 +240,8 @@ export class Simulation {
         nextIdentification: this.prng.nextInt(0x10000),
       });
     }
+    this.tree = computeSpanningTree(this.network, this.isUp);
+    this.initStp();
   }
 
   // ---------------------------------------------------------------- API publique
@@ -497,6 +514,9 @@ export class Simulation {
       case "mac-aging":
         this.onMacAging(value.deviceId, value.key);
         return;
+      case "stp-timer":
+        this.onStpTimer(value.deviceId, value.portId, value.generation);
+        return;
       case "arp-expiry":
         this.onArpExpiry(value.deviceId, value.key);
         return;
@@ -636,6 +656,88 @@ export class Simulation {
         this.emit("switch.flush", { count }, { device, port: device.portById.get(end.portId) });
       }
     }
+    this.recomputeStp();
+  }
+
+  // ---------------------------------------------------------------- Spanning Tree
+
+  private stpForwards(device: RuntimeDevice, port: RuntimePort): boolean {
+    const stp = this.stpPorts.get(stpPortKey(device.id, port.portId));
+    return !stp || stp.state === "forwarding";
+  }
+
+  /** État initial : le réseau démarre convergé (simplification documentée). */
+  private initStp(): void {
+    for (const [key, port] of this.tree.ports) {
+      const [deviceId = "", portId = ""] = key.split("/");
+      this.stpPorts.set(key, { deviceId, portId, role: port.role, state: stableState(port.role), cost: port.cost, generation: 0 });
+    }
+  }
+
+  /**
+   * Après un changement de lien : nouvel arbre. Un port appelé à transmettre
+   * passe par l'écoute puis l'apprentissage (Forward Delay chacun) ; un port
+   * appelé à bloquer bloque aussitôt. Si la racine, un port racine ou un coût
+   * change, les switches participants vident leur table MAC (changement de
+   * topologie, simplification du vieillissement accéléré de 802.1D).
+   */
+  private recomputeStp(): void {
+    const next = computeSpanningTree(this.network, this.isUp);
+    const delay = this.parameters.stpForwardDelay;
+    let rolesChanged = false;
+    for (const [key, port] of next.ports) {
+      const current = this.stpPorts.get(key);
+      if (!current) continue;
+      const device = this.device(current.deviceId);
+      const runtimePort = device.portById.get(current.portId);
+      if (current.role !== port.role) rolesChanged = true;
+      current.role = port.role;
+      current.cost = port.cost;
+      const target = stableState(port.role);
+      if (target === "forwarding") {
+        if (current.state === "blocking" || current.state === "disabled") {
+          current.state = "listening";
+          current.generation += 1;
+          this.schedule(this.clock + delay, { type: "stp-timer", deviceId: current.deviceId, portId: current.portId, generation: current.generation });
+          this.emit("stp.port-state", { state: "listening", role: port.role, until: this.clock + delay }, { device, port: runtimePort });
+        }
+      } else if (current.state !== target) {
+        current.state = target;
+        current.generation += 1;
+        this.emit("stp.port-state", { state: target, role: port.role }, { device, port: runtimePort });
+      }
+      this.dirtyDevices.add(current.deviceId);
+    }
+    const bridgesChanged = [...next.bridges].some(([id, bridge]) => {
+      const previous = this.tree.bridges.get(id);
+      return !previous || previous.rootDeviceId !== bridge.rootDeviceId || previous.rootPort !== bridge.rootPort || previous.rootCost !== bridge.rootCost;
+    });
+    this.tree = next;
+    if (!rolesChanged && !bridgesChanged) return;
+    for (const [id, bridge] of next.bridges) {
+      const device = this.device(id);
+      const state = this.state(id);
+      const flushed = state.macTable.size;
+      state.macTable.clear();
+      this.emit("stp.topology-change", { rootDeviceId: bridge.rootDeviceId, rootCost: bridge.rootCost, rootPort: bridge.rootPort ?? "", flushed }, { device });
+    }
+  }
+
+  private onStpTimer(deviceId: string, portId: string, generation: number): void {
+    const current = this.stpPorts.get(stpPortKey(deviceId, portId));
+    if (!current || current.generation !== generation) return;
+    const device = this.device(deviceId);
+    const port = device.portById.get(portId);
+    if (current.state === "listening") {
+      current.state = "learning";
+      const until = this.clock + this.parameters.stpForwardDelay;
+      this.schedule(until, { type: "stp-timer", deviceId, portId, generation });
+      this.emit("stp.port-state", { state: "learning", role: current.role, until }, { device, port });
+    } else if (current.state === "learning") {
+      current.state = "forwarding";
+      this.emit("stp.port-state", { state: "forwarding", role: current.role }, { device, port });
+    }
+    this.dirtyDevices.add(deviceId);
   }
 
   // ---------------------------------------------------------------- Couche liaison
@@ -699,7 +801,15 @@ export class Simulation {
     }
     if (device.kind === "switch") {
       const vlan = this.classify(device, port, frame, exchange);
-      if (vlan !== null) this.switchFrame(device, port, frame, exchange, vlan);
+      if (vlan === null) return;
+      // STP : un port qui ne transmet pas écarte la trame (en apprentissage, il retient la source).
+      const stp = this.stpPorts.get(stpPortKey(device.id, port.portId));
+      if (stp && stp.state !== "forwarding") {
+        if (stp.state === "learning") this.learnMac(device, this.state(device.id), port, frame.source, vlan, { device, port, exchange, pdu: frame });
+        this.emit("stp.discarded", { state: stp.state, role: stp.role }, { device, port, exchange, pdu: frame });
+        return;
+      }
+      this.switchFrame(device, port, frame, exchange, vlan);
       return;
     }
     // Trame étiquetée : remise à la sous-interface du VLAN (routeur), sinon refusée.
@@ -761,6 +871,11 @@ export class Simulation {
     }
     const out = device.portById.get(entry.portId);
     if (!out) return;
+    const outStp = this.stpPorts.get(stpPortKey(device.id, out.portId));
+    if (outStp && outStp.state !== "forwarding") {
+      this.emit("stp.discarded", { state: outStp.state, role: outStp.role, outPort: out.portId }, where);
+      return;
+    }
     this.emit("switch.forward", { mac: frame.destination, outPort: entry.portId, vlan }, where);
     this.transmit(device, out, frame, exchange, vlan);
   }
@@ -795,7 +910,9 @@ export class Simulation {
     code: "switch.flood-broadcast" | "switch.flood-unknown",
   ): void {
     // Diffusion limitée au VLAN : ports actifs qui le transportent, sauf le port d'entrée.
-    const outPorts = device.ports.filter((port) => port !== ingress && this.isUp(port) && (port.switchport === null || carriesVlan(port.switchport, vlan)));
+    const outPorts = device.ports.filter(
+      (port) => port !== ingress && this.isUp(port) && (port.switchport === null || carriesVlan(port.switchport, vlan)) && this.stpForwards(device, port),
+    );
     this.emit(code, { mac: frame.destination, outPorts: outPorts.map((port) => port.portId).join(", "), count: outPorts.length, vlan }, {
       device,
       port: ingress,
@@ -1273,6 +1390,24 @@ export class Simulation {
 
   // ---------------------------------------------------------------- Vues
 
+  private stpView(device: RuntimeDevice): DeviceView["stp"] {
+    if (device.kind !== "switch" || !device.stp) return null;
+    const own = bridgeIdOf({ ...device, stp: { ...device.stp, enabled: true } });
+    const bridge = this.tree.bridges.get(device.id);
+    return {
+      enabled: device.stp.enabled,
+      bridgeId: own ? formatBridgeId(own) : "",
+      rootBridgeId: bridge ? formatBridgeId(bridge.root) : null,
+      rootDeviceId: bridge?.rootDeviceId ?? null,
+      rootCost: bridge?.rootCost ?? 0,
+      rootPort: bridge?.rootPort ?? null,
+      ports: device.ports.flatMap((port) => {
+        const stp = this.stpPorts.get(stpPortKey(device.id, port.portId));
+        return stp ? [{ portId: port.portId, role: stp.role, state: stp.state, cost: stp.cost }] : [];
+      }),
+    };
+  }
+
   private deviceView(device: RuntimeDevice): DeviceView {
     const state = this.state(device.id);
     const aging = this.parameters.macAgingTime;
@@ -1301,6 +1436,7 @@ export class Simulation {
         attempts: pending.attempts,
         queued: pending.queue.length,
       })),
+      stp: this.stpView(device),
       routes:
         device.kind === "switch"
           ? []

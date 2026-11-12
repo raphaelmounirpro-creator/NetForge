@@ -9,5 +9,6 @@ export * from "./io.js";
 export * from "./ipv4.js";
 export * from "./issues.js";
 export * from "./schema.js";
+export * from "./stp.js";
 export * from "./validation.js";
 export * from "./vlan.js";

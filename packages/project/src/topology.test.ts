@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectPorts, type CommandResult } from "./commands.js";
+import { connectPorts, type CommandResult, setStp } from "./commands.js";
 import { expectOk, projectWith } from "./test-helpers.js";
 
 const codes = (result: CommandResult) => (result.ok ? result.warnings : result.errors).map((issue) => issue.code);
@@ -10,16 +10,24 @@ const link = (linkId: string, a: string, aPort: string, b: string, bPort: string
 });
 
 describe("boucle de commutation", () => {
-  it("signale un second câble entre deux mêmes switches", () => {
+  it("signale un second câble entre deux mêmes switches quand l'un n'a pas STP", () => {
     let doc = projectWith(["sw1", "S-24"], ["sw2", "S-24"]);
+    doc = expectOk(setStp(doc, { deviceId: "sw2", enabled: false, priority: 32768 }));
     doc = expectOk(connectPorts(doc, link("l1", "sw1", "ge1", "sw2", "ge1")));
     const second = connectPorts(doc, link("l2", "sw1", "ge2", "sw2", "ge2"));
     expect(second.ok).toBe(true);
     expect(codes(second)).toEqual(["topology.switch-loop"]);
   });
 
-  it("signale le câble qui ferme un triangle de switches", () => {
+  it("ne signale pas une boucle entre switches qui ont tous STP activé (redondance normale)", () => {
+    let doc = projectWith(["sw1", "S-24"], ["sw2", "S-24"]);
+    doc = expectOk(connectPorts(doc, link("l1", "sw1", "ge1", "sw2", "ge1")));
+    expect(codes(connectPorts(doc, link("l2", "sw1", "ge2", "sw2", "ge2")))).toEqual([]);
+  });
+
+  it("signale le câble qui ferme un triangle de switches dont un n'a pas STP", () => {
     let doc = projectWith(["sw1", "S-24"], ["sw2", "S-24"], ["sw3", "S-24"]);
+    doc = expectOk(setStp(doc, { deviceId: "sw3", enabled: false, priority: 32768 }));
     doc = expectOk(connectPorts(doc, link("l1", "sw1", "ge1", "sw2", "ge1")));
     doc = expectOk(connectPorts(doc, link("l2", "sw2", "ge2", "sw3", "ge1")));
     const closing = connectPorts(doc, link("l3", "sw3", "ge2", "sw1", "ge2"));

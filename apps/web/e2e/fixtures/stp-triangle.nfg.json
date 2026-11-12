@@ -1,0 +1,201 @@
+{
+  "format": "netforge-project",
+  "schemaVersion": 5,
+  "models": {
+    "catalog": 2
+  },
+  "metadata": {
+    "id": "scenario-stp",
+    "name": "Spanning Tree en triangle",
+    "description": "",
+    "createdAt": "2026-11-11T08:00:00.000Z",
+    "updatedAt": "2026-11-11T08:00:00.000Z"
+  },
+  "topology": {
+    "devices": [
+      {
+        "id": "sw1",
+        "model": "S-24",
+        "name": "SW1"
+      },
+      {
+        "id": "sw2",
+        "model": "S-24",
+        "name": "SW2"
+      },
+      {
+        "id": "sw3",
+        "model": "S-24",
+        "name": "SW3"
+      },
+      {
+        "id": "pc1",
+        "model": "PC",
+        "name": "PC1"
+      },
+      {
+        "id": "pc2",
+        "model": "PC",
+        "name": "PC2"
+      }
+    ],
+    "links": [
+      {
+        "id": "l1",
+        "endpoints": [
+          {
+            "deviceId": "sw1",
+            "portId": "ge1"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge1"
+          }
+        ],
+        "fiber": null
+      },
+      {
+        "id": "l2",
+        "endpoints": [
+          {
+            "deviceId": "sw2",
+            "portId": "ge2"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge2"
+          }
+        ],
+        "fiber": null
+      },
+      {
+        "id": "l3",
+        "endpoints": [
+          {
+            "deviceId": "sw3",
+            "portId": "ge1"
+          },
+          {
+            "deviceId": "sw1",
+            "portId": "ge2"
+          }
+        ],
+        "fiber": null
+      },
+      {
+        "id": "l4",
+        "endpoints": [
+          {
+            "deviceId": "pc1",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw2",
+            "portId": "ge10"
+          }
+        ],
+        "fiber": null
+      },
+      {
+        "id": "l5",
+        "endpoints": [
+          {
+            "deviceId": "pc2",
+            "portId": "eth0"
+          },
+          {
+            "deviceId": "sw3",
+            "portId": "ge10"
+          }
+        ],
+        "fiber": null
+      }
+    ]
+  },
+  "configurations": {
+    "sw1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": {
+        "enabled": true,
+        "priority": 4096
+      }
+    },
+    "sw2": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": {
+        "enabled": true,
+        "priority": 28672
+      }
+    },
+    "sw3": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": {
+        "enabled": true,
+        "priority": 32768
+      }
+    },
+    "pc1": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "192.168.1.10",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null
+    },
+    "pc2": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "192.168.1.11",
+            "prefixLength": 24
+          }
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null
+    }
+  },
+  "faults": [],
+  "layout": {
+    "devices": {
+      "sw1": {
+        "x": 400,
+        "y": 80
+      },
+      "sw2": {
+        "x": 220,
+        "y": 300
+      },
+      "sw3": {
+        "x": 580,
+        "y": 300
+      },
+      "pc1": {
+        "x": 220,
+        "y": 460
+      },
+      "pc2": {
+        "x": 580,
+        "y": 460
+      }
+    },
+    "annotations": []
+  }
+}

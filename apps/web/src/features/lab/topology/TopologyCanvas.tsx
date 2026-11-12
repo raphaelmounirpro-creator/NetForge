@@ -51,10 +51,12 @@ interface TopologyCanvasProps {
   highlightLinks?: ReadonlySet<string> | undefined;
   /** Libellés secondaires imposés (état optique des ONT dans la vue Optique). */
   deviceDetails?: ReadonlyMap<string, string> | undefined;
+  /** Ports qui ne transmettent pas (Spanning Tree), clé « équipement/port » → état écrit (vue Simulation). */
+  blockedPorts?: ReadonlyMap<string, string> | undefined;
 }
 
 /** Mémoïsé : la vue Simulation reçoit des lots fréquents qui ne concernent pas le canevas. */
-export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project, mode = "edit", linkStates, highlightLinks, deviceDetails }: TopologyCanvasProps) {
+export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project, mode = "edit", linkStates, highlightLinks, deviceDetails, blockedPorts }: TopologyCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const helpId = useId();
   const colors = useThemeColors();
@@ -319,6 +321,37 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
                     listening={false}
                   />
                 );
+              })}
+            {/* Port bloqué par le Spanning Tree : symbole et état écrits près de l'extrémité du câble. */}
+            {blockedPorts &&
+              doc.topology.links.flatMap((link) => {
+                const [a, b] = link.endpoints;
+                const posA = positionOf(a.deviceId);
+                const posB = positionOf(b.deviceId);
+                if (!posA || !posB) return [];
+                return [
+                  { end: a, from: posA, to: posB },
+                  { end: b, from: posB, to: posA },
+                ].flatMap(({ end, from, to }) => {
+                  const state = blockedPorts.get(`${end.deviceId}/${end.portId}`);
+                  if (!state) return [];
+                  const distance = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+                  const ratio = Math.min(0.5, (PORT_LABEL_DISTANCE + 40) / distance);
+                  return [
+                    <Text
+                      key={`${link.id}-${end.deviceId}-stp`}
+                      text={`⊘ ${state}`}
+                      x={from.x + (to.x - from.x) * ratio - 45}
+                      y={from.y + (to.y - from.y) * ratio - 6}
+                      width={90}
+                      align="center"
+                      fontSize={11}
+                      fontStyle="bold"
+                      fill={colors.warning}
+                      listening={false}
+                    />,
+                  ];
+                });
               })}
             {/* Câble coupé : le libellé texte double le pointillé (la couleur n'est jamais seule). */}
             {doc.topology.links.map((link) => {

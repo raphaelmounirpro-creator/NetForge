@@ -99,6 +99,21 @@ export function showVlans(doc: NfgDocument, deviceId: string): string[] {
   return trunks.length === 0 ? access : [...access, "", ...table([c.trunk, c.native, c.allowed], trunks)];
 }
 
+/** « show spanning-tree » : racine élue, port racine, puis rôle et état de chaque port (calculés par le moteur). */
+export function showStp(view: DeviceView, names: NameIndex): string[] {
+  const r = messages.simulation.runtime;
+  const stp = view.stp;
+  if (!stp?.enabled) return [r.stpDisabled];
+  const summary =
+    stp.rootDeviceId === view.deviceId
+      ? fill(r.stpIsRoot, { bridge: stp.bridgeId })
+      : fill(r.stpRoot, { root: names.device(stp.rootDeviceId ?? ""), bridge: stp.rootBridgeId ?? "", cost: stp.rootCost, port: stp.rootPort ?? "—" });
+  const c = t.columns;
+  const roles = messages.simulation.stpRoles;
+  const states = messages.simulation.stpStates;
+  return [summary, "", ...table([c.port, c.role, c.stpState, c.cost], stp.ports.map((port) => [port.portId, roles[port.role], states[port.state], String(port.cost)]))];
+}
+
 /** « ipconfig » : configuration du projet et adresse MAC calculée par le moteur. */
 export function ipconfig(doc: NfgDocument, deviceId: string, view: DeviceView | undefined): string[] {
   const device = doc.topology.devices.find((item) => item.id === deviceId);

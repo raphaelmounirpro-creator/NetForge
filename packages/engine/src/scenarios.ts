@@ -7,6 +7,7 @@ import {
   setDefaultGateway,
   setFiber,
   setInterfaceIpv4,
+  setStp,
   setSwitchport,
   type CommandResult,
   type DeviceModelId,
@@ -19,7 +20,9 @@ import {
 /**
  * Topologies de référence versionnées : utilisées par les tests du moteur,
  * la mesure de performance et les parcours navigateur. Elles sont
- * construites avec les commandes d'édition, donc toujours valides.
+ * construites avec les commandes d'édition, donc toujours valides. Leurs
+ * switches ont STP désactivé (scénarios antérieurs à STP, comportement
+ * conservé, comme pour un projet migré) ; un scénario l'active explicitement.
  */
 
 const CREATED_AT = "2026-11-11T08:00:00.000Z";
@@ -39,6 +42,13 @@ export class ScenarioBuilder {
 
   device(id: string, model: DeviceModelId, x: number, y: number): this {
     this.doc = ok(addDevice(this.doc, { id, model, name: id.toUpperCase(), position: { x, y } }));
+    if (this.doc.configurations[id]?.stp) this.doc = ok(setStp(this.doc, { deviceId: id, enabled: false, priority: 32768 }));
+    return this;
+  }
+
+  /** Spanning Tree d'un switch (désactivé par défaut dans les scénarios). */
+  stp(deviceId: string, enabled: boolean, priority = 32768): this {
+    this.doc = ok(setStp(this.doc, { deviceId, enabled, priority }));
     return this;
   }
 
@@ -243,6 +253,51 @@ export function switchLoopScenario(): NfgDocument {
     .link("sw1", "ge10", "sw2", "ge1")
     .link("sw1", "ge11", "sw2", "ge2")
     .link("sw1", "ge12", "sw2", "ge3")
+    .ip("pc1", "eth0", "192.168.1.10/24")
+    .ip("pc2", "eth0", "192.168.1.11/24")
+    .build();
+}
+
+/**
+ * Spanning Tree : trois switches en triangle, STP activé. SW1 (priorité 4096)
+ * est la racine ; SW2 (28672) l'emporte sur SW3 (32768) sur le segment SW2–SW3,
+ * dont le port de SW3 (ge2) est bloqué. PC1 sur SW2, PC2 sur SW3.
+ * Liens : l1 SW1 ge1–SW2 ge1, l2 SW2 ge2–SW3 ge2, l3 SW3 ge1–SW1 ge2, l4 et l5 vers les PC.
+ */
+export function stpTriangleScenario(): NfgDocument {
+  return new ScenarioBuilder("scenario-stp", "Spanning Tree en triangle")
+    .device("sw1", "S-24", 400, 80)
+    .device("sw2", "S-24", 220, 300)
+    .device("sw3", "S-24", 580, 300)
+    .device("pc1", "PC", 220, 460)
+    .device("pc2", "PC", 580, 460)
+    .link("sw1", "ge1", "sw2", "ge1")
+    .link("sw2", "ge2", "sw3", "ge2")
+    .link("sw3", "ge1", "sw1", "ge2")
+    .link("pc1", "eth0", "sw2", "ge10")
+    .link("pc2", "eth0", "sw3", "ge10")
+    .stp("sw1", true, 4096)
+    .stp("sw2", true, 28672)
+    .stp("sw3", true, 32768)
+    .ip("pc1", "eth0", "192.168.1.10/24")
+    .ip("pc2", "eth0", "192.168.1.11/24")
+    .build();
+}
+
+/** Boucle de commutation de référence (trois câbles parallèles) avec STP activé : deux câbles bloqués. */
+export function stpParallelScenario(): NfgDocument {
+  return new ScenarioBuilder("scenario-stp-parallel", "Câbles parallèles et STP")
+    .device("pc1", "PC", 100, 300)
+    .device("sw1", "S-24", 300, 200)
+    .device("pc2", "PC", 500, 300)
+    .device("sw2", "S-24", 300, 50)
+    .link("pc1", "eth0", "sw1", "ge1")
+    .link("pc2", "eth0", "sw1", "ge2")
+    .link("sw1", "ge10", "sw2", "ge1")
+    .link("sw1", "ge11", "sw2", "ge2")
+    .link("sw1", "ge12", "sw2", "ge3")
+    .stp("sw1", true, 4096)
+    .stp("sw2", true)
     .ip("pc1", "eth0", "192.168.1.10/24")
     .ip("pc2", "eth0", "192.168.1.11/24")
     .build();

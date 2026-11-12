@@ -33,7 +33,7 @@ Code : [packages/engine/src/simulation.ts](../../packages/engine/src/simulation.
 
 - Liaisons en duplex intégral, sans collision ni file d'attente bornée (aucune perte par congestion).
 - Délais forfaitaires et documentés (paramètres du moteur) : traitement 2 µs par switch, 10 µs par PC ou routeur ; longueur de câble non modélisée.
-- VLAN : voir [vlan.md](vlan.md) (tables MAC et diffusion par VLAN). Pas de STP, d'agrégation ni de sécurité de port. Sans STP, une boucle de commutation provoque une tempête de diffusion : l'éditeur la signale (`topology.switch-loop`) et le moteur s'interrompt à la limite d'événements en attente, avec une explication.
+- VLAN : voir [vlan.md](vlan.md) (tables MAC et diffusion par VLAN) ; Spanning Tree : voir [stp.md](stp.md). Pas d'agrégation ni de sécurité de port. Sans STP sur tous les switches d'une boucle, une boucle de commutation provoque une tempête de diffusion : l'éditeur la signale (`topology.switch-loop`) et le moteur s'interrompt à la limite d'événements en attente, avec une explication.
 - Pas de FCS calculé ni d'octets affichés : seuls les champs ci-dessus existent.
 
 ## Correspondance OSI (pédagogique)

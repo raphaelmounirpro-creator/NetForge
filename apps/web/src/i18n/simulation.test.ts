@@ -6,6 +6,7 @@ import {
   routedScenario,
   twoRoutersScenario,
   VLAN_SCENARIO,
+  stpTriangleScenario,
   vlanScenario,
   type SimCommand,
   type TraceEntry,
@@ -100,6 +101,13 @@ function allScenarios() {
     run(ok(setSwitchport(vlanScenario(), { deviceId: "sw2", portId: "ge24", switchport: { mode: "access", vlan: 10 } })).document, [
       { type: "ping", deviceId: "pc1", destination: VLAN_SCENARIO.pc3, count: 1 },
     ]),
+    // Spanning Tree : trame écartée par un port bloqué, coupure (écoute, apprentissage, transmission), lien rétabli.
+    run(stpTriangleScenario(), [
+      { type: "ping", deviceId: "pc1", destination: "192.168.1.11", count: 1 },
+      { type: "set-link", linkId: "l3", up: false },
+      { type: "ping", deviceId: "pc1", destination: "192.168.1.11", count: 1 },
+      { type: "set-link", linkId: "l3", up: true },
+    ]),
   ];
 }
 
@@ -119,7 +127,7 @@ describe("textes de la trace", () => {
     }
     // Les scénarios couvrent l'essentiel des codes (les autres sont vérifiés par leur gabarit).
     expect(seen.size).toBeGreaterThan(40);
-    for (const code of ["vlan.tagged-dropped", "vlan.not-allowed", "vlan.no-subinterface", "nic.tagged-dropped"]) expect(seen, code).toContain(code);
+    for (const code of ["vlan.tagged-dropped", "vlan.not-allowed", "vlan.no-subinterface", "nic.tagged-dropped", "stp.discarded", "stp.port-state", "stp.topology-change"]) expect(seen, code).toContain(code);
   });
 
   it("prévoit un gabarit pour chaque code de trace", () => {

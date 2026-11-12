@@ -1,4 +1,4 @@
-import { ftthScenario, performanceScenario, routedScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "@netforge/engine";
+import { ftthScenario, performanceScenario, routedScenario, stpTriangleScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "@netforge/engine";
 import { parseNfgText, serializeNfg, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 
@@ -12,6 +12,7 @@ const expected: Record<string, NfgDocument> = {
   "switch-loop.nfg.json": switchLoopScenario(),
   "ftth.nfg.json": ftthScenario(),
   "vlan.nfg.json": vlanScenario(),
+  "stp-triangle.nfg.json": stpTriangleScenario(),
 };
 
 describe("projets de référence des parcours navigateur", () => {

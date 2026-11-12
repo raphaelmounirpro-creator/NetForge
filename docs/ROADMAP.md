@@ -139,7 +139,7 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | A-EQ-02 | Modules cuivre/SFP/série, remplacement à chaud selon profil | 12 | prévu | A-EQ-01 | Contraintes par profil testées |
 | A-EQ-03 | Câbles (droit/croisé, catégories, fibre mono/multimode, série, console, coaxial, téléphone), choix automatique, voyants | 12 | prévu | E-02 | Comportement par profil, pas de panne aléatoire |
 | A-EQ-04 | Vue physique ville/bâtiment/étage/baie/brassage, longueurs réelles | 12 | prévu | A-EQ-03 | Longueur indépendante de la vue logique |
-| P-01 | VLAN, trunks, STP/RSTP, agrégation, LLDP, sécurité de port | 7 | en cours | M-04 | VLAN et trunks 802.1Q disponibles (vlan.test.ts, vlan.spec.ts, [vlan.md](protocols/vlan.md)) ; STP en cours ; RSTP, agrégation, LLDP, sécurité de port prévus |
+| P-01 | VLAN, trunks, STP/RSTP, agrégation, LLDP, sécurité de port | 7 | en cours | M-04 | VLAN et trunks 802.1Q (vlan.test.ts, vlan.spec.ts, [vlan.md](protocols/vlan.md)) et STP 802.1D (stp.test.ts, stp.spec.ts, [stp.md](protocols/stp.md)) disponibles ; RSTP, agrégation, LLDP, sécurité de port prévus |
 | P-02 | IPv6 | 7 | prévu | M-06 | Scénarios de référence |
 | P-03 | DHCP serveur/relais, DNS, HTTP/HTTPS, FTP/TFTP, SMTP/POP3, Syslog, NTP, SSH, SNMP | 7 | prévu | M-07 | Niveau explicite par protocole |
 | P-04 | Inter-VLAN, RIP, OSPF mono/multi-zone, BGP simplifié, redondance de passerelle | 8 | prévu | P-01 | Convergence observable ; routage inter-VLAN par sous-interfaces déjà disponible (phase 7) |

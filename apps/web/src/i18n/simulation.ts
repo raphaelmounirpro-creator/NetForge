@@ -89,6 +89,7 @@ export function traceCategory(code: TraceCode): TraceCategory {
       return "link";
     case "switch":
     case "vlan":
+    case "stp":
       return "switch";
     case "arp":
       return "arp";
@@ -154,7 +155,7 @@ function failureText(reason: unknown): string {
 }
 
 const MAC_PATTERN = /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/;
-const TIME_PARAMS = new Set(["expiresAt", "arrival", "departure"]);
+const TIME_PARAMS = new Set(["expiresAt", "arrival", "departure", "until"]);
 const DURATION_PARAMS = new Set(["rtt", "waited", "minRtt", "maxRtt", "avgRtt"]);
 
 export type ExplanationLevel = "beginner" | "technical";
@@ -170,6 +171,13 @@ function templateKey(entry: TraceEntry): keyof typeof messages.trace {
       return `${entry.code}.${params["nextHop"] === null ? "direct" : "via"}`;
     case "eth.transmit":
       return typeof params["vlan"] === "number" ? "eth.transmit.tagged" : entry.code;
+    case "stp.discarded":
+    case "stp.port-state": {
+      const key = `${entry.code}.${String(params["state"])}`;
+      return key in messages.trace ? (key as keyof typeof messages.trace) : `${entry.code}.blocking`;
+    }
+    case "stp.topology-change":
+      return params["rootPort"] === "" ? "stp.topology-change.root" : entry.code;
     // VLAN autre que le VLAN 1 : la phrase précise le domaine de diffusion.
     case "switch.learn":
     case "switch.forward":
@@ -208,6 +216,8 @@ export function formatTrace(entry: TraceEntry, names: NameIndex, level: Explanat
   values["port"] = entry.portId ?? "";
   const params = entry.params;
   if (typeof params["toDeviceId"] === "string") values["toDevice"] = names.device(params["toDeviceId"]);
+  if (typeof params["rootDeviceId"] === "string") values["root"] = names.device(params["rootDeviceId"]);
+  if (typeof params["role"] === "string" && params["role"] in t.stpRoles) values["role"] = t.stpRoles[params["role"] as keyof typeof t.stpRoles];
   if (typeof params["linkId"] === "string") values["link"] = names.link(params["linkId"]);
   if (params["outPorts"] === "") values["outPorts"] = messages.traceLabels.nobody;
   if (typeof params["type"] === "string") values["icmp"] = icmpText(params["type"], typeof params["code"] === "number" ? params["code"] : null);

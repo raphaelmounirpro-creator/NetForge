@@ -42,9 +42,9 @@ describe("migration du format version 1 → 5", () => {
     expect(result.document.schemaVersion).toBe(5);
     expect(result.document.models).toEqual({ catalog: 2 });
     expect(result.document.faults).toEqual([]);
-    // Routes (v2) et ports de switch (v5) vides : tous les ports restent en accès dans le VLAN 1.
-    expect(result.document.configurations["pc1"]).toEqual({ ...versionOne.configurations.pc1, staticRoutes: [], switchports: {} });
-    expect(result.document.configurations["r1"]).toEqual({ ...versionOne.configurations.r1, staticRoutes: [], switchports: {} });
+    // Routes (v2), ports de switch et STP (v5) : tous les ports en accès dans le VLAN 1, aucun STP hors switch.
+    expect(result.document.configurations["pc1"]).toEqual({ ...versionOne.configurations.pc1, staticRoutes: [], switchports: {}, stp: null });
+    expect(result.document.configurations["r1"]).toEqual({ ...versionOne.configurations.r1, staticRoutes: [], switchports: {}, stp: null });
     // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre.
     expect(result.document.topology).toEqual({
       ...versionOne.topology,
@@ -115,10 +115,30 @@ describe("migration du format version 1 → 5", () => {
     const versionFour = {
       ...migrated.document,
       schemaVersion: 4,
-      configurations: Object.fromEntries(Object.entries(migrated.document.configurations).map(([id, { switchports: _ports, ...config }]) => [id, config])),
+      configurations: Object.fromEntries(Object.entries(migrated.document.configurations).map(([id, { switchports: _ports, stp: _stp, ...config }]) => [id, config])),
     };
     const result = parseNfgValue(versionFour);
     expect(result.ok && result.document).toEqual(migrated.document);
+  });
+
+  it("donne à un switch d'un fichier version 4 STP désactivé : une boucle existante reste un cas d'étude", () => {
+    const versionFour = {
+      ...versionOne,
+      schemaVersion: 4,
+      models: { catalog: 2 },
+      topology: { devices: [...versionOne.topology.devices, { id: "sw1", model: "S-24", name: "SW1" }], links: versionOne.topology.links.map((link) => ({ ...link, fiber: null })) },
+      configurations: {
+        pc1: { ...versionOne.configurations.pc1, staticRoutes: [] },
+        r1: { ...versionOne.configurations.r1, staticRoutes: [] },
+        sw1: { interfaces: {}, defaultGateway: null, staticRoutes: [] },
+      },
+      layout: { ...versionOne.layout, devices: { ...versionOne.layout.devices, sw1: { x: 100, y: 100 } }, annotations: [] },
+      faults: [],
+    };
+    const result = parseNfgValue(versionFour);
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    expect(result.document.configurations["sw1"]?.stp).toEqual({ enabled: false, priority: 32768 });
+    expect(result.document.configurations["r1"]?.stp).toBeNull();
   });
 
   it("refuse une version 5 sans table de ports de switch", () => {
@@ -126,6 +146,8 @@ describe("migration du format version 1 → 5", () => {
     if (!migrated.ok) throw new Error("migration attendue");
     const configurations = Object.fromEntries(Object.entries(migrated.document.configurations).map(([id, { switchports: _ports, ...config }]) => [id, config]));
     expect(errorCodes({ ...migrated.document, configurations })).toEqual(["import.schema", "import.schema"]);
+    const withoutStp = Object.fromEntries(Object.entries(migrated.document.configurations).map(([id, { stp: _stp, ...config }]) => [id, config]));
+    expect(errorCodes({ ...migrated.document, configurations: withoutStp })).toEqual(["import.schema", "import.schema"]);
   });
 
   it("refuse une version 4 sans liste de pannes ni propriété de fibre", () => {

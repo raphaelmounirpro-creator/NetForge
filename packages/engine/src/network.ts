@@ -72,6 +72,8 @@ export interface RuntimeDevice {
   readonly portById: ReadonlyMap<string, RuntimePort>;
   readonly gateway: { readonly address: string; readonly value: number } | null;
   readonly staticRoutes: readonly RuntimeStaticRoute[];
+  /** Spanning Tree (switches) : activation et priorité du pont ; null ailleurs. */
+  readonly stp: { readonly enabled: boolean; readonly priority: number } | null;
 }
 
 export interface RuntimeNetwork {
@@ -163,6 +165,7 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
       portById: new Map(ports.map((port) => [port.portId, port])),
       gateway: config?.defaultGateway && gatewayValue !== null ? { address: config.defaultGateway, value: gatewayValue } : null,
       staticRoutes,
+      stp: model.kind === "switch" && config?.stp ? { enabled: config.stp.enabled, priority: config.stp.priority } : null,
     });
   }
   return { devices, links };

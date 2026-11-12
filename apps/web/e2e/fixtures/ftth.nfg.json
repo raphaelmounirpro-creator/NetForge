@@ -293,67 +293,78 @@
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "odf1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "cpl1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "cpl2": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "pbo1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "pto1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "pto2": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "pto3": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "ont1": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "ont2": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "ont3": {
       "interfaces": {},
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     }
   },
   "faults": [],

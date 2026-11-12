@@ -1,4 +1,6 @@
+import { DEVICE_MODELS, getModel, type DeviceModelId } from "./catalog.js";
 import { error, type Issue } from "./issues.js";
+import { STP_DEFAULT_PRIORITY } from "./stp.js";
 import { CURRENT_SCHEMA_VERSION, LIMITS, NFG_FORMAT, nfgDocumentSchema, type NfgDocument } from "./schema.js";
 import { validateDocument } from "./validation.js";
 
@@ -55,18 +57,33 @@ function migrateV3toV4(doc: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
- * Version 4 → 5 : VLAN. Chaque configuration reçoit une table de ports de
- * switch vide : tous les ports restent en accès dans le VLAN 1, comportement
- * identique à la version 4.
+ * Version 4 → 5 : VLAN et STP. Chaque configuration reçoit une table de
+ * ports de switch vide (tous les ports en accès dans le VLAN 1) ; un switch
+ * reçoit STP désactivé (priorité 32768), les autres équipements aucune
+ * configuration STP. Comportement identique à la version 4 : une boucle
+ * existante reste une boucle (cas d'étude).
  */
 function migrateV4toV5(doc: Record<string, unknown>): Record<string, unknown> {
   const configurations = doc["configurations"];
   if (!isRecord(configurations)) return { ...doc, schemaVersion: 5 };
+  const topology = doc["topology"];
+  const devices: unknown[] = isRecord(topology) && Array.isArray(topology["devices"]) ? (topology["devices"] as unknown[]) : [];
+  const switches = new Set(
+    devices.flatMap((device) =>
+      isRecord(device) && typeof device["id"] === "string" && typeof device["model"] === "string" && isSwitchModel(device["model"]) ? [device["id"]] : [],
+    ),
+  );
   const migrated: Record<string, unknown> = {};
   for (const [id, config] of Object.entries(configurations)) {
-    migrated[id] = isRecord(config) ? { ...config, switchports: config["switchports"] ?? {} } : config;
+    migrated[id] = isRecord(config)
+      ? { ...config, switchports: config["switchports"] ?? {}, stp: config["stp"] ?? (switches.has(id) ? { enabled: false, priority: STP_DEFAULT_PRIORITY } : null) }
+      : config;
   }
   return { ...doc, schemaVersion: 5, configurations: migrated };
+}
+
+function isSwitchModel(model: string): boolean {
+  return model in DEVICE_MODELS && getModel(model as DeviceModelId).kind === "switch";
 }
 
 /**

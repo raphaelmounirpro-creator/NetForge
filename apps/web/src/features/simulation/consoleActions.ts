@@ -1,6 +1,6 @@
 import { cliPrompt, configurationCommands, interpret, type CliRequest } from "@netforge/project";
 import { fill, formatIssue, messages } from "../../i18n";
-import { formatCliError, helpLines, ipconfig, showArp, showInterfaces, showMac, showRoutes, showVlans } from "../../i18n/console";
+import { formatCliError, helpLines, ipconfig, showArp, showInterfaces, showMac, showRoutes, showStp, showVlans } from "../../i18n/console";
 import { formatCommandError } from "../../i18n/simulation";
 import { useLabStore } from "../lab/store";
 import { consoleKey, EMPTY_CONSOLE, useConsoleStore } from "./consoleStore";
@@ -93,6 +93,9 @@ async function handleRequest(projectId: string, deviceId: string, key: string, r
       return;
     case "show-mac":
       runtime((names) => (view ? showMac(view, names) : []));
+      return;
+    case "show-stp":
+      runtime((names) => (view ? showStp(view, names) : []));
       return;
     case "clear-table": {
       const reply = await simulation.clearTable(deviceId, request.table);

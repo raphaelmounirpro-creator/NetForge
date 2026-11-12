@@ -18,7 +18,7 @@ import { StepEditor } from "./StepEditor";
 
 const t = messages.evaluations;
 
-const FUNCTIONS = ["simulation", "console", "addressing", "routes", "vlans", "topology", "optics"] as const;
+const FUNCTIONS = ["simulation", "console", "addressing", "routes", "switching", "topology", "optics"] as const;
 const STEP_KINDS = ["observe", "hypothesis", "measure", "fix", "retest", "debrief"] as const;
 const LEVELS = ["beginner", "intermediate", "advanced"] as const;
 

@@ -27,6 +27,8 @@ export interface SimulationParameters {
   /** TTL initial des paquets émis. */
   readonly hostInitialTtl: number;
   readonly routerInitialTtl: number;
+  /** STP : durée de chacun des états d'écoute et d'apprentissage (Forward Delay, 15 s par défaut). */
+  readonly stpForwardDelay: SimTime;
   readonly limits: SimulationLimits;
 }
 
@@ -59,6 +61,7 @@ export const DEFAULT_PARAMETERS: SimulationParameters = {
   hostLatency: fromMicroseconds(10),
   hostInitialTtl: 64,
   routerInitialTtl: 255,
+  stpForwardDelay: 15_000_000_000,
   limits: DEFAULT_LIMITS,
 };
 

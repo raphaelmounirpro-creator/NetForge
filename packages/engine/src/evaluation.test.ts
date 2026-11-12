@@ -1,4 +1,4 @@
-import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setInterfaceIpv4, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
@@ -166,13 +166,15 @@ describe("fonctions autorisées", () => {
     expect(forbiddenChanges(start, readdressed, ["routes", "addressing"])).toEqual([]);
   });
 
-  it("ne laissent modifier les VLAN des ports de switch qu'avec « vlans » ; les sous-interfaces relèvent de l'adressage", () => {
+  it("ne laissent modifier VLAN et Spanning Tree des switches qu'avec « switching » ; les sous-interfaces relèvent de l'adressage", () => {
     const start = vlanScenario();
     const moved = ok(setSwitchport(start, { deviceId: "sw1", portId: "ge1", switchport: { mode: "access", vlan: 20 } }));
-    expect(forbiddenChanges(start, moved, ["simulation", "addressing"])).toEqual(["vlans"]);
-    expect(forbiddenChanges(start, moved, ["vlans"])).toEqual([]);
+    expect(forbiddenChanges(start, moved, ["simulation", "addressing"])).toEqual(["switching"]);
+    expect(forbiddenChanges(start, moved, ["switching"])).toEqual([]);
+    const stpOff = ok(setStp(start, { deviceId: "sw1", enabled: true, priority: 4096 }));
+    expect(forbiddenChanges(start, stpOff, ["addressing"])).toEqual(["switching"]);
     const subinterface = ok(setInterfaceIpv4(start, { deviceId: "r1", portId: "ge0.30", ipv4: { address: "192.168.30.1", prefixLength: 24 } }));
-    expect(forbiddenChanges(start, subinterface, ["vlans"])).toEqual(["addressing"]);
+    expect(forbiddenChanges(start, subinterface, ["switching"])).toEqual(["addressing"]);
   });
 
   it("n'autorisent le retrait d'une panne optique qu'avec « optics », et jamais son ajout ou sa modification", () => {

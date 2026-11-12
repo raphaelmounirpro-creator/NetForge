@@ -53,6 +53,25 @@ export interface RouteView {
   readonly reason: InactiveReason | null;
 }
 
+export interface StpPortView {
+  readonly portId: string;
+  readonly role: "root" | "designated" | "alternate" | "disabled";
+  readonly state: "blocking" | "listening" | "learning" | "forwarding" | "disabled";
+  readonly cost: number;
+}
+
+/** Spanning Tree d'un switch : son pont, la racine élue, son port racine et l'état de chaque port. */
+export interface StpView {
+  readonly enabled: boolean;
+  /** « priorité.MAC » (identifiant de pont 802.1D). */
+  readonly bridgeId: string;
+  readonly rootBridgeId: string | null;
+  readonly rootDeviceId: string | null;
+  readonly rootCost: number;
+  readonly rootPort: string | null;
+  readonly ports: readonly StpPortView[];
+}
+
 export interface DeviceView {
   readonly deviceId: string;
   readonly name: string;
@@ -65,6 +84,8 @@ export interface DeviceView {
   readonly pendingArp: readonly PendingArpView[];
   /** Table de routage (PC et routeur), routes inactives comprises. */
   readonly routes: readonly RouteView[];
+  /** Spanning Tree (switch uniquement). */
+  readonly stp: StpView | null;
 }
 
 export type PingFailure = "no-address" | "no-route" | "host-unreachable" | "queue-full";

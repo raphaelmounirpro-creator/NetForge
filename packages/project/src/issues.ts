@@ -45,6 +45,8 @@ export const ISSUE_CODES = [
   "config.invalid-subinterface",
   "config.subinterface-not-supported",
   "config.switchports-not-supported",
+  "config.stp-not-supported",
+  "stp.invalid-priority",
   // VLAN
   "vlan.invalid-id",
   "vlan.mode-mismatch",

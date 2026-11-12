@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { CATALOG_VERSION, DEVICE_MODEL_IDS } from "./catalog.js";
 import { isIpv4Address } from "./ipv4.js";
+import { STP_PRIORITY_MAX, STP_PRIORITY_STEP } from "./stp.js";
 import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
 
 /**
  * Format d'échange .nfg.json, version 5 (v2 : routes statiques ; v3 : annotations ;
- * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces).
+ * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces —,
+ * et STP par switch).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
@@ -96,6 +98,17 @@ const deviceConfigSchema = z.strictObject({
   staticRoutes: z.array(staticRouteSchema).max(LIMITS.maxStaticRoutes),
   /** Ports de switch (switches uniquement) ; un port absent est en accès dans le VLAN 1. */
   switchports: z.record(portIdSchema, switchportSchema),
+  /** Spanning Tree 802.1D (switches uniquement ; null ailleurs) : activation et priorité du pont. */
+  stp: z
+    .strictObject({
+      enabled: z.boolean(),
+      priority: z
+        .int()
+        .min(0)
+        .max(STP_PRIORITY_MAX)
+        .refine((priority) => priority % STP_PRIORITY_STEP === 0, "multiple de 4096"),
+    })
+    .nullable(),
 });
 
 const deviceSchema = z.strictObject({

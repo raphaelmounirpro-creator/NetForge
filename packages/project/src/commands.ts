@@ -18,6 +18,7 @@ import {
   type Fiber,
   type StaticRoute,
 } from "./schema.js";
+import { STP_DEFAULT_PRIORITY, STP_PRIORITY_MAX, STP_PRIORITY_STEP, isStpPriority } from "./stp.js";
 import { validateDocument } from "./validation.js";
 import { DEFAULT_VLAN, VLAN_MAX, VLAN_MIN, isVlanId, normalizeVlans, parseSubinterface, type Switchport } from "./vlan.js";
 
@@ -49,7 +50,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {} };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -118,10 +119,12 @@ export function addDevice(
   const name = params.name ?? nextDeviceName(doc, getModel(params.model).namePrefix);
   if (!DEVICE_NAME_PATTERN.test(name)) return fail(error("device.invalid-name", { name }));
   const device: Device = { id: params.id, model: params.model, name };
+  // Un switch neuf a STP activé (comme un équipement réel sorti d'usine).
+  const config = getModel(params.model).kind === "switch" ? { ...emptyConfig(), stp: { enabled: true, priority: STP_DEFAULT_PRIORITY } } : emptyConfig();
   return commit(doc, {
     ...doc,
     topology: { ...doc.topology, devices: [...doc.topology.devices, device] },
-    configurations: { ...doc.configurations, [device.id]: emptyConfig() },
+    configurations: { ...doc.configurations, [device.id]: config },
     layout: { ...doc.layout, devices: { ...doc.layout.devices, [device.id]: clampPosition(params.position) } },
   });
 }
@@ -380,6 +383,16 @@ export function setSwitchport(doc: NfgDocument, params: { deviceId: string; port
         : { mode: "trunk", nativeVlan: port.nativeVlan, allowedVlans: port.allowedVlans === "all" ? "all" : normalizeVlans(port.allowedVlans) };
   const switchports = stored ? { ...others, [params.portId]: stored } : others;
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, switchports } } });
+}
+
+/** Spanning Tree d'un switch : activation et priorité du pont (multiple de 4096, de 0 à 61440). */
+export function setStp(doc: NfgDocument, params: { deviceId: string; enabled: boolean; priority: number }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "switch") return fail(error("config.stp-not-supported", { deviceId: device.id, deviceName: device.name }));
+  if (!isStpPriority(params.priority)) return fail(error("stp.invalid-priority", { value: String(params.priority), max: STP_PRIORITY_MAX, step: STP_PRIORITY_STEP }));
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, stp: { enabled: params.enabled, priority: params.priority } } } });
 }
 
 export function setDefaultGateway(

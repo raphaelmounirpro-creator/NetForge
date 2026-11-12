@@ -15,9 +15,12 @@ const EMPTY_NAMES = buildNameIndex([]);
  * chaque entrée tient sur deux lignes lisibles sans défilement horizontal.
  */
 function EntryList({ title, empty, children }: { title: string; empty: string | null; children: ReactNode }) {
+  const headingId = useId();
   return (
-    <section className="flex flex-col gap-1">
-      <h3 className="text-sm font-semibold text-text">{title}</h3>
+    <section aria-labelledby={headingId} className="flex flex-col gap-1">
+      <h3 id={headingId} className="text-sm font-semibold text-text">
+        {title}
+      </h3>
       {empty !== null ? <p className="text-xs text-text-muted">{empty}</p> : <ul className="flex flex-col gap-1">{children}</ul>}
     </section>
   );
@@ -55,6 +58,33 @@ function DeviceRuntime({ device, names }: { device: DeviceView; names: NameIndex
           />
         ))}
       </EntryList>
+
+      {device.stp && (
+        <EntryList title={t.stpTitle} empty={device.stp.enabled ? null : t.stpDisabled}>
+          {device.stp.enabled && (
+            <li className="text-sm text-text">
+              {device.stp.rootDeviceId === device.deviceId
+                ? fill(t.stpIsRoot, { bridge: device.stp.bridgeId })
+                : fill(t.stpRoot, { root: names.device(device.stp.rootDeviceId ?? ""), bridge: device.stp.rootBridgeId ?? "", cost: device.stp.rootCost, port: device.stp.rootPort ?? "—" })}
+            </li>
+          )}
+          {device.stp.enabled &&
+            device.stp.ports
+              .filter((port) => port.state !== "disabled")
+              .map((port) => (
+                <Entry
+                  key={port.portId}
+                  main={port.portId}
+                  detail={
+                    // Un port bloqué protège de la boucle : symbole neutre, état écrit en toutes lettres.
+                    <span className={port.state === "forwarding" ? "text-text" : "text-warning"}>
+                      {`${port.state === "forwarding" ? "●" : "⊘"} ${fill(t.stpPort, { role: messages.simulation.stpRoles[port.role], state: messages.simulation.stpStates[port.state], cost: port.cost })}`}
+                    </span>
+                  }
+                />
+              ))}
+        </EntryList>
+      )}
 
       {device.kind === "switch" ? (
         <EntryList title={t.macTable} empty={device.macTable.length === 0 ? t.macEmpty : null}>

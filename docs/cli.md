@@ -26,6 +26,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `show routes` (routeur) | Table de routage calculée (routes inactives comprises) |
 | | `show arp` (routeur) / `show mac` (switch) | Cache ARP / table MAC (par VLAN) |
 | | `show vlans` (switch) | Ports d'accès par VLAN, puis trunks (VLAN natif, VLAN autorisés) |
+| | `show spanning-tree` (switch) | Racine élue, port racine, puis rôle, état et coût de chaque port |
 | | `show config` | Configuration réécrite en commandes (rejouable) |
 | | `clear arp` (routeur) / `clear mac` (switch) | Vide la table apprise |
 | | `configure` | Passe en mode configuration |
@@ -34,6 +35,8 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `interface <port>.<vlan>` (routeur) | Sous-interface 802.1Q (`R1(config ge0.10)>`) : son numéro est le VLAN encapsulé |
 | | `route add <réseau>/<préfixe> via <prochain-saut>` | Ajoute une route statique (masque décimal accepté) |
 | | `route delete <réseau>/<préfixe>` | Retire une route statique |
+| | `spanning-tree enable` / `spanning-tree disable` (switch) | Active / désactive le Spanning Tree |
+| | `spanning-tree priority <priorité>` (switch) | Priorité du pont : multiple de 4096 entre 0 et 61440 (la plus petite devient racine) |
 | Interface (`R1(config ge0)>`) | `address <adresse>/<préfixe>` ou `address <adresse> <masque>` | Adresse IPv4 du port |
 | | `address clear` | Retire l'adresse |
 | Interface d'un switch (`SW1(config ge1)>`) | `access vlan <vlan>` | Port d'accès dans le VLAN (1 à 4094 ; `access vlan 1` revient au défaut) |

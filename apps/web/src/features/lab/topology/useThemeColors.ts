@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const TOKENS = ["canvas", "surface", "surface-raised", "border", "border-strong", "text", "text-muted", "accent", "accent-text", "signal", "danger"] as const;
+const TOKENS = ["canvas", "surface", "surface-raised", "border", "border-strong", "text", "text-muted", "accent", "accent-text", "signal", "danger", "warning"] as const;
 
 export type ThemeColors = Record<(typeof TOKENS)[number], string>;
 

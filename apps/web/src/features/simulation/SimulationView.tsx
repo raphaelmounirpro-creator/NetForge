@@ -97,6 +97,18 @@ export function SimulationView({ projectId, project }: { projectId: string; proj
     return links;
   }, [journal, exchange]);
 
+  // Ports que le Spanning Tree empêche de transmettre (état calculé par le moteur).
+  const devices = own?.devices;
+  const blockedPorts = useMemo(() => {
+    const blocked = new Map<string, string>();
+    for (const device of Object.values(devices ?? {})) {
+      for (const port of device.stp?.enabled ? device.stp.ports : []) {
+        if (port.state !== "forwarding" && port.state !== "disabled") blocked.set(`${device.deviceId}/${port.portId}`, messages.simulation.stpStates[port.state]);
+      }
+    }
+    return blocked;
+  }, [devices]);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-col gap-2 empty:hidden [&:not(:empty)]:p-2">
@@ -115,7 +127,7 @@ export function SimulationView({ projectId, project }: { projectId: string; proj
         {own && <Banners session={own} stale={stale} />}
       </div>
       <div className="relative min-h-0 flex-1">
-        <TopologyCanvas projectId={projectId} project={project} mode="simulate" linkStates={own?.links} highlightLinks={highlighted} />
+        <TopologyCanvas projectId={projectId} project={project} mode="simulate" linkStates={own?.links} highlightLinks={highlighted} blockedPorts={blockedPorts} />
       </div>
       {own && (
         <>

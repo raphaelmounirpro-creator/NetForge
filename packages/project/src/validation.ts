@@ -210,6 +210,7 @@ function checkIntegrity(doc: NfgDocument): Issue[] {
           issues.push(error("config.not-ip-capable", { deviceId: device.id, deviceName: device.name }));
         }
       }
+      if (config.stp !== null && model.kind !== "switch") issues.push(error("config.stp-not-supported", { deviceId: device.id, deviceName: device.name }));
       const switchportIds = Object.keys(config.switchports);
       if (switchportIds.length > 0 && model.kind !== "switch") {
         issues.push(error("config.switchports-not-supported", { deviceId: device.id, deviceName: device.name }));
@@ -423,8 +424,9 @@ function checkRoutes(doc: NfgDocument): Issue[] {
 
 /**
  * Boucle de commutation : un cycle formé uniquement de switches (câbles
- * parallèles compris). Sans STP, non modélisé à ce stade, une trame diffusée
- * y tourne indéfiniment. Avertissement seulement : c'est un cas d'étude.
+ * parallèles compris), dont au moins un switch n'a pas STP activé : une
+ * trame diffusée peut y tourner indéfiniment. Une boucle entre switches qui
+ * ont tous STP activé est normale (redondance). Avertissement seulement.
  */
 function checkSwitchLoops(doc: NfgDocument): Issue[] {
   const switches = new Map(
@@ -436,7 +438,7 @@ function checkSwitchLoops(doc: NfgDocument): Issue[] {
     for (let next = parent.get(current); next !== undefined && next !== current; next = parent.get(current)) current = next;
     return current;
   };
-  const issues: Issue[] = [];
+  const loops: { link: Link; deviceA: Device; deviceB: Device }[] = [];
   for (const link of doc.topology.links) {
     const [a, b] = link.endpoints;
     const deviceA = switches.get(a.deviceId);
@@ -444,19 +446,14 @@ function checkSwitchLoops(doc: NfgDocument): Issue[] {
     if (!deviceA || !deviceB || deviceA.id === deviceB.id) continue;
     const rootA = root(deviceA.id);
     const rootB = root(deviceB.id);
-    if (rootA === rootB) {
-      issues.push(
-        warning("topology.switch-loop", {
-          linkId: link.id,
-          deviceId: deviceA.id,
-          deviceName: deviceA.name,
-          otherDeviceId: deviceB.id,
-          otherDeviceName: deviceB.name,
-        }),
-      );
-    } else {
-      parent.set(rootA, rootB);
-    }
+    if (rootA === rootB) loops.push({ link, deviceA, deviceB });
+    else parent.set(rootA, rootB);
   }
-  return issues;
+  // Composantes protégées : tous leurs switches ont STP activé.
+  const unprotected = new Set([...switches.keys()].filter((id) => doc.configurations[id]?.stp?.enabled !== true).map(root));
+  return loops
+    .filter(({ deviceA }) => unprotected.has(root(deviceA.id)))
+    .map(({ link, deviceA, deviceB }) =>
+      warning("topology.switch-loop", { linkId: link.id, deviceId: deviceA.id, deviceName: deviceA.name, otherDeviceId: deviceB.id, otherDeviceName: deviceB.name }),
+    );
 }

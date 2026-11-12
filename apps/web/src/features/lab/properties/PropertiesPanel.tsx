@@ -27,6 +27,7 @@ import { SubinterfacesSection } from "./SubinterfacesSection";
 import { SwitchportForm } from "./SwitchportForm";
 import { RoutesTab } from "./RoutesTab";
 import { SingleFieldForm } from "./SingleFieldForm";
+import { StpForm } from "./StpForm";
 
 const t = messages.properties;
 type DeviceTab = "general" | "interfaces" | "routes";
@@ -99,6 +100,15 @@ function GeneralTab({ projectId, project, device }: { projectId: string; project
         <dt className="text-text-muted">{t.portsLabel}</dt>
         <dd className="text-text">{fill(isOptical(model.kind) ? t.portsFiber : t.ports, { count: model.ports.length })}</dd>
       </dl>
+      {model.kind === "switch" && (
+        <StpForm
+          key={JSON.stringify(project.document.configurations[device.id]?.stp)}
+          projectId={projectId}
+          deviceId={device.id}
+          current={project.document.configurations[device.id]?.stp ?? { enabled: false, priority: 32768 }}
+          disabled={!editable}
+        />
+      )}
       <Button
         variant="danger"
         size="sm"

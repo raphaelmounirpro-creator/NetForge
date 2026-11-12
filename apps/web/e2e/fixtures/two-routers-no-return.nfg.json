@@ -91,7 +91,8 @@
       },
       "defaultGateway": "10.0.1.1",
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "r1": {
       "interfaces": {
@@ -116,7 +117,8 @@
           "nextHop": "10.0.12.2"
         }
       ],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "r2": {
       "interfaces": {
@@ -135,7 +137,8 @@
       },
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "pc2": {
       "interfaces": {
@@ -148,7 +151,8 @@
       },
       "defaultGateway": "10.0.2.1",
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     }
   },
   "faults": [],

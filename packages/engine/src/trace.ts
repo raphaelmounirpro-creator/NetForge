@@ -33,6 +33,10 @@ export const TRACE_CODES = [
   "vlan.not-allowed",
   "vlan.no-subinterface",
   "nic.tagged-dropped",
+  // Spanning Tree 802.1D
+  "stp.discarded",
+  "stp.port-state",
+  "stp.topology-change",
   // ARP
   "arp.cache-hit",
   "arp.cache-miss",

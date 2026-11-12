@@ -7,12 +7,14 @@ import {
   renameDevice,
   setDefaultGateway,
   setInterfaceIpv4,
+  setStp,
   setSwitchport,
   type CommandResult,
 } from "./commands.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, prefixToMask } from "./ipv4.js";
 import type { Device, NfgDocument } from "./schema.js";
+import { STP_DEFAULT_PRIORITY, STP_PRIORITY_MAX, STP_PRIORITY_STEP, isStpPriority } from "./stp.js";
 import { DEFAULT_VLAN, VLAN_MAX, VLAN_MIN, formatVlanList, isVlanId, parseSubinterface, parseVlanList, subinterfaceId } from "./vlan.js";
 
 /**
@@ -38,6 +40,7 @@ export type CliRequest =
   | { readonly kind: "show-mac" }
   | { readonly kind: "show-config" }
   | { readonly kind: "show-vlans" }
+  | { readonly kind: "show-stp" }
   | { readonly kind: "ipconfig" }
   | { readonly kind: "ping"; readonly destination: string; readonly count: number }
   | { readonly kind: "clear-table"; readonly table: "arp" | "mac" }
@@ -144,6 +147,11 @@ function vlanNumber(text: string): number | null {
   if (!/^[1-9]\d{0,3}$/.test(text)) return null;
   const vlan = Number(text);
   return isVlanId(vlan) ? vlan : null;
+}
+
+/** Configuration STP d'un switch (défaut : activé, priorité 32768). */
+function stpOf(doc: NfgDocument, device: Device): { enabled: boolean; priority: number } {
+  return doc.configurations[device.id]?.stp ?? { enabled: true, priority: STP_DEFAULT_PRIORITY };
 }
 
 function pcPort(device: Device): string {
@@ -320,6 +328,50 @@ const COMMANDS: readonly CommandSpec[] = [
     required: [],
     maxArgs: 0,
     run: ({ mode }) => ok(mode, { request: { kind: "show-vlans" } }),
+  },
+  {
+    id: "show-stp",
+    words: ["show", "spanning-tree"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["switch"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-stp" } }),
+  },
+  {
+    id: "stp-enable",
+    words: ["spanning-tree", "enable"],
+    syntax: "",
+    modes: ["config"],
+    devices: ["switch"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode, doc }) => ok(mode, { edit: (current) => setStp(current, { deviceId: device.id, enabled: true, priority: stpOf(doc, device).priority }) }),
+  },
+  {
+    id: "stp-disable",
+    words: ["spanning-tree", "disable"],
+    syntax: "",
+    modes: ["config"],
+    devices: ["switch"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode, doc }) => ok(mode, { edit: (current) => setStp(current, { deviceId: device.id, enabled: false, priority: stpOf(doc, device).priority }) }),
+  },
+  {
+    id: "stp-priority",
+    words: ["spanning-tree", "priority"],
+    syntax: "<priorité>",
+    modes: ["config"],
+    devices: ["switch"],
+    required: ["priorité"],
+    maxArgs: 1,
+    run: ({ device, mode, doc, args }) => {
+      const priority = /^\d{1,5}$/.test(args[0] ?? "") ? Number(args[0]) : Number.NaN;
+      if (!isStpPriority(priority)) return invalid(mode, [error("stp.invalid-priority", { value: args[0] ?? "", max: STP_PRIORITY_MAX, step: STP_PRIORITY_STEP })]);
+      return ok(mode, { edit: (current) => setStp(current, { deviceId: device.id, enabled: stpOf(doc, device).enabled, priority }) });
+    },
   },
   {
     id: "clear-arp",
@@ -702,6 +754,9 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
   for (const route of config?.staticRoutes ?? []) {
     lines.push(`route add ${route.destination}/${String(route.prefixLength)} via ${route.nextHop}`);
   }
+  // STP : seulement ce qui diffère d'un switch neuf (activé, priorité 32768).
+  if (config?.stp && !config.stp.enabled) lines.push("spanning-tree disable");
+  if (config?.stp && config.stp.priority !== STP_DEFAULT_PRIORITY) lines.push(`spanning-tree priority ${String(config.stp.priority)}`);
   lines.push("end");
   return lines;
 }

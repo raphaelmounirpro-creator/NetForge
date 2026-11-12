@@ -148,7 +148,8 @@
       },
       "defaultGateway": "192.168.10.1",
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "pc2": {
       "interfaces": {
@@ -161,7 +162,8 @@
       },
       "defaultGateway": "192.168.20.1",
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "sw1": {
       "interfaces": {},
@@ -192,6 +194,10 @@
             20
           ]
         }
+      },
+      "stp": {
+        "enabled": false,
+        "priority": 32768
       }
     },
     "sw2": {
@@ -215,6 +221,10 @@
             20
           ]
         }
+      },
+      "stp": {
+        "enabled": false,
+        "priority": 32768
       }
     },
     "pc3": {
@@ -228,7 +238,8 @@
       },
       "defaultGateway": "192.168.10.1",
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "pc4": {
       "interfaces": {
@@ -241,7 +252,8 @@
       },
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     },
     "r1": {
       "interfaces": {
@@ -260,7 +272,8 @@
       },
       "defaultGateway": null,
       "staticRoutes": [],
-      "switchports": {}
+      "switchports": {},
+      "stp": null
     }
   },
   "faults": [],

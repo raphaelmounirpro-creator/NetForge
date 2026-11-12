@@ -12,7 +12,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 7 — Commutation avancée et services IP de base
 
-**État : en cours (démarrée le 2026-11-12).** Tranche 1 (VLAN) terminée et vérifiée ; tranche 2 (STP) en cours.
+**État : en cours (démarrée le 2026-11-12).** Tranches 1 (VLAN) et 2 (STP) terminées et vérifiées ; tranche 3 (DHCP) en cours.
 
 ### Périmètre retenu
 
@@ -36,8 +36,14 @@ La ligne « phase 7 » de la feuille de route (P-01, P-02, P-03, P-06) couvre un
 | VLAN | Routage inter-VLAN par sous-interfaces : un poste du VLAN 10 joint un poste du VLAN 20 | atteint : `vlan.test.ts`, `vlan.spec.ts` (ping réussi dans le navigateur) |
 | VLAN | Tables MAC par VLAN observables ; étiquette 802.1Q dans l'inspecteur ; console et formulaires équivalents | atteint : `vlan.test.ts` (même MAC dans deux VLAN), `cli.test.ts` (documents identiques, configuration rejouée), `vlan.spec.ts` (inspecteur « TPID 0x8100, VID 10 », formulaire puis `show vlans`) |
 | VLAN | Projets version 4 migrés : comportement inchangé (tous les ports en VLAN 1) | atteint : migration testée ; 117 tests du moteur antérieurs inchangés ; parcours navigateur existants réussis |
-| STP | La boucle de commutation de référence converge sans tempête ; un port bloqué ; le ping réussit ; reconvergence après coupure | ouvert |
+| STP | La boucle de commutation de référence converge sans tempête ; un port bloqué ; le ping réussit ; reconvergence après coupure | atteint : `stp.test.ts` (même boucle interrompue sans STP, convergée avec ; écoute 0 s, apprentissage 15 s, transmission 30 s), `stp.spec.ts` (port bloqué, coupure, ping en échec puis réussi, `show spanning-tree`) |
 | DHCP | Un poste obtient adresse et passerelle ; DORA observable ; plage épuisée signalée | ouvert |
+
+### Vérifications de la tranche STP (2026-11-12)
+
+- `pnpm check` : **385 tests** (format 124, moteur 135, interface 71, contrats 2, API 53) et builds réussis ; `pnpm test:e2e` : **25 parcours** (dont `stp.spec.ts`) ; `pnpm test:e2e:accounts` : **5 parcours**.
+- Inspection visuelle (Edge, 1440 px) : port bloqué marqué « ⊘ bloqué » sur le canevas, section Spanning Tree du panneau d'exécution.
+- Défauts trouvés et corrigés : sections du panneau d'exécution sans nom accessible (reliées à leur titre) ; référence erronée dans un commentaire (valeurs par défaut attribuées à la RFC 4188, qui ne les donne pas) ; modification de STP non protégée dans les évaluations (fonction « switching » couvrant VLAN et STP).
 
 ### Vérifications de la tranche VLAN (2026-11-12, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
 

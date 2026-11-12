@@ -7,6 +7,7 @@ Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2) et calcule le bilan optiq
 | [Moteur : temps, événements, déterminisme, limites](moteur.md) | Socle d'exécution |
 | [Ethernet et commutation](ethernet-commutation.md) | Pédagogique simplifié |
 | [VLAN 802.1Q et routage inter-VLAN](vlan.md) | Pédagogique simplifié |
+| [Spanning Tree (IEEE 802.1D)](stp.md) | Pédagogique simplifié — arbre calculé, sans BPDU simulés |
 | [ARP](arp.md) | Pédagogique simplifié |
 | [Adressage IPv4 (configuration)](ipv4-adressage.md) | Pédagogique simplifié — configuration et validation |
 | [IPv4 : acheminement et routage statique](ipv4-routage.md) | Pédagogique simplifié |
