@@ -65,6 +65,9 @@ export const ISSUE_CODES = [
   "dns.invalid-address",
   "dns.too-many-records",
   "dns.record-not-found",
+  // RIP
+  "rip.not-supported",
+  "rip.interface-not-addressed",
   // VLAN
   "vlan.invalid-id",
   "vlan.mode-mismatch",

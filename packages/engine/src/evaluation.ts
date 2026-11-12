@@ -19,9 +19,11 @@ import { createSimulation } from "./simulation.js";
  * switches (ports d'accès et trunks, Spanning Tree). Version 3 : DHCP (format v6),
  * configuration des clients et des plages protégée par « addressing ». Version 4 :
  * DNS (format v7), résolveur des postes et service des routeurs protégés par
- * « addressing » ; moteur capable de pings par nom.
+ * « addressing » ; moteur capable de pings par nom. Version 5 : RIP (format v8),
+ * participation des interfaces protégée par « routes » ; contrôles après la
+ * convergence initiale.
  */
-export const EVALUATOR_VERSION = 4;
+export const EVALUATOR_VERSION = 5;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */
@@ -212,11 +214,12 @@ function switchingOf(doc: NfgDocument): string {
   );
 }
 
+/** Passerelles, routes statiques et routage dynamique (interfaces RIP). */
 function routesOf(doc: NfgDocument): string {
   return stable(
     sortedEntries(doc.configurations)
-      .filter(([, config]) => config.defaultGateway !== null || config.staticRoutes.length > 0)
-      .map(([id, config]) => [id, config.defaultGateway, config.staticRoutes]),
+      .filter(([, config]) => config.defaultGateway !== null || config.staticRoutes.length > 0 || Object.keys(config.ripInterfaces).length > 0)
+      .map(([id, config]) => [id, config.defaultGateway, config.staticRoutes, sortedEntries(config.ripInterfaces)]),
   );
 }
 

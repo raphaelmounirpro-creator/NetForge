@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "models": {
     "catalog": 2
   },
@@ -297,7 +297,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "odf1": {
       "interfaces": {},
@@ -307,7 +308,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "cpl1": {
       "interfaces": {},
@@ -317,7 +319,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "cpl2": {
       "interfaces": {},
@@ -327,7 +330,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "pbo1": {
       "interfaces": {},
@@ -337,7 +341,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "pto1": {
       "interfaces": {},
@@ -347,7 +352,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "pto2": {
       "interfaces": {},
@@ -357,7 +363,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "pto3": {
       "interfaces": {},
@@ -367,7 +374,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "ont1": {
       "interfaces": {},
@@ -377,7 +385,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "ont2": {
       "interfaces": {},
@@ -387,7 +396,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     },
     "ont3": {
       "interfaces": {},
@@ -397,7 +407,8 @@
       "stp": null,
       "dhcpPools": {},
       "dnsServer": null,
-      "dnsRecords": null
+      "dnsRecords": null,
+      "ripInterfaces": {}
     }
   },
   "faults": [],

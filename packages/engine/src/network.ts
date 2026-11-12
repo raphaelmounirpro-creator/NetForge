@@ -8,6 +8,7 @@ import {
   switchportOf,
   type DeviceKind,
   type NfgDocument,
+  type RipMode,
   type Switchport,
 } from "@netforge/project";
 import { assignMacs, type MacAddress } from "./mac.js";
@@ -85,6 +86,8 @@ export interface RuntimeDevice {
   readonly dnsServer: string | null;
   /** Service DNS (routeur) : enregistrements A par nom ; null si le service est désactivé. */
   readonly dnsRecords: ReadonlyMap<string, string> | null;
+  /** RIP (routeur) : mode des interfaces participantes ; vide sans RIP. */
+  readonly ripInterfaces: ReadonlyMap<string, RipMode>;
 }
 
 export interface RuntimeDhcpPool {
@@ -196,6 +199,7 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
       ),
       dnsServer: model.kind === "pc" ? (config?.dnsServer ?? null) : null,
       dnsRecords: model.kind === "router" && config?.dnsRecords ? new Map(Object.entries(config.dnsRecords)) : null,
+      ripInterfaces: new Map(model.kind === "router" ? Object.entries(config?.ripInterfaces ?? {}).sort(([a], [b]) => a.localeCompare(b)) : []),
     });
   }
   return { devices, links };

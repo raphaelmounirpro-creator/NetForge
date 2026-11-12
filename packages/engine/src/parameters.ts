@@ -39,6 +39,14 @@ export interface SimulationParameters {
   readonly dnsMaxAttempts: number;
   /** DNS : TTL annoncé dans les réponses du serveur, en secondes (aucun cache côté poste). */
   readonly dnsAnswerTtl: number;
+  /** RIP : intervalle des annonces périodiques (30 s, RFC 2453 §3.8). */
+  readonly ripUpdateInterval: SimTime;
+  /** RIP : route expirée sans nouvelle annonce (180 s), puis supprimée après le ramasse-miettes (120 s). */
+  readonly ripTimeout: SimTime;
+  readonly ripGarbageCollection: SimTime;
+  /** RIP : attente tirée entre 1 et 5 s après une mise à jour déclenchée (RFC 2453 §3.10.1). */
+  readonly ripTriggeredHoldMin: SimTime;
+  readonly ripTriggeredHoldMax: SimTime;
   readonly limits: SimulationLimits;
 }
 
@@ -80,6 +88,11 @@ export const DEFAULT_PARAMETERS: SimulationParameters = {
   dnsRetryTimeout: fromSeconds(5),
   dnsMaxAttempts: 2,
   dnsAnswerTtl: 300,
+  ripUpdateInterval: fromSeconds(30),
+  ripTimeout: fromSeconds(180),
+  ripGarbageCollection: fromSeconds(120),
+  ripTriggeredHoldMin: fromSeconds(1),
+  ripTriggeredHoldMax: fromSeconds(5),
   limits: DEFAULT_LIMITS,
 };
 

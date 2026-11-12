@@ -3,10 +3,10 @@
  *
  * Moteur à événements discrets : horloge virtuelle en nanosecondes, file
  * d'événements stable, générateur pseudo-aléatoire à graine, Ethernet,
- * VLAN, STP, ARP, IPv4, ICMP, routage statique, DHCP et DNS. Aucune dépendance au DOM ni à React.
+ * VLAN, STP, ARP, IPv4, ICMP, routage statique et RIP, DHCP et DNS. Aucune dépendance au DOM ni à React.
  */
 /** Version du moteur : change dès que la trace produite pour un même scénario peut changer. */
-export const ENGINE_VERSION = "0.5.0";
+export const ENGINE_VERSION = "0.6.0";
 
 export * from "./commands.js";
 export * from "./evaluation.js";

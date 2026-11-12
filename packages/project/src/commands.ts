@@ -1,6 +1,7 @@
 import { CATALOG_VERSION, findPort, getModel, type DeviceModelId } from "./catalog.js";
 import { DHCP_LEASE_MAX, DHCP_LEASE_MIN, isDhcpLease, type DhcpPool } from "./dhcp.js";
 import { DNS_MAX_RECORDS, isDnsAddress, normalizeDnsName } from "./dns.js";
+import type { RipMode } from "./rip.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, parseIpv4, parsePrefixOrMask, type Ipv4Interface } from "./ipv4.js";
 import {
@@ -52,7 +53,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {} };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -665,4 +666,27 @@ export function setDnsRecord(doc: NfgDocument, params: { deviceId: string; name:
   const dnsRecords = address === null ? rest : { ...rest, [name]: address };
   if (Object.keys(dnsRecords).length > DNS_MAX_RECORDS) return fail(error("dns.too-many-records", { max: DNS_MAX_RECORDS }));
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, dnsRecords } } });
+}
+
+/**
+ * Participation d'une interface de routeur (port ou sous-interface) à RIP :
+ * « active », « passive », ou null pour l'en retirer. L'interface doit être
+ * adressée : RIP annonce son réseau.
+ */
+export function setRipInterface(doc: NfgDocument, params: { deviceId: string; interfaceId: string; mode: RipMode | null }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "router") return fail(error("rip.not-supported", { deviceId: device.id, deviceName: device.name }));
+  const sub = parseSubinterface(params.interfaceId);
+  const portId = sub ? sub.parent : params.interfaceId;
+  if ((params.interfaceId.includes(".") && !sub) || !findPort(device.model, portId)) {
+    return fail(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: params.interfaceId }));
+  }
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  if (params.mode !== null && !config.interfaces[params.interfaceId]?.ipv4) {
+    return fail(error("rip.interface-not-addressed", { deviceId: device.id, deviceName: device.name, portId: params.interfaceId }));
+  }
+  const { [params.interfaceId]: _previous, ...others } = config.ripInterfaces;
+  const ripInterfaces = params.mode === null ? others : { ...others, [params.interfaceId]: params.mode };
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ripInterfaces } } });
 }

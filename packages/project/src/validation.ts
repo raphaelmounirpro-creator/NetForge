@@ -245,6 +245,14 @@ function checkIntegrity(doc: NfgDocument): Issue[] {
       issues.push(error("config.missing", { deviceId: device.id, deviceName: device.name }));
     } else {
       const model = getModel(device.model);
+      // RIP (v8) : routeurs seulement, interfaces existantes ; une interface sans adresse ne participe pas (avertissement).
+      for (const portId of Object.keys(config.ripInterfaces)) {
+        const base = { deviceId: device.id, deviceName: device.name, portId };
+        const sub = parseSubinterface(portId);
+        if (model.kind !== "router") issues.push(error("rip.not-supported", base));
+        else if ((portId.includes(".") && !sub) || !findPort(device.model, sub ? sub.parent : portId)) issues.push(error("config.unknown-port", base));
+        else if (!config.interfaces[portId]?.ipv4) issues.push(warning("rip.interface-not-addressed", base));
+      }
       // DNS (v7) : résolveur sur un PC, service sur un routeur, adresses d'hôte attribuables.
       if (config.dnsServer !== null) {
         if (model.kind !== "pc") issues.push(error("dns.client-not-supported", { deviceId: device.id, deviceName: device.name }));

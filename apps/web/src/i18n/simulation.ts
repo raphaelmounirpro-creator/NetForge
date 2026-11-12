@@ -16,6 +16,7 @@ import {
   type TraceEntry,
   type TraceParams,
 } from "@netforge/engine";
+import { parsePrefixOrMask } from "@netforge/project";
 import { fill, messages } from "./index";
 
 /**
@@ -80,8 +81,8 @@ export function buildNameIndex(devices: readonly DeviceView[]): NameIndex {
   };
 }
 
-export type TraceCategory = "link" | "switch" | "arp" | "ip" | "icmp" | "dhcp" | "dns" | "system";
-export const TRACE_CATEGORIES: readonly TraceCategory[] = ["link", "switch", "arp", "ip", "icmp", "dhcp", "dns", "system"];
+export type TraceCategory = "link" | "switch" | "arp" | "ip" | "icmp" | "dhcp" | "dns" | "routing" | "system";
+export const TRACE_CATEGORIES: readonly TraceCategory[] = ["link", "switch", "arp", "ip", "icmp", "dhcp", "dns", "routing", "system"];
 
 export function traceCategory(code: TraceCode): TraceCategory {
   const family = code.slice(0, code.indexOf("."));
@@ -100,6 +101,8 @@ export function traceCategory(code: TraceCode): TraceCategory {
       return "dhcp";
     case "dns":
       return "dns";
+    case "rip":
+      return "routing";
     case "ip":
       return "ip";
     case "icmp":
@@ -150,6 +153,8 @@ const LOSS_OR_ERROR_CODES: ReadonlySet<TraceCode> = new Set<TraceCode>([
   "dns.name-error",
   "dns.gave-up",
   "ping.unresolved",
+  "rip.route-unreachable",
+  "rip.ignored",
 ]);
 
 export function isLossOrError(entry: TraceEntry): boolean {
@@ -173,7 +178,7 @@ function failureText(reason: unknown): string {
 }
 
 const MAC_PATTERN = /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/;
-const TIME_PARAMS = new Set(["expiresAt", "renewAt", "arrival", "departure", "until"]);
+const TIME_PARAMS = new Set(["expiresAt", "renewAt", "arrival", "departure", "until", "garbageAt"]);
 const DURATION_PARAMS = new Set(["rtt", "waited", "minRtt", "maxRtt", "avgRtt"]);
 
 export type ExplanationLevel = "beginner" | "technical";
@@ -200,10 +205,13 @@ function templateKey(entry: TraceEntry): keyof typeof messages.trace {
     case "switch.learn":
     case "switch.forward":
     case "switch.flood-broadcast":
+    case "switch.flood-multicast":
     case "switch.flood-unknown":
       return typeof params["vlan"] === "number" && params["vlan"] !== 1 ? `${entry.code}.vlan` : entry.code;
     case "command.nslookup":
       return params["server"] === null ? "command.nslookup.no-server" : entry.code;
+    case "rip.route-unreachable":
+      return params["nextHop"] === null ? "rip.route-unreachable.local" : entry.code;
     case "ip.no-route": {
       const key = `ip.no-route.${String(params["reason"])}`;
       return key in messages.trace ? (key as keyof typeof messages.trace) : "ip.no-route.no-match";
@@ -246,6 +254,10 @@ export function formatTrace(entry: TraceEntry, names: NameIndex, level: Explanat
   if (entry.code === "dns.ignored" && typeof params["reason"] === "string" && params["reason"] in t.dnsIgnored) {
     values["reasonText"] = t.dnsIgnored[params["reason"] as keyof typeof t.dnsIgnored];
   }
+  const ripReasons = entry.code === "rip.response-sent" ? t.ripReasons : entry.code === "rip.route-unreachable" ? t.ripUnreachable : entry.code === "rip.ignored" ? t.ripIgnored : null;
+  if (ripReasons && typeof params["reason"] === "string" && params["reason"] in ripReasons) {
+    values["reasonText"] = ripReasons[params["reason"] as keyof typeof ripReasons];
+  }
   if (typeof params["routeKind"] === "string" && params["routeKind"] in messages.traceLabels.routeKinds) {
     values["routeKind"] = messages.traceLabels.routeKinds[params["routeKind"] as keyof typeof messages.traceLabels.routeKinds];
   }
@@ -263,6 +275,8 @@ export function formatExchange(exchange: string): string {
   if (dhcp) return fill(t.exchangeDhcp, { session: dhcp[1] ?? "" });
   const dns = /^dns-(\d+)$/.exec(exchange);
   if (dns) return fill(t.exchangeDns, { session: dns[1] ?? "" });
+  const rip = /^rip-(\d+)$/.exec(exchange);
+  if (rip) return fill(t.exchangeRip, { session: rip[1] ?? "" });
   const echo = /^ping-(\d+)#(\d+)$/.exec(exchange);
   if (echo) return fill(t.exchangeEcho, { session: echo[1] ?? "", sequence: echo[2] ?? "" });
   const session = /^ping-(\d+)$/.exec(exchange);
@@ -270,7 +284,7 @@ export function formatExchange(exchange: string): string {
 }
 
 export interface PduLayer {
-  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp" | "dns";
+  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp" | "dns" | "rip";
   readonly title: string;
   readonly osi: string;
   readonly fields: ReadonlyArray<readonly [label: string, value: string]>;
@@ -330,6 +344,22 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
           .flatMap(([label, value]) => value === null ? [] : [[label, String(value)] as const]),
       ])];
     }
+    case "rip":
+      return [
+        layer("rip", [
+          [f.ripCommand, pdu.command === "request" ? v.ripRequest : v.ripResponse],
+          [f.ripVersion, String(pdu.version)],
+          ...pdu.entries.map(
+            (entry) =>
+              [
+                f.ripEntry,
+                entry.family === "unspecified"
+                  ? v.ripWholeTable
+                  : fill(v.ripEntry, { network: entry.address, prefix: parsePrefixOrMask(entry.mask) ?? entry.mask, metric: entry.metric, nextHop: entry.nextHop }),
+              ] as const,
+          ),
+        ]),
+      ];
     case "dns": {
       const bit = (value: boolean) => (value ? 1 : 0);
       return [

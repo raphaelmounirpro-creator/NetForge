@@ -47,6 +47,8 @@ export interface PendingArpView {
 
 export interface RouteView {
   readonly kind: RouteKind;
+  /** Métrique RIP (null : route connectée ou configurée). */
+  readonly metric: number | null;
   readonly destination: string;
   readonly prefixLength: number;
   readonly nextHop: string | null;
@@ -159,6 +161,27 @@ export interface DnsLookupView {
   readonly attempts: number;
 }
 
+/** Entrée de la table RIP : réseau local (annoncé), route apprise valide, ou en cours de suppression. */
+export interface RipRouteView {
+  readonly destination: string;
+  readonly prefixLength: number;
+  readonly nextHop: string | null;
+  readonly portId: string;
+  readonly metric: number;
+  readonly state: "local" | "valid" | "deleting";
+  /** Expiration sans nouvelle annonce (route apprise valide). */
+  readonly expiresAt: SimTime | null;
+  /** Suppression définitive (route inaccessible, métrique 16). */
+  readonly garbageAt: SimTime | null;
+}
+
+/** RIP d'un routeur : interfaces participantes, table RIP et prochaine annonce périodique. */
+export interface RipView {
+  readonly interfaces: ReadonlyArray<{ readonly portId: string; readonly mode: "active" | "passive"; readonly up: boolean }>;
+  readonly routes: readonly RipRouteView[];
+  readonly nextUpdateAt: SimTime;
+}
+
 export interface DeviceView {
   readonly deviceId: string;
   readonly name: string;
@@ -179,6 +202,8 @@ export interface DeviceView {
   readonly dhcpServer: DhcpServerView | null;
   /** Service DNS (routeur dont le service est activé). */
   readonly dnsServer: DnsServerView | null;
+  /** RIP (routeur ayant au moins une interface RIP). */
+  readonly rip: RipView | null;
 }
 
 export type PingFailure = "no-address" | "no-route" | "host-unreachable" | "queue-full";

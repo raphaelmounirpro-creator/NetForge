@@ -54,7 +54,7 @@ export function showRoutes(view: DeviceView): string[] {
   return table(
     [c.kind, c.destination, c.nextHop, c.port, c.state],
     view.routes.map((route) => [
-      kinds[route.kind],
+      route.metric === null ? kinds[route.kind] : fill(messages.simulation.runtime.routeMetric, { kind: kinds[route.kind], metric: route.metric }),
       `${route.destination}/${String(route.prefixLength)}`,
       route.nextHop ?? messages.simulation.runtime.direct,
       route.portId ?? "—",
@@ -136,6 +136,31 @@ export function showDns(view: DeviceView): string[] {
     fill(r.dnsCounters, { answered: service.answered, nameErrors: service.nameErrors }),
     "",
     ...(service.records.length === 0 ? [r.dnsNoRecords] : table([t.columns.name, t.columns.address], service.records.map((record) => [record.name, record.address]))),
+  ];
+}
+
+/** « show rip » : interfaces RIP, table RIP calculée par le moteur et prochaine annonce périodique. */
+export function showRip(view: DeviceView): string[] {
+  const rip = view.rip;
+  const r = messages.simulation.runtime;
+  if (!rip) return [t.ripNone];
+  const c = t.columns;
+  const states = messages.simulation.ripStates;
+  return [
+    rip.interfaces.map((item) => fill(r.ripInterface, { port: item.portId, mode: r.ripModes[item.mode] }) + (item.up ? "" : ` (${t.down})`)).join(" ; "),
+    fill(r.ripNext, { time: formatSimTime(rip.nextUpdateAt) }),
+    "",
+    ...table(
+      [c.network, c.nextHop, c.port, c.metric, c.state, c.expires],
+      rip.routes.map((entry) => [
+        `${entry.destination}/${String(entry.prefixLength)}`,
+        entry.nextHop ?? r.direct,
+        entry.portId,
+        String(entry.metric),
+        states[entry.state],
+        entry.state === "deleting" && entry.garbageAt !== null ? formatSimTime(entry.garbageAt) : entry.expiresAt === null ? "—" : formatSimTime(entry.expiresAt),
+      ]),
+    ),
   ];
 }
 

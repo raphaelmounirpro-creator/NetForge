@@ -12,6 +12,7 @@ import {
   setDnsServer,
   setInterfaceDhcp,
   setInterfaceIpv4,
+  setRipInterface,
   setStp,
   setSwitchport,
   type CommandResult,
@@ -50,6 +51,7 @@ export type CliRequest =
   | { readonly kind: "show-stp" }
   | { readonly kind: "show-dhcp" }
   | { readonly kind: "show-dns" }
+  | { readonly kind: "show-rip" }
   | { readonly kind: "ipconfig" }
   /** Client DHCP d'un PC : renouveler ou libérer le bail (demande d'exécution). */
   | { readonly kind: "dhcp"; readonly action: "renew" | "release" }
@@ -476,6 +478,16 @@ const COMMANDS: readonly CommandSpec[] = [
     run: ({ mode }) => ok(mode, { request: { kind: "show-dns" } }),
   },
   {
+    id: "show-rip",
+    words: ["show", "rip"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-rip" } }),
+  },
+  {
     id: "dns-enable",
     words: ["dns", "enable"],
     syntax: "",
@@ -717,6 +729,45 @@ const COMMANDS: readonly CommandSpec[] = [
     },
   },
   {
+    id: "rip-enable",
+    words: ["rip", "enable"],
+    syntax: "",
+    modes: ["interface"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "rip enable" });
+      return ok(mode, { edit: (doc) => setRipInterface(doc, { deviceId: device.id, interfaceId: mode.portId, mode: "active" }) });
+    },
+  },
+  {
+    id: "rip-passive",
+    words: ["rip", "passive"],
+    syntax: "",
+    modes: ["interface"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "rip passive" });
+      return ok(mode, { edit: (doc) => setRipInterface(doc, { deviceId: device.id, interfaceId: mode.portId, mode: "passive" }) });
+    },
+  },
+  {
+    id: "rip-disable",
+    words: ["rip", "disable"],
+    syntax: "",
+    modes: ["interface"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "rip disable" });
+      return ok(mode, { edit: (doc) => setRipInterface(doc, { deviceId: device.id, interfaceId: mode.portId, mode: null }) });
+    },
+  },
+  {
     id: "route-add",
     words: ["route", "add"],
     syntax: "<réseau>/<préfixe> via <prochain-saut>",
@@ -935,10 +986,12 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
       })
       .sort((a, b) => a.vlan - b.vlan);
     for (const sub of subinterfaces) lines.push(`interface ${sub.id}`, `address ${sub.ipv4.address}/${String(sub.ipv4.prefixLength)}`, "exit");
-    // Plages DHCP du port puis de ses sous-interfaces (après leurs adresses).
+    // Plages DHCP et RIP du port puis de ses sous-interfaces (après leurs adresses).
     for (const id of [port.id, ...subinterfaces.map((sub) => sub.id)]) {
       const pool = config?.dhcpPools[id];
       if (pool) lines.push(`interface ${id}`, `dhcp pool ${pool.start} ${pool.end} gateway ${pool.gateway} lease ${formatLeaseDuration(pool.leaseSeconds)}`, "exit");
+      const rip = config?.ripInterfaces[id];
+      if (rip) lines.push(`interface ${id}`, rip === "active" ? "rip enable" : "rip passive", "exit");
     }
     const switchport = config?.switchports[port.id];
     if (switchport?.mode === "access") lines.push(`interface ${port.id}`, `access vlan ${String(switchport.vlan)}`, "exit");

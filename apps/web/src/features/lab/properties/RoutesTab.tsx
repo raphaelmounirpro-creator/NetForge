@@ -13,6 +13,7 @@ import { Button } from "../../../components/ui/Button";
 import { TextField } from "../../../components/ui/TextField";
 import { fill, formatIssue, messages } from "../../../i18n";
 import { useLabStore, type OpenProject } from "../store";
+import { RipSection } from "./RipSection";
 
 const t = messages.properties;
 
@@ -132,6 +133,7 @@ export function RoutesTab({ projectId, project, device }: { projectId: string; p
           {t.addRoute}
         </Button>
       </form>
+      <RipSection projectId={projectId} deviceId={device.id} config={project.document.configurations[device.id]} disabled={!editable} />
     </div>
   );
 }

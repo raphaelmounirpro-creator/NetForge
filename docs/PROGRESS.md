@@ -21,7 +21,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 8 — Routage dynamique et redondance
 
-**État : en cours (démarrée le 2026-11-12).** Tranche 1 (RIP) en cours.
+**État : en cours (démarrée le 2026-11-12).** Tranche 1 (RIP) terminée et vérifiée ; tranche 2 (OSPF en zone unique) à venir.
 
 ### Périmètre retenu
 
@@ -40,11 +40,20 @@ La ligne « phase 8 » de la feuille de route (P-04 et la part routage de P-05) 
 
 | Tranche | Critère | État |
 |---|---|---|
-| RIP | Routeurs en chaîne sans route statique : chaque réseau devient joignable par les routes apprises ; métriques en sauts observables | à faire |
-| RIP | Coupure d'un chemin redondant : route retirée puis chemin de secours, reconvergence mesurée en temps simulé | à faire |
-| RIP | Horizon partagé et métrique 16 observables ; console et formulaires équivalents ; anciens projets migrés sans RIP | à faire |
+| RIP | Routeurs sans route statique : chaque réseau devient joignable par les routes apprises ; métriques en sauts observables | atteint : `rip.test.ts` (triangle de référence : métriques 1 et 2, prochains sauts, pings et TTL ; convergence en moins d'une seconde simulée par les demandes de démarrage), `rip.spec.ts` (table RIP du panneau d'exécution, « RIP, métrique 2 » dans `show routes`, ping réussi) |
+| RIP | Coupure d'un chemin redondant : route retirée puis chemin de secours, reconvergence mesurée en temps simulé | atteint : `rip.test.ts` (retrait immédiat aux deux extrémités, ping refusé par R1, route de secours en métrique 3 à l'annonce périodique de 30 s, suppression du réseau coupé à +120 s, retour du chemin court au rétablissement ; expiration à 180 s et suppression à 300 s derrière un switch), `rip.spec.ts` (coupure, lecture accélérée, ping TTL 61) |
+| RIP | Horizon partagé et métrique 16 observables ; console et formulaires équivalents ; anciens projets migrés sans RIP | atteint : `rip.test.ts` (aucune annonce d'une route sur son interface d'apprentissage, diamètre de 15 sauts, voisin passif, voisin d'un autre réseau), `project/rip.test.ts` (documents identiques, configuration rejouée), `migration.test.ts` (v7 → v8), `rip.spec.ts` (formulaire puis console) |
 | OSPF | Voisinages établis, base d'état des liens identique sur tous les routeurs, routes de plus faible coût ; reconvergence après coupure | à faire |
 | VRRP | Un poste garde sa passerelle virtuelle quand le routeur maître tombe ; bascule et retour observables | à faire |
+
+### Vérifications de la tranche RIP (2026-11-12, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- `pnpm check` réussi : lint, typecheck, **480 tests** (format 163, moteur 178, interface 84, contrats 2, API 53 sur PostgreSQL réel) et builds.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **31 parcours** réussis, dont les 2 de `rip.spec.ts`.
+- `pnpm test:e2e:accounts` : **non exécuté**, même blocage que pour la tranche DNS (processus PostgreSQL orphelin sur le port 54330). Attente « correcteur version 5 » actualisée dans `evaluations.spec.ts` sans être rejouée ; tests d'API des exercices réussis.
+- Inspection visuelle réelle (Edge, 1 440 et 1 024 px, thèmes sombre et clair) : section RIP de l'onglet Routes, table RIP du panneau d'exécution, journal, inspecteur, canevas pendant une panne ; aucun débordement horizontal.
+- Défauts trouvés et corrigés : partie basse de la topologie masquée par le panneau de résultats en passant à la vue Simulation (le centre de la vue est désormais conservé quand la zone visible change de taille, D-056) ; étiquettes de port de mon scénario superposées au nom d'un routeur (disposition revue) ; scénario de test dont le réseau d'origine n'était relié à rien (interface inactive, donc non annoncée : comportement correct, test corrigé).
+- Format **v8**, moteur **0.6.0**, correcteur **v5**. Références consultées le 2026-11-12 : RFC 2453, RFC 1112, RFC 5771 ; limites dans [protocols/rip.md](protocols/rip.md) et D-056.
 
 ## Phase 7 — Commutation avancée et services IP de base : validée par le propriétaire (2026-11-12)
 

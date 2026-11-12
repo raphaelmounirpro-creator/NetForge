@@ -29,6 +29,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `show spanning-tree` (switch) | Racine élue, port racine, puis rôle, état et coût de chaque port |
 | | `show dhcp` (routeur) | Plages et baux calculés par le moteur |
 | | `show dns` (routeur) | Noms enregistrés et réponses données par le service DNS (calculés par le moteur) |
+| | `show rip` (routeur) | Interfaces RIP, prochaine annonce et table RIP (métrique, prochain saut, expiration) calculées par le moteur |
 | | `show config` | Configuration réécrite en commandes (rejouable) |
 | | `clear arp` (routeur) / `clear mac` (switch) | Vide la table apprise |
 | | `configure` | Passe en mode configuration |
@@ -46,6 +47,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `address clear` | Retire l'adresse |
 | | `dhcp pool <début> <fin> [gateway <passerelle>] [lease <durée>]` (routeur) | Plage de l'interface ; défauts : adresse de l'interface, bail de 1 jour |
 | | `dhcp clear` (routeur) | Retire la plage de l'interface |
+| | `rip enable` / `rip passive` / `rip disable` (routeur) | Interface active dans RIP / réseau annoncé sans message RIP / retirée de RIP (interface adressée) |
 | Interface d'un switch (`SW1(config ge1)>`) | `access vlan <vlan>` | Port d'accès dans le VLAN (1 à 4094 ; `access vlan 1` revient au défaut) |
 | | `trunk [native <vlan>] [allowed <liste>\|all]` | Trunk 802.1Q ; par défaut VLAN natif 1 et tous les VLAN autorisés ; liste : `10,20,30-35` |
 | Configuration et interface | `exit` / `end` | Remonte d'un niveau / revient en exploitation |

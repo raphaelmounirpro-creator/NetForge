@@ -5,6 +5,8 @@ import {
   dhcpScenario,
   dnsScenario,
   lanScenario,
+  ripScenario,
+  ScenarioBuilder,
   routedScenario,
   twoRoutersScenario,
   VLAN_SCENARIO,
@@ -293,6 +295,82 @@ describe("observation DNS sur des échanges réels", () => {
     expect(formatCommandError("command.invalid-destination", { destination: "10.0.0", reason: "format" })).toBe(
       "« 10.0.0 » ne peut pas être pingée : ni adresse IPv4 (exemple : 192.168.1.11) ni nom d'hôte (exemple : srv.lab).",
     );
+  });
+});
+
+describe("observation RIP sur des échanges réels", () => {
+  const behindSwitch = new ScenarioBuilder("rip-switch", "RIP derrière un switch")
+    .device("r1", "R-200", 0, 0).device("sw1", "S-24", 200, 0).device("r2", "R-200", 400, 0).device("pc2", "PC", 600, 0)
+    .link("r1", "ge1", "sw1", "ge1").link("sw1", "ge2", "r2", "ge1").link("r2", "ge0", "pc2", "eth0")
+    .ip("r1", "ge1", "10.12.0.1/24").ip("r2", "ge1", "10.12.0.2/24").ip("r2", "ge0", "10.2.0.1/24")
+    .rip("r1", "ge1").rip("r2", "ge1").rip("r2", "ge0", "passive")
+    .build();
+  const mismatch = new ScenarioBuilder("rip-mismatch", "Réseaux différents")
+    .device("r1", "R-200", 0, 0).device("r2", "R-200", 200, 0)
+    .link("r1", "ge1", "r2", "ge1").ip("r1", "ge1", "10.12.0.1/30").ip("r2", "ge1", "10.99.0.2/30")
+    .rip("r1", "ge1").rip("r2", "ge1")
+    .build();
+  // Première commande neutre (cache ARP vidé) : la convergence initiale est calculée avant la panne.
+  const converge: SimCommand = { type: "clear-table", deviceId: "r1", table: "arp" };
+  const runs = [
+    run(ripScenario(), [converge, { type: "set-link", linkId: "l6", up: false }]),
+    run(ripScenario(), [converge, { type: "set-link", linkId: "l6", up: false }, { type: "set-link", linkId: "l6", up: true }]),
+    run(behindSwitch, [converge, { type: "set-link", linkId: "l2", up: false }]),
+    run(mismatch, []),
+  ];
+
+  it("explique chaque décision RIP aux deux niveaux, sans paramètre manquant", () => {
+    const seen = new Set<string>();
+    for (const { trace, snapshot } of runs) {
+      const names = buildNameIndex(snapshot.devices);
+      for (const entry of trace) {
+        seen.add(entry.code);
+        for (const level of ["beginner", "technical"] as const) {
+          expect(formatTrace(entry, names, level), entry.code + " " + level).not.toMatch(/\{\w+\}|undefined|null|NaN/);
+        }
+      }
+    }
+    for (const code of ["rip.request-sent", "rip.request-received", "rip.response-sent", "rip.response-received", "rip.route-learned", "rip.route-updated", "rip.route-unreachable", "rip.route-removed", "rip.network-up", "rip.ignored", "switch.flood-multicast"]) {
+      expect(seen, code).toContain(code);
+    }
+  });
+
+  it("formule les explications attendues et classe RIP dans le routage dynamique", () => {
+    const { trace, snapshot } = runs[0] ?? { trace: [], snapshot: undefined };
+    if (!snapshot) throw new Error("scénario attendu");
+    const names = buildNameIndex(snapshot.devices);
+    const text = (predicate: (entry: TraceEntry) => boolean) => {
+      const entry = trace.find(predicate);
+      if (!entry) throw new Error("décision attendue");
+      return formatTrace(entry, names);
+    };
+    expect(text((entry) => entry.code === "rip.route-learned" && entry.deviceId === "r1" && entry.params["route"] === "10.2.0.0/24")).toBe(
+      "R1 apprend la route 10.2.0.0/24 par 10.12.0.2 (ge1), métrique 2.",
+    );
+    expect(text((entry) => entry.code === "rip.route-unreachable" && entry.deviceId === "r1" && entry.params["route"] === "10.3.0.0/24")).toBe(
+      "R1 marque la route 10.3.0.0/24 par 10.13.0.2 inaccessible (interface hors service) : elle n'est plus utilisée.",
+    );
+    expect(text((entry) => entry.code === "rip.route-unreachable" && entry.deviceId === "r1" && entry.params["route"] === "10.13.0.0/30")).toBe(
+      "R1 : son réseau 10.13.0.0/30 devient inaccessible (interface hors service) ; il l'annonce en métrique 16.",
+    );
+    expect(traceCategory("rip.route-learned")).toBe("routing");
+    expect(isLossOrError(trace.find((entry) => entry.code === "rip.route-unreachable") ?? trace[0] ?? ({} as TraceEntry))).toBe(true);
+    expect(isLossOrError(trace.find((entry) => entry.code === "rip.route-learned") ?? trace[0] ?? ({} as TraceEntry))).toBe(false);
+  });
+
+  it("inspecte une demande RIP avec ses seuls champs modélisés", () => {
+    const { trace, snapshot } = runs[0] ?? { trace: [], snapshot: undefined };
+    if (!snapshot) throw new Error("scénario attendu");
+    const request = trace.find((entry) => entry.code === "eth.transmit" && entry.pdu?.kind === "ethernet" && entry.pdu.destination === "01:00:5e:00:00:09");
+    if (!request?.pdu) throw new Error("demande attendue");
+    const layers = pduLayers(request.pdu, buildNameIndex(snapshot.devices));
+    expect(layers.map((layer) => layer.id)).toEqual(["ethernet", "ipv4", "udp", "rip"]);
+    expect(layers[1]?.fields).toContainEqual(["TTL", "1"]);
+    expect(layers[2]?.fields).toEqual([["Port source", "520"], ["Port destination", "520"]]);
+    expect(layers[3]?.fields).toEqual([["Commande", "1 (demande)"], ["Version", "2"], ["Entrée", "table complète demandée (famille 0, métrique 16)"]]);
+    const response = trace.find((entry) => entry.code === "rip.response-sent" && entry.pdu?.kind === "rip");
+    if (!response?.pdu) throw new Error("réponse attendue");
+    expect(pduLayers(response.pdu, buildNameIndex(snapshot.devices))[0]?.fields.slice(2).every(([label, value]) => label === "Entrée" && / · métrique \d+ · prochain saut 0\.0\.0\.0$/.test(value))).toBe(true);
   });
 });
 

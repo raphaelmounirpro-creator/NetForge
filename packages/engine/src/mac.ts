@@ -11,6 +11,20 @@ export type MacAddress = string;
 
 export const BROADCAST_MAC: MacAddress = "ff:ff:ff:ff:ff:ff";
 
+/** Adresse de groupe (bit de poids faible du premier octet à 1) : diffusion ou multidiffusion. */
+export function isGroupMac(mac: MacAddress): boolean {
+  return (Number.parseInt(mac.slice(0, 2), 16) & 1) === 1;
+}
+
+/**
+ * MAC de multidiffusion d'un groupe IPv4 : 01:00:5e suivi des 23 bits de poids
+ * faible de l'adresse (RFC 1112 §6.4).
+ */
+export function multicastMac(address: number): MacAddress {
+  const low = address & 0x7fffff;
+  return ["01:00:5e", hex((low >>> 16) & 0xff), hex((low >>> 8) & 0xff), hex(low & 0xff)].join(":");
+}
+
 /** FNV-1a 32 bits : hachage simple et stable, sans dépendance. */
 function fnv1a(text: string, offset = 0x811c9dc5): number {
   let hash = offset >>> 0;

@@ -119,6 +119,18 @@ function migrateV6toV7(doc: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
+/** Version 7 → 8 : aucun routeur ne participe à RIP. */
+function migrateV7toV8(doc: Record<string, unknown>): Record<string, unknown> {
+  const configs = doc["configurations"];
+  return {
+    ...doc,
+    schemaVersion: 8,
+    configurations: isRecord(configs)
+      ? Object.fromEntries(Object.entries(configs).map(([id, config]) => [id, isRecord(config) ? { ...config, ripInterfaces: {} } : config]))
+      : configs,
+  };
+}
+
 /**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
@@ -130,6 +142,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   4: migrateV4toV5,
   5: migrateV5toV6,
   6: migrateV6toV7,
+  7: migrateV7toV8,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

@@ -67,14 +67,26 @@ export const TopologyCanvas = memo(function TopologyCanvas({ projectId, project,
   const simulate = mode !== "edit";
   const tool = simulate ? "select" : project.tool;
 
+  const projectRef = useRef(projectId);
+  projectRef.current = projectId;
+
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return;
       const next = { width: Math.floor(entry.contentRect.width), height: Math.floor(entry.contentRect.height) };
+      const lab = useLabStore.getState();
+      const previous = lab.canvasSize;
       setSize(next);
-      useLabStore.getState().setCanvasSize(next);
+      lab.setCanvasSize(next);
+      // Zone visible redimensionnée (vue Simulation et son panneau de résultats, panneaux latéraux) :
+      // le centre de la vue reste en place, sinon une partie de la topologie passerait hors champ.
+      const current = lab.projects[projectRef.current];
+      if (current && previous.width > 0 && previous.height > 0 && (previous.width !== next.width || previous.height !== next.height)) {
+        const { viewport: view } = current;
+        lab.setViewport(projectRef.current, { ...view, x: view.x + (next.width - previous.width) / 2, y: view.y + (next.height - previous.height) / 2 });
+      }
     });
     observer.observe(element);
     return () => {

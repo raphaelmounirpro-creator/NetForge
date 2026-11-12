@@ -2,6 +2,7 @@ import {
   carriesVlan,
   DEFAULT_SWITCHPORT,
   formatIpv4,
+  networkAddress,
   normalizeDnsName,
   parseIpv4,
   parsePrefixOrMask,
@@ -12,7 +13,7 @@ import {
   type NfgDocument,
 } from "@netforge/project";
 import type { CommandErrorCode, CommandOutcome, SimCommand } from "./commands.js";
-import { BROADCAST_MAC, type MacAddress } from "./mac.js";
+import { BROADCAST_MAC, isGroupMac, multicastMac, type MacAddress } from "./mac.js";
 import { buildNetwork, isPortUp, peerOf, runtimeAddress, type RuntimeDevice, type RuntimeDhcpPool, type RuntimeNetwork, type RuntimePort } from "./network.js";
 import { DEFAULT_PARAMETERS, PING_DEFAULTS, type SimulationLimits, type SimulationParameters } from "./parameters.js";
 import {
@@ -23,6 +24,10 @@ import {
   EPHEMERAL_PORT_MIN,
   ETHERNET_WIRE_OVERHEAD_BYTES,
   LIMITED_BROADCAST,
+  RIP_INFINITY,
+  RIP_MAX_ENTRIES,
+  RIP_MULTICAST,
+  RIP_PORT,
   UNSPECIFIED_ADDRESS,
   ZERO_MAC,
   frameBytes,
@@ -37,6 +42,8 @@ import {
   type Ipv4Packet,
   type Ipv4Payload,
   type Pdu,
+  type RipEntry,
+  type RipMessage,
   type UdpDatagram,
 } from "./pdu.js";
 import { Prng } from "./prng.js";
@@ -55,6 +62,7 @@ import type {
   PingFailure,
   PingStatus,
   PingView,
+  RipView,
   SimulationChanges,
   SimulationSnapshot,
 } from "./views.js";
@@ -88,7 +96,11 @@ type EventValue =
       readonly generation: number;
     }
   | { readonly type: "dhcp-server-expiry"; readonly deviceId: string; readonly address: string; readonly generation: number }
-  | { readonly type: "dns-retry"; readonly queryId: string; readonly attempt: number };
+  | { readonly type: "dns-retry"; readonly queryId: string; readonly attempt: number }
+  | { readonly type: "rip-start"; readonly deviceId: string }
+  | { readonly type: "rip-periodic"; readonly deviceId: string }
+  | { readonly type: "rip-triggered"; readonly deviceId: string }
+  | { readonly type: "rip-timer"; readonly deviceId: string; readonly key: string; readonly stage: "timeout" | "garbage"; readonly generation: number };
 
 interface QueuedEvent {
   readonly value: EventValue;
@@ -224,6 +236,33 @@ interface DnsQuery {
   ttl: number | null;
 }
 
+/** Entrée de la table RIP d'un routeur, indexée par « réseau/préfixe ». */
+interface RipRoute {
+  readonly destination: number;
+  readonly prefixLength: number;
+  /** null : réseau d'une interface RIP du routeur lui-même (métrique 1). */
+  nextHop: number | null;
+  /** Interface de sortie, qui est aussi celle d'apprentissage (horizon partagé). */
+  portId: string;
+  metric: number;
+  /** Drapeau de changement : la route part dans la prochaine mise à jour déclenchée. */
+  changed: boolean;
+  expiresAt: SimTime | null;
+  garbageAt: SimTime | null;
+  /** Invalide les temporisations périmées. */
+  generation: number;
+}
+
+interface RipState {
+  readonly routes: Map<string, RipRoute>;
+  /** Pas de nouvelle mise à jour déclenchée avant cet instant (RFC 2453 §3.10.1). */
+  holdUntil: SimTime;
+  triggerPending: boolean;
+  nextPeriodicAt: SimTime;
+}
+
+const ripKey = (destination: number, prefixLength: number) => `${formatIpv4(destination)}/${String(prefixLength)}`;
+
 interface PingAttempt {
   readonly sequence: number;
   status: PingStatus;
@@ -342,6 +381,9 @@ export class Simulation {
   private readonly dnsQueries = new Map<string, DnsQuery>();
   private nextDnsQuery = 1;
   private readonly dirtyLookups = new Set<string>();
+  /** RIP : état des routeurs ayant au moins une interface RIP. */
+  private readonly rip = new Map<string, RipState>();
+  private nextRipExchange = 1;
 
   constructor(doc: NfgDocument, options: SimulationOptions = {}) {
     this.seed = options.seed ?? DEFAULT_SEED;
@@ -382,6 +424,14 @@ export class Simulation {
         });
         this.schedule(0, { type: "dhcp-start", deviceId: device.id, portId: port.portId });
       }
+    }
+    // RIP : table initiale des réseaux locaux, demande de table complète au démarrage, annonces toutes les 30 s.
+    for (const device of this.network.devices.values()) {
+      if (device.kind !== "router" || device.ripInterfaces.size === 0) continue;
+      this.rip.set(device.id, { routes: new Map(), holdUntil: 0, triggerPending: false, nextPeriodicAt: this.parameters.ripUpdateInterval });
+      this.syncRipNetworks(device, false);
+      this.schedule(0, { type: "rip-start", deviceId: device.id });
+      this.schedule(this.parameters.ripUpdateInterval, { type: "rip-periodic", deviceId: device.id }, true);
     }
   }
 
@@ -720,6 +770,18 @@ export class Simulation {
       case "dns-retry":
         this.onDnsRetry(value.queryId, value.attempt);
         return;
+      case "rip-start":
+        this.onRipStart(value.deviceId);
+        return;
+      case "rip-periodic":
+        this.onRipPeriodic(value.deviceId);
+        return;
+      case "rip-triggered":
+        this.onRipTriggered(value.deviceId);
+        return;
+      case "rip-timer":
+        this.onRipTimer(value.deviceId, value.key, value.stage, value.generation);
+        return;
     }
   }
 
@@ -740,7 +802,30 @@ export class Simulation {
   private isUp = (port: RuntimePort): boolean => isPortUp(this.network, port);
 
   private routes(device: RuntimeDevice): Route[] {
-    return routingTable(device, this.isUp);
+    return routingTable(device, this.isUp, this.ripRoutes(device));
+  }
+
+  /** Routes RIP apprises et utilisables (métrique inférieure à 16) ; un réseau local reste une route connectée. */
+  private ripRoutes(device: RuntimeDevice): Route[] {
+    const state = this.rip.get(device.id);
+    if (!state) return [];
+    const routes: Route[] = [];
+    for (const entry of state.routes.values()) {
+      if (entry.nextHop === null || entry.metric >= RIP_INFINITY) continue;
+      const port = device.portById.get(entry.portId) ?? null;
+      const up = port !== null && this.isUp(port);
+      routes.push({
+        kind: "rip",
+        destination: entry.destination,
+        prefixLength: entry.prefixLength,
+        nextHop: entry.nextHop,
+        port,
+        active: up,
+        reason: up ? null : "interface-down",
+        metric: entry.metric,
+      });
+    }
+    return routes;
   }
 
   private ownsAddress(device: RuntimeDevice, value: number): boolean {
@@ -862,6 +947,17 @@ export class Simulation {
       }
     }
     this.recomputeStp();
+    // RIP : réseaux et routes des interfaces concernées ; une interface rétablie redemande la table de ses voisins.
+    for (const end of link.ends) {
+      const device = this.device(end.deviceId);
+      if (!this.rip.has(device.id)) continue;
+      if (this.syncRipNetworks(device, true)) this.markRipChanged(device);
+      if (up) {
+        for (const port of device.ports) {
+          if ((port.portId === end.portId || port.parent === end.portId) && this.ripActive(device, port)) this.sendRipRequest(device, port);
+        }
+      }
+    }
   }
 
   // ---------------------------------------------------------------- Spanning Tree
@@ -1027,7 +1123,7 @@ export class Simulation {
       }
       logical = sub;
     }
-    if (frame.destination !== logical.mac && frame.destination !== BROADCAST_MAC) {
+    if (frame.destination !== logical.mac && frame.destination !== BROADCAST_MAC && !this.joinsGroup(device, logical, frame.destination)) {
       this.emit("nic.filtered", { destination: frame.destination, own: logical.mac }, { device, port: logical, exchange, pdu: frame });
       return;
     }
@@ -1063,6 +1159,11 @@ export class Simulation {
 
     if (frame.destination === BROADCAST_MAC) {
       this.flood(device, port, frame, exchange, vlan, "switch.flood-broadcast");
+      return;
+    }
+    // Multidiffusion : sans suivi des groupes (IGMP), la trame est répétée comme une diffusion.
+    if (isGroupMac(frame.destination)) {
+      this.flood(device, port, frame, exchange, vlan, "switch.flood-multicast");
       return;
     }
     const entry = state.macTable.get(macKey(vlan, frame.destination));
@@ -1112,7 +1213,7 @@ export class Simulation {
     frame: EthernetFrame,
     exchange: string | null,
     vlan: number,
-    code: "switch.flood-broadcast" | "switch.flood-unknown",
+    code: "switch.flood-broadcast" | "switch.flood-multicast" | "switch.flood-unknown",
   ): void {
     // Diffusion limitée au VLAN : ports actifs qui le transportent, sauf le port d'entrée.
     const outPorts = device.ports.filter(
@@ -1337,6 +1438,12 @@ export class Simulation {
       else this.emit("ip.broadcast-dropped", { destination: packet.destination }, where);
       return;
     }
+    // Groupe 224.0.0.9 (routeurs RIP) : remis localement, jamais relayé (bloc de contrôle du réseau local, RFC 5771 §4).
+    if (packet.destination === RIP_MULTICAST) {
+      if (packet.payload.kind === "udp") this.onUdp(device, port, packet, packet.payload, exchange);
+      else this.emit("ip.broadcast-dropped", { destination: packet.destination }, where);
+      return;
+    }
     if (this.ownsAddress(device, destination)) {
       this.emit("ip.local", { destination: packet.destination }, where);
       this.deliverLocal(device, packet, exchange, port);
@@ -1511,7 +1618,17 @@ export class Simulation {
   /** Remise d'un datagramme UDP au service qui écoute son port (port null : remise locale par bouclage). */
   private onUdp(device: RuntimeDevice, port: RuntimePort | null, packet: Ipv4Packet, datagram: UdpDatagram, exchange: string | null): void {
     const message = datagram.payload;
-    if (message.kind === "dns") {
+    if (message.kind === "rip") {
+      const mode = port ? device.ripInterfaces.get(port.portId) : undefined;
+      if (port && datagram.destinationPort === RIP_PORT && mode === "active") {
+        this.onRip(device, port, packet, datagram, message, exchange);
+        return;
+      }
+      if (port && datagram.destinationPort === RIP_PORT && mode === "passive") {
+        this.emit("rip.ignored", { reason: "passive", from: packet.source }, { device, port, exchange, pdu: message });
+        return;
+      }
+    } else if (message.kind === "dns") {
       if (!message.response && datagram.destinationPort === DNS_SERVER_PORT && device.dnsRecords) {
         this.onDnsServer(device, packet, datagram, message, exchange);
         return;
@@ -2183,6 +2300,305 @@ export class Simulation {
     this.sendLocal(device, { source: packet.destination, destination: packet.source, ttl: this.initialTtl(device), payload: datagramOut }, { kind: "local" }, exchange);
   }
 
+  // ---------------------------------------------------------------- RIP version 2
+
+  /** L'interface accepte les trames de son groupe : 01:00:5e:00:00:09 sur une interface RIP active. */
+  private joinsGroup(device: RuntimeDevice, port: RuntimePort, mac: MacAddress): boolean {
+    return device.kind === "router" && mac === multicastMac(parseIpv4(RIP_MULTICAST) ?? 0) && device.ripInterfaces.get(port.portId) === "active";
+  }
+
+  /** Interface qui émet et traite RIP : mode actif, adressée et reliée. */
+  private ripActive(device: RuntimeDevice, port: RuntimePort): boolean {
+    return device.ripInterfaces.get(port.portId) === "active" && port.ipv4 !== null && this.isUp(port);
+  }
+
+  private newRipExchange(): string {
+    const exchange = `rip-${String(this.nextRipExchange)}`;
+    this.nextRipExchange += 1;
+    return exchange;
+  }
+
+  /**
+   * Réseaux des interfaces RIP adressées (métrique 1, RFC 2453 §3.5) et routes
+   * apprises : une interface tombée rend ses réseaux et ses routes
+   * inaccessibles, une interface rétablie retrouve son réseau. Vrai si la table change.
+   */
+  private syncRipNetworks(device: RuntimeDevice, observable: boolean): boolean {
+    const state = this.rip.get(device.id);
+    if (!state) return false;
+    let changed = false;
+    for (const port of device.ports) {
+      if (!device.ripInterfaces.has(port.portId) || !port.ipv4) continue;
+      const key = ripKey(port.ipv4.network, port.ipv4.prefixLength);
+      const entry = state.routes.get(key);
+      if (this.isUp(port)) {
+        if (entry?.nextHop === null && entry.portId === port.portId && entry.metric === 1) continue;
+        state.routes.set(key, {
+          destination: port.ipv4.network,
+          prefixLength: port.ipv4.prefixLength,
+          nextHop: null,
+          portId: port.portId,
+          metric: 1,
+          changed: observable,
+          expiresAt: null,
+          garbageAt: null,
+          generation: (entry?.generation ?? 0) + 1,
+        });
+        if (observable) this.emit("rip.network-up", { route: key }, { device, port });
+        changed = true;
+      } else if (entry?.nextHop === null && entry.portId === port.portId && entry.metric < RIP_INFINITY) {
+        this.startRipDeletion(device, key, entry, "interface-down");
+        changed = true;
+      }
+    }
+    for (const [key, entry] of state.routes) {
+      const port = device.portById.get(entry.portId);
+      if (entry.nextHop === null || entry.metric >= RIP_INFINITY || (port && this.isUp(port))) continue;
+      this.startRipDeletion(device, key, entry, "interface-down");
+      changed = true;
+    }
+    if (changed) this.dirtyDevices.add(device.id);
+    return changed;
+  }
+
+  /** Processus de suppression (RFC 2453 §3.8) : métrique 16, annonce déclenchée, suppression après 120 s. */
+  private startRipDeletion(device: RuntimeDevice, key: string, entry: RipRoute, reason: "interface-down" | "metric-infinity" | "timeout"): void {
+    entry.metric = RIP_INFINITY;
+    entry.changed = true;
+    entry.expiresAt = null;
+    entry.garbageAt = this.clock + this.parameters.ripGarbageCollection;
+    entry.generation += 1;
+    this.schedule(entry.garbageAt, { type: "rip-timer", deviceId: device.id, key, stage: "garbage", generation: entry.generation }, true);
+    this.dirtyDevices.add(device.id);
+    this.emit(
+      "rip.route-unreachable",
+      { route: key, nextHop: entry.nextHop === null ? null : formatIpv4(entry.nextHop), reason, garbageAt: entry.garbageAt },
+      { device, port: device.portById.get(entry.portId) },
+    );
+  }
+
+  private refreshRipTimeout(device: RuntimeDevice, key: string, entry: RipRoute): void {
+    entry.expiresAt = this.clock + this.parameters.ripTimeout;
+    entry.garbageAt = null;
+    entry.generation += 1;
+    this.schedule(entry.expiresAt, { type: "rip-timer", deviceId: device.id, key, stage: "timeout", generation: entry.generation }, true);
+  }
+
+  /** Mise à jour déclenchée dès que possible, au plus tôt à la fin de l'attente qui suit la précédente. */
+  private markRipChanged(device: RuntimeDevice): void {
+    const state = this.rip.get(device.id);
+    if (!state || state.triggerPending) return;
+    state.triggerPending = true;
+    this.schedule(Math.max(this.clock, state.holdUntil), { type: "rip-triggered", deviceId: device.id });
+  }
+
+  /** Demande de table complète : une entrée de famille 0 et de métrique 16 (RFC 2453 §3.9.1). */
+  private sendRipRequest(device: RuntimeDevice, port: RuntimePort): void {
+    const message: RipMessage = {
+      kind: "rip",
+      command: "request",
+      version: 2,
+      entries: [{ family: "unspecified", routeTag: 0, address: UNSPECIFIED_ADDRESS, mask: UNSPECIFIED_ADDRESS, nextHop: UNSPECIFIED_ADDRESS, metric: RIP_INFINITY }],
+    };
+    const exchange = this.newRipExchange();
+    this.emit("rip.request-sent", { destination: RIP_MULTICAST }, { device, port, exchange, pdu: message });
+    this.multicastRip(device, port, message, exchange);
+  }
+
+  /** Datagramme RIP vers 224.0.0.9 sur une interface : TTL 1, MAC de groupe, sans résolution ARP. */
+  private multicastRip(device: RuntimeDevice, port: RuntimePort, message: RipMessage, exchange: string): void {
+    const own = port.ipv4;
+    if (!own) return;
+    const state = this.state(device.id);
+    const identification = state.nextIdentification;
+    state.nextIdentification = (state.nextIdentification + 1) & 0xffff;
+    const packet: Ipv4Packet = {
+      kind: "ipv4",
+      source: own.address,
+      destination: RIP_MULTICAST,
+      ttl: 1,
+      identification,
+      payload: { kind: "udp", sourcePort: RIP_PORT, destinationPort: RIP_PORT, payload: message },
+    };
+    this.transmit(device, port, { kind: "ethernet", source: port.mac, destination: multicastMac(parseIpv4(RIP_MULTICAST) ?? 0), payload: packet }, exchange);
+  }
+
+  /**
+   * Processus de sortie (RFC 2453 §3.10) : sur chaque interface active, toutes
+   * les routes (annonce périodique ou réponse à une demande) ou les seules routes
+   * changées (mise à jour déclenchée), sauf celles qui passent par cette
+   * interface (horizon partagé simple), par messages de 25 entrées au plus.
+   */
+  private sendRipResponse(device: RuntimeDevice, reason: "periodic" | "triggered" | "reply", to: { readonly port: RuntimePort; readonly address: string; readonly udpPort: number } | null = null): void {
+    const state = this.rip.get(device.id);
+    if (!state) return;
+    const routes = [...state.routes.entries()];
+    for (const port of device.ports) {
+      if (!this.ripActive(device, port) || (to && to.port !== port)) continue;
+      const own = port.ipv4;
+      if (!own) continue;
+      const entries: RipEntry[] = routes
+        .filter(([, entry]) => (reason !== "triggered" || entry.changed) && entry.portId !== port.portId)
+        .map(([, entry]) => ({ family: "inet", routeTag: 0, address: formatIpv4(entry.destination), mask: prefixToMask(entry.prefixLength), nextHop: UNSPECIFIED_ADDRESS, metric: entry.metric }));
+      for (let start = 0; start < entries.length; start += RIP_MAX_ENTRIES) {
+        const message: RipMessage = { kind: "rip", command: "response", version: 2, entries: entries.slice(start, start + RIP_MAX_ENTRIES) };
+        const exchange = this.newRipExchange();
+        this.emit("rip.response-sent", { reason, count: message.entries.length, destination: to?.address ?? RIP_MULTICAST }, { device, port, exchange, pdu: message });
+        if (to) {
+          const datagram: UdpDatagram = { kind: "udp", sourcePort: RIP_PORT, destinationPort: to.udpPort, payload: message };
+          this.sendLocal(device, { source: own.address, destination: to.address, ttl: this.initialTtl(device), payload: datagram }, { kind: "local" }, exchange);
+        } else {
+          this.multicastRip(device, port, message, exchange);
+        }
+      }
+    }
+    if (reason !== "reply") for (const entry of state.routes.values()) entry.changed = false;
+  }
+
+  private onRipStart(deviceId: string): void {
+    const device = this.device(deviceId);
+    for (const port of device.ports) if (this.ripActive(device, port)) this.sendRipRequest(device, port);
+  }
+
+  private onRipPeriodic(deviceId: string): void {
+    const device = this.device(deviceId);
+    const state = this.rip.get(deviceId);
+    if (!state) return;
+    this.sendRipResponse(device, "periodic");
+    state.nextPeriodicAt = this.clock + this.parameters.ripUpdateInterval;
+    this.dirtyDevices.add(deviceId);
+    this.schedule(state.nextPeriodicAt, { type: "rip-periodic", deviceId }, true);
+  }
+
+  private onRipTriggered(deviceId: string): void {
+    const state = this.rip.get(deviceId);
+    if (!state) return;
+    state.triggerPending = false;
+    this.sendRipResponse(this.device(deviceId), "triggered");
+    const { ripTriggeredHoldMin: min, ripTriggeredHoldMax: max } = this.parameters;
+    state.holdUntil = this.clock + min + Math.round(((max - min) * this.prng.nextInt(1001)) / 1000);
+  }
+
+  private onRipTimer(deviceId: string, key: string, stage: "timeout" | "garbage", generation: number): void {
+    const device = this.device(deviceId);
+    const entry = this.rip.get(deviceId)?.routes.get(key);
+    if (entry?.generation !== generation) return;
+    if (stage === "timeout") {
+      this.startRipDeletion(device, key, entry, "timeout");
+      this.markRipChanged(device);
+      return;
+    }
+    this.rip.get(deviceId)?.routes.delete(key);
+    this.dirtyDevices.add(deviceId);
+    this.emit("rip.route-removed", { route: key }, { device, port: device.portById.get(entry.portId) });
+  }
+
+  /** Message RIP reçu sur une interface active : contrôles d'origine (RFC 2453 §3.9), puis demande ou réponse. */
+  private onRip(device: RuntimeDevice, port: RuntimePort, packet: Ipv4Packet, datagram: UdpDatagram, message: RipMessage, exchange: string | null): void {
+    const where = { device, port, exchange, pdu: message };
+    const own = port.ipv4;
+    const source = parseIpv4(packet.source);
+    if (!own || source === null) return;
+    const ignore = (reason: string) => {
+      this.emit("rip.ignored", { reason, from: packet.source }, where);
+    };
+    if (this.ownsAddress(device, source)) {
+      ignore("own-address");
+      return;
+    }
+    if (networkAddress(source, own.prefixLength) !== own.network) {
+      ignore("not-neighbor");
+      return;
+    }
+    if (message.command === "request") {
+      // Toute demande est traitée comme une demande de table complète (seule forme émise par NetForge).
+      this.emit("rip.request-received", { from: packet.source }, where);
+      this.sendRipResponse(device, "reply", { port, address: packet.source, udpPort: datagram.sourcePort });
+      return;
+    }
+    if (datagram.sourcePort !== RIP_PORT) {
+      ignore("wrong-port");
+      return;
+    }
+    this.emit("rip.response-received", { from: packet.source, count: message.entries.length }, where);
+    let changed = false;
+    for (const entry of message.entries) if (this.learnRipEntry(device, port, source, entry, where)) changed = true;
+    if (changed) this.markRipChanged(device);
+  }
+
+  /** Traitement d'une entrée (RFC 2453 §3.9.2) ; vrai si la table change. */
+  private learnRipEntry(device: RuntimeDevice, port: RuntimePort, source: number, entry: RipEntry, where: Where): boolean {
+    const state = this.rip.get(device.id);
+    const destination = parseIpv4(entry.address);
+    const prefixLength = parsePrefixOrMask(entry.mask);
+    if (!state || entry.family !== "inet" || destination === null || prefixLength === null || entry.metric < 1 || entry.metric > RIP_INFINITY) return false;
+    // Réseau d'une interface active du routeur : la route connectée suffit.
+    if (device.ports.some((item) => item.ipv4?.network === destination && item.ipv4.prefixLength === prefixLength && this.isUp(item))) return false;
+    const key = ripKey(destination, prefixLength);
+    const metric = Math.min(entry.metric + 1, RIP_INFINITY);
+    const nextHop = formatIpv4(source);
+    const existing = state.routes.get(key);
+    if (!existing) {
+      if (metric >= RIP_INFINITY) return false;
+      const route: RipRoute = { destination, prefixLength, nextHop: source, portId: port.portId, metric, changed: true, expiresAt: null, garbageAt: null, generation: 0 };
+      state.routes.set(key, route);
+      this.refreshRipTimeout(device, key, route);
+      this.dirtyDevices.add(device.id);
+      this.emit("rip.route-learned", { route: key, nextHop, metric, outPort: port.portId }, where);
+      return true;
+    }
+    if (existing.nextHop === source && existing.portId === port.portId) {
+      if (metric < RIP_INFINITY) this.refreshRipTimeout(device, key, existing);
+      if (metric === existing.metric) return false;
+      if (metric >= RIP_INFINITY) {
+        this.startRipDeletion(device, key, existing, "metric-infinity");
+        return true;
+      }
+      const previousMetric = existing.metric;
+      existing.metric = metric;
+      existing.changed = true;
+      this.dirtyDevices.add(device.id);
+      this.emit("rip.route-updated", { route: key, nextHop, metric, previousMetric, previousNextHop: nextHop, outPort: port.portId }, where);
+      return true;
+    }
+    if (metric >= existing.metric) return false;
+    const previousMetric = existing.metric;
+    const previousNextHop = existing.nextHop === null ? null : formatIpv4(existing.nextHop);
+    existing.nextHop = source;
+    existing.portId = port.portId;
+    existing.metric = metric;
+    existing.changed = true;
+    this.refreshRipTimeout(device, key, existing);
+    this.dirtyDevices.add(device.id);
+    if (previousMetric >= RIP_INFINITY) this.emit("rip.route-learned", { route: key, nextHop, metric, outPort: port.portId }, where);
+    else this.emit("rip.route-updated", { route: key, nextHop, metric, previousMetric, previousNextHop, outPort: port.portId }, where);
+    return true;
+  }
+
+  private ripView(device: RuntimeDevice): RipView | null {
+    const state = this.rip.get(device.id);
+    if (!state) return null;
+    return {
+      interfaces: [...device.ripInterfaces].map(([portId, mode]) => {
+        const port = device.portById.get(portId);
+        return { portId, mode, up: port !== undefined && port.ipv4 !== null && this.isUp(port) };
+      }),
+      routes: [...state.routes.values()]
+        .map((entry) => ({
+          destination: formatIpv4(entry.destination),
+          prefixLength: entry.prefixLength,
+          nextHop: entry.nextHop === null ? null : formatIpv4(entry.nextHop),
+          portId: entry.portId,
+          metric: entry.metric,
+          state: entry.metric >= RIP_INFINITY ? ("deleting" as const) : entry.nextHop === null ? ("local" as const) : ("valid" as const),
+          expiresAt: entry.expiresAt,
+          garbageAt: entry.garbageAt,
+        }))
+        .sort((a, b) => (parseIpv4(a.destination) ?? 0) - (parseIpv4(b.destination) ?? 0) || a.prefixLength - b.prefixLength),
+      nextUpdateAt: state.nextPeriodicAt,
+    };
+  }
+
   // ---------------------------------------------------------------- Application ping
 
   private findSession(deviceId: string, identifier: number): PingSession | undefined {
@@ -2394,6 +2810,7 @@ export class Simulation {
             nameErrors: state.dnsNameErrors,
           }
         : null,
+      rip: this.ripView(device),
       routes:
         device.kind === "switch"
           ? []
@@ -2405,6 +2822,7 @@ export class Simulation {
               portId: route.port?.portId ?? null,
               active: route.active,
               reason: route.reason,
+              metric: route.metric,
             })),
     };
   }

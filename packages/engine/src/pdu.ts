@@ -3,7 +3,7 @@ import type { MacAddress } from "./mac.js";
 /**
  * Unités de données réellement modélisées, en unions discriminées qui
  * suivent l'encapsulation : Ethernet transporte ARP ou IPv4 ; IPv4
- * transporte ICMP ou UDP ; UDP transporte DHCP ou DNS. Seuls ces champs existent ;
+ * transporte ICMP ou UDP ; UDP transporte DHCP, DNS ou RIP. Seuls ces champs existent ;
  * aucun octet n'est inventé.
  * Les adresses IPv4 sont en notation décimale pointée.
  */
@@ -123,12 +123,42 @@ export interface DnsMessage {
   readonly answers: readonly DnsAnswer[];
 }
 
+/**
+ * Entrée de route RIP version 2 (RFC 2453 §4) : famille d'adresses (« inet »
+ * = 2, « unspecified » = 0 pour la demande de table complète), étiquette,
+ * réseau, masque, prochain saut (0.0.0.0 : l'émetteur) et métrique (1 à 16).
+ */
+export interface RipEntry {
+  readonly family: "inet" | "unspecified";
+  readonly routeTag: number;
+  readonly address: string;
+  readonly mask: string;
+  readonly nextHop: string;
+  readonly metric: number;
+}
+
+/** Message RIP version 2 (RFC 2453 §3.6 et §4) : commande 1 (demande) ou 2 (réponse), 1 à 25 entrées. */
+export interface RipMessage {
+  readonly kind: "rip";
+  readonly command: "request" | "response";
+  readonly version: 2;
+  readonly entries: readonly RipEntry[];
+}
+
 export interface UdpDatagram {
   readonly kind: "udp";
   readonly sourcePort: number;
   readonly destinationPort: number;
-  readonly payload: DhcpMessage | DnsMessage;
+  readonly payload: DhcpMessage | DnsMessage | RipMessage;
 }
+
+/** Port UDP de RIP (RFC 2453 §3.6) et groupe des routeurs RIP version 2 (§4.5). */
+export const RIP_PORT = 520;
+export const RIP_MULTICAST = "224.0.0.9";
+/** Entrées par message RIP (RFC 2453 §3.6). */
+export const RIP_MAX_ENTRIES = 25;
+/** Métrique « infinie » : réseau inaccessible (RFC 2453 §3.6). */
+export const RIP_INFINITY = 16;
 
 /** Port UDP du serveur DNS (RFC 1035 §4.2.1). */
 export const DNS_SERVER_PORT = 53;
@@ -167,7 +197,7 @@ export interface EthernetFrame {
   readonly payload: ArpPacket | Ipv4Packet;
 }
 
-export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage | DnsMessage;
+export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage | DnsMessage | RipMessage;
 
 export const ZERO_MAC: MacAddress = "00:00:00:00:00:00";
 
@@ -216,8 +246,14 @@ export function dnsBytes(message: DnsMessage): number {
   return DNS_HEADER_BYTES + dnsNameBytes(message.question.name) + DNS_QUESTION_FIXED_BYTES + message.answers.length * DNS_A_ANSWER_BYTES;
 }
 
+/** Message RIP : en-tête de 4 octets (commande, version, zéro) et 20 octets par entrée. */
+export function ripBytes(message: RipMessage): number {
+  return 4 + 20 * message.entries.length;
+}
+
 export function udpBytes(datagram: UdpDatagram): number {
-  return UDP_HEADER_BYTES + (datagram.payload.kind === "dns" ? dnsBytes(datagram.payload) : dhcpBytes(datagram.payload));
+  const payload = datagram.payload;
+  return UDP_HEADER_BYTES + (payload.kind === "dns" ? dnsBytes(payload) : payload.kind === "rip" ? ripBytes(payload) : dhcpBytes(payload));
 }
 
 export function icmpBytes(message: IcmpMessage): number {

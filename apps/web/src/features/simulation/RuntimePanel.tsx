@@ -77,6 +77,30 @@ function DeviceRuntime({ device, names, disabled }: { device: DeviceView; names:
         {device.dhcpServer.leases.map((lease) => <Entry key={lease.address} main={`${lease.address} → ${names.mac(lease.mac)}`} detail={fill(t.dhcpLeaseEntry, { state: lease.state === "bound" ? t.dhcpBound : t.dhcpOffered, port: lease.portId, expires: lease.expiresAt === null ? "—" : formatSimTime(lease.expiresAt) })} />)}
       </EntryList>}
 
+      {device.rip && (
+        <EntryList title={t.ripTitle} empty={null}>
+          <li className="text-xs text-text-muted">
+            {device.rip.interfaces.map((item) => fill(t.ripInterface, { port: item.portId, mode: t.ripModes[item.mode] }) + (item.up ? "" : ` (${t.down})`)).join(" ; ")}
+          </li>
+          <li className="text-xs text-text-muted">{fill(t.ripNext, { time: formatSimTime(device.rip.nextUpdateAt) })}</li>
+          {device.rip.routes.map((entry) => (
+            <Entry
+              key={`${entry.destination}/${String(entry.prefixLength)}`}
+              main={`${entry.destination}/${String(entry.prefixLength)} → ${entry.nextHop ?? t.direct}`}
+              detail={
+                entry.state === "local" ? (
+                  fill(t.ripLocal, { port: entry.portId })
+                ) : entry.state === "deleting" ? (
+                  <State ok={false} label={fill(t.ripDeleting, { port: entry.portId, garbage: entry.garbageAt === null ? "—" : formatSimTime(entry.garbageAt) })} />
+                ) : (
+                  fill(t.ripValid, { metric: entry.metric, port: entry.portId, expires: entry.expiresAt === null ? "—" : formatSimTime(entry.expiresAt) })
+                )
+              }
+            />
+          ))}
+        </EntryList>
+      )}
+
       {device.dnsServer && (
         <EntryList title={t.dnsServerTitle} empty={null}>
           <li className="text-xs text-text-muted">{fill(t.dnsCounters, { answered: device.dnsServer.answered, nameErrors: device.dnsServer.nameErrors })}</li>
@@ -153,7 +177,7 @@ function DeviceRuntime({ device, names, disabled }: { device: DeviceView; names:
                 main={`${route.destination}/${String(route.prefixLength)} → ${route.nextHop ?? t.direct}${route.portId ? ` (${route.portId})` : ""}`}
                 detail={
                   <>
-                    {t.routeKinds[route.kind]} ·{" "}
+                    {route.metric === null ? t.routeKinds[route.kind] : fill(t.routeMetric, { kind: t.routeKinds[route.kind], metric: route.metric })} ·{" "}
                     <State ok={route.active} label={route.active ? t.active : fill(t.inactive, { reason: route.reason ? t.reasons[route.reason] : "" })} />
                   </>
                 }

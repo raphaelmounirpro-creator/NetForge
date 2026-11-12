@@ -52,7 +52,7 @@ function frameLabel(entry: TraceEntry): string {
   if (pdu?.kind !== "ethernet") return "";
   if (pdu.payload.kind === "arp") return "ARP";
   const carried = pdu.payload.payload;
-  if (carried.kind === "udp") return carried.payload.kind === "dns" ? "DNS" : "DHCP";
+  if (carried.kind === "udp") return carried.payload.kind.toUpperCase();
   return "ICMP";
 }
 

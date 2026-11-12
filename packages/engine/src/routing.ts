@@ -7,12 +7,13 @@ import type { RuntimeDevice, RuntimePort } from "./network.js";
  *
  * - « connected » : réseau d'une interface adressée et active ;
  * - « static » : route statique d'un routeur ;
- * - « gateway » : route par défaut d'un PC vers sa passerelle.
+ * - « gateway » : route par défaut d'un PC vers sa passerelle ;
+ * - « rip » : route apprise par RIP (état d'exécution, fournie par le moteur).
  *
  * Simplification documentée (docs/protocols/ipv4-routage.md) : le prochain
  * saut d'une route doit appartenir à un réseau directement connecté.
  */
-export type RouteKind = "connected" | "static" | "gateway";
+export type RouteKind = "connected" | "static" | "gateway" | "rip";
 export type InactiveReason = "interface-down" | "next-hop-unreachable";
 
 export interface Route {
@@ -24,10 +25,15 @@ export interface Route {
   readonly port: RuntimePort | null;
   readonly active: boolean;
   readonly reason: InactiveReason | null;
+  /** Métrique du protocole de routage dynamique (null : route connectée ou configurée). */
+  readonly metric: number | null;
 }
 
-/** Préférence en cas de préfixes de même longueur (distance administrative). */
-const PREFERENCE: Record<RouteKind, number> = { connected: 0, static: 1, gateway: 1 };
+/**
+ * Préférence en cas de préfixes de même longueur (distance administrative,
+ * choix NetForge) : connecté, puis configuré, puis appris par RIP.
+ */
+const PREFERENCE: Record<RouteKind, number> = { connected: 0, static: 1, gateway: 1, rip: 120 };
 
 function contains(route: Pick<Route, "destination" | "prefixLength">, address: number): boolean {
   return networkAddress(address, route.prefixLength) === route.destination;
@@ -49,7 +55,7 @@ export function lookup(routes: readonly Route[], address: number): Route | null 
   return best;
 }
 
-export function routingTable(device: RuntimeDevice, isUp: (port: RuntimePort) => boolean): Route[] {
+export function routingTable(device: RuntimeDevice, isUp: (port: RuntimePort) => boolean, learned: readonly Route[] = []): Route[] {
   const connected: Route[] = [];
   for (const port of device.ports) {
     if (!port.ipv4) continue;
@@ -62,6 +68,7 @@ export function routingTable(device: RuntimeDevice, isUp: (port: RuntimePort) =>
       port,
       active: up,
       reason: up ? null : "interface-down",
+      metric: null,
     });
   }
 
@@ -75,6 +82,7 @@ export function routingTable(device: RuntimeDevice, isUp: (port: RuntimePort) =>
       port: exit?.port ?? null,
       active: exit !== null,
       reason: exit ? null : "next-hop-unreachable",
+      metric: null,
     };
   };
 
@@ -87,7 +95,7 @@ export function routingTable(device: RuntimeDevice, isUp: (port: RuntimePort) =>
   if (device.kind === "pc" && device.gateway) {
     others.push(viaNextHop("gateway", 0, 0, device.gateway.value));
   }
-  return [...connected, ...others];
+  return [...connected, ...others, ...learned];
 }
 
 export function routeCidr(route: Pick<Route, "destination" | "prefixLength">): string {

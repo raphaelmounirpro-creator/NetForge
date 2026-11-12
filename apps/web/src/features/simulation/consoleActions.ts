@@ -1,6 +1,6 @@
 import { cliPrompt, configurationCommands, interpret, type CliRequest } from "@netforge/project";
 import { fill, formatIssue, messages } from "../../i18n";
-import { formatCliError, helpLines, ipconfig, showArp, showDhcp, showDns, showInterfaces, showMac, showRoutes, showStp, showVlans } from "../../i18n/console";
+import { formatCliError, helpLines, ipconfig, showArp, showDhcp, showDns, showInterfaces, showMac, showRip, showRoutes, showStp, showVlans } from "../../i18n/console";
 import { formatCommandError } from "../../i18n/simulation";
 import { useLabStore } from "../lab/store";
 import { consoleKey, EMPTY_CONSOLE, useConsoleStore } from "./consoleStore";
@@ -102,6 +102,9 @@ async function handleRequest(projectId: string, deviceId: string, key: string, r
       return;
     case "show-dns":
       runtime(() => (view ? showDns(view) : []));
+      return;
+    case "show-rip":
+      runtime(() => (view ? showRip(view) : []));
       return;
     case "nslookup": {
       const reply = await simulation.nslookup(deviceId, request.name);

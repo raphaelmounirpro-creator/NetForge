@@ -11,6 +11,7 @@ import {
   setInterfaceDhcp,
   setFiber,
   setInterfaceIpv4,
+  setRipInterface,
   setStp,
   setSwitchport,
   type CommandResult,
@@ -19,6 +20,7 @@ import {
   type FaultTarget,
   type Fiber,
   type NfgDocument,
+  type RipMode,
 } from "@netforge/project";
 
 /**
@@ -63,6 +65,38 @@ export function dnsScenario(options: { serviceDisabled?: boolean } = {}): NfgDoc
     .ip("pc2", "eth0", "192.168.1.11/24").gateway("pc2", "192.168.1.1")
     .ip("srv", "eth0", "10.0.0.10/24").gateway("srv", "10.0.0.1").dnsServer("srv", "10.0.0.1");
   if (!options.serviceDisabled) builder.dnsRecord("r1", "srv.lab", "10.0.0.10").dnsRecord("r1", "pc1.lab", "192.168.1.10");
+  return builder.build();
+}
+
+/**
+ * Trois routeurs en triangle, chacun avec son réseau de postes (interface
+ * passive), sans route statique : RIP apprend tous les réseaux.
+ * PC1 10.1.0.10 — R1 ge0 10.1.0.1/24 ; R2 ge0 10.2.0.1/24 — PC2 10.2.0.10 ; R3 ge0 10.3.0.1/24 — PC3 10.3.0.10
+ * R1 ge1 10.12.0.1/30 — R2 ge1 10.12.0.2/30 (l4) ; R2 ge2 10.23.0.1/30 — R3 ge2 10.23.0.2/30 (l5) ;
+ * R1 ge2 10.13.0.1/30 — R3 ge1 10.13.0.2/30 (l6, absent sans redondance).
+ */
+export function ripScenario(options: { redundant?: boolean; rip?: boolean } = {}): NfgDocument {
+  const redundant = options.redundant ?? true;
+  const builder = new ScenarioBuilder("rip", "RIP : routage dynamique")
+    .device("pc1", "PC", 80, 300).device("r1", "R-200", 300, 300)
+    .device("r2", "R-200", 620, 300).device("pc2", "PC", 840, 300)
+    .device("r3", "R-200", 460, 130).device("pc3", "PC", 220, 130)
+    .link("pc1", "eth0", "r1", "ge0").link("r2", "ge0", "pc2", "eth0").link("r3", "ge0", "pc3", "eth0")
+    .link("r1", "ge1", "r2", "ge1").link("r2", "ge2", "r3", "ge2");
+  if (redundant) builder.link("r1", "ge2", "r3", "ge1");
+  builder
+    .ip("r1", "ge0", "10.1.0.1/24").ip("r2", "ge0", "10.2.0.1/24").ip("r3", "ge0", "10.3.0.1/24")
+    .ip("r1", "ge1", "10.12.0.1/30").ip("r2", "ge1", "10.12.0.2/30")
+    .ip("r2", "ge2", "10.23.0.1/30").ip("r3", "ge2", "10.23.0.2/30")
+    .ip("pc1", "eth0", "10.1.0.10/24").gateway("pc1", "10.1.0.1")
+    .ip("pc2", "eth0", "10.2.0.10/24").gateway("pc2", "10.2.0.1")
+    .ip("pc3", "eth0", "10.3.0.10/24").gateway("pc3", "10.3.0.1");
+  if (redundant) builder.ip("r1", "ge2", "10.13.0.1/30").ip("r3", "ge1", "10.13.0.2/30");
+  if (options.rip ?? true) {
+    for (const router of ["r1", "r2", "r3"]) builder.rip(router, "ge0", "passive");
+    builder.rip("r1", "ge1").rip("r2", "ge1").rip("r2", "ge2").rip("r3", "ge2");
+    if (redundant) builder.rip("r1", "ge2").rip("r3", "ge1");
+  }
   return builder.build();
 }
 
@@ -131,6 +165,12 @@ export class ScenarioBuilder {
 
   dnsRecord(deviceId: string, name: string, address: string): this {
     this.doc = ok(setDnsRecord(this.doc, { deviceId, name, address }));
+    return this;
+  }
+
+  /** Participation d'une interface de routeur à RIP (active par défaut). */
+  rip(deviceId: string, interfaceId: string, mode: RipMode = "active"): this {
+    this.doc = ok(setRipInterface(this.doc, { deviceId, interfaceId, mode }));
     return this;
   }
 

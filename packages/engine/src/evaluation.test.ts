@@ -1,8 +1,8 @@
-import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setRipInterface, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
-import { dhcpScenario, dnsScenario, ftthScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
+import { dhcpScenario, dnsScenario, ftthScenario, ripScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
 
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(result.errors.map((issue) => issue.code).join(", "));
@@ -203,6 +203,22 @@ describe("fonctions autorisées", () => {
     // Un routeur ajouté sans service DNS n'est pas un changement d'adressage.
     const extended = ok(addDevice(initial, { id: "r9", model: "R-200", position: { x: 0, y: 0 } }));
     expect(forbiddenChanges(initial, extended, ["topology"])).toEqual([]);
+  });
+
+  it("protègent la participation des interfaces à RIP par la fonction « routes »", () => {
+    const initial = ripScenario();
+    const passive = ok(setRipInterface(initial, { deviceId: "r1", interfaceId: "ge1", mode: "passive" }));
+    expect(forbiddenChanges(initial, passive, ["simulation", "addressing"])).toEqual(["routes"]);
+    expect(forbiddenChanges(initial, passive, ["routes"])).toEqual([]);
+  });
+
+  it("notent un ping qui dépend de routes RIP, après la convergence initiale", () => {
+    const project = ripScenario();
+    const exercise = exerciseOn(project, { allowed: ["simulation"], steps: [{ kind: "fix", title: "Joindre PC3", instruction: "Vérifiez le routage.", criteria: [{ kind: "ping-succeeds", from: "pc1", to: "10.3.0.10" }], points: 10 }], hints: [] });
+    expect(gradeSubmission(exercise, project, [], 0)).toMatchObject({ ok: true, score: 10, max: 10 });
+    const withoutRip = ripScenario({ rip: false });
+    const blocked = exerciseOn(withoutRip, { allowed: ["simulation"], steps: [{ kind: "fix", title: "Joindre PC3", instruction: "Vérifiez le routage.", criteria: [{ kind: "ping-succeeds", from: "pc1", to: "10.3.0.10" }], points: 10 }], hints: [] });
+    expect(gradeSubmission(blocked, withoutRip, [], 0)).toMatchObject({ ok: true, score: 0 });
   });
 
   it("n'autorisent le retrait d'une panne optique qu'avec « optics », et jamais son ajout ou sa modification", () => {
