@@ -19,9 +19,36 @@ Détail des preuves : commits `6b49de3` à `aff43fc`. Limites restantes : Docker
 
 Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests unitaires seulement ; éditeur prévu pour ≥ 1 024 px.
 
-## Phase active : 7 — Commutation avancée et services IP de base
+## Phase active : 8 — Routage dynamique et redondance
 
-**État : terminée le 2026-11-12, en attente de validation du propriétaire.** Les quatre tranches du périmètre retenu (VLAN, STP, DHCP, DNS minimal) sont livrées et vérifiées, à une exception près : le parcours navigateur des comptes et évaluations n'a pas pu être rejoué pour la tranche DNS (voir ses vérifications). Rien de la phase 7 n'est déployé.
+**État : en cours (démarrée le 2026-11-12).** Tranche 1 (RIP) en cours.
+
+### Périmètre retenu
+
+La ligne « phase 8 » de la feuille de route (P-04 et la part routage de P-05) couvre plusieurs protocoles : elle est découpée comme la phase 7 (spécification §17). Chaque tranche est livrée complète (format, moteur, console et formulaires équivalents, observation, documentation de protocole, tests) avant la suivante.
+
+- Dépend de : phase 7 (UDP, sous-interfaces, VLAN), phase 2 (IPv4, routage statique), phase 3 (console, observation), phase 6 (évaluations).
+- Inclus, dans l'ordre :
+  1. **RIP version 2** (RFC 2453, sous-ensemble pédagogique) : activation par réseau sur un routeur, annonces sur UDP 520, métrique en sauts (16 = inaccessible), horizon partagé, mises à jour déclenchées, expiration et suppression des routes, routes RIP dans la table de routage, reconvergence après une coupure.
+  2. **OSPFv2 en zone unique** (RFC 2328, sous-ensemble) : Hello et voisinage, base de données d'état des liens, inondation, calcul du plus court chemin, coût par interface, reconvergence.
+  3. **Redondance de passerelle VRRPv3** (RFC 5798, norme ouverte plutôt qu'un protocole propriétaire) : adresse et MAC virtuelles, priorité, préemption, bascule observable depuis un poste.
+  4. **OSPF multi-zone**, puis **BGP simplifié**, si les tranches précédentes sont terminées ; sinon reportés par décision explicite à la clôture de la phase.
+- Exclus (restent dans la feuille de route) : authentification RIP et OSPF, redistribution entre protocoles, RIPng, OSPFv3 et IPv6 (P-02) ; ACL, NAT/PAT, GRE, IPsec, QoS et AAA (P-05, avec le pare-feu de la phase 10) ; protocoles de redondance propriétaires.
+- Données : aucune donnée personnelle ; configuration de routage dynamique ajoutée au format du projet (nouvelle version, migration explicite).
+
+### Scénarios d'acceptation
+
+| Tranche | Critère | État |
+|---|---|---|
+| RIP | Routeurs en chaîne sans route statique : chaque réseau devient joignable par les routes apprises ; métriques en sauts observables | à faire |
+| RIP | Coupure d'un chemin redondant : route retirée puis chemin de secours, reconvergence mesurée en temps simulé | à faire |
+| RIP | Horizon partagé et métrique 16 observables ; console et formulaires équivalents ; anciens projets migrés sans RIP | à faire |
+| OSPF | Voisinages établis, base d'état des liens identique sur tous les routeurs, routes de plus faible coût ; reconvergence après coupure | à faire |
+| VRRP | Un poste garde sa passerelle virtuelle quand le routeur maître tombe ; bascule et retour observables | à faire |
+
+## Phase 7 — Commutation avancée et services IP de base : validée par le propriétaire (2026-11-12)
+
+**État : terminée et validée le 2026-11-12, non déployée.** Les quatre tranches du périmètre retenu (VLAN, STP, DHCP, DNS minimal) sont livrées et vérifiées, à une exception près : le parcours navigateur des comptes et évaluations n'a pas été rejoué pour la tranche DNS (voir ses vérifications, libellé confirmé par le propriétaire).
 
 ### Périmètre retenu
 
