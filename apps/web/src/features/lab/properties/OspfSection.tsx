@@ -1,4 +1,4 @@
-import { OSPF_DEFAULT_COST, OSPF_DEFAULT_PRIORITY, parseSubinterface, setOspfInterface, type DeviceConfig, type OspfInterface, type OspfMode } from "@netforge/project";
+import { OSPF_BACKBONE_AREA, OSPF_DEFAULT_COST, OSPF_DEFAULT_PRIORITY, parseOspfArea, parseSubinterface, setOspfInterface, type DeviceConfig, type OspfInterface, type OspfMode } from "@netforge/project";
 import { useId, useState, type SubmitEvent } from "react";
 import { Button } from "../../../components/ui/Button";
 import { SelectField } from "../../../components/ui/SelectField";
@@ -29,6 +29,7 @@ interface RowProps {
 function OspfRow({ projectId, deviceId, interfaceId, current, disabled }: RowProps) {
   const [cost, setCost] = useState(String(current?.cost ?? OSPF_DEFAULT_COST));
   const [priority, setPriority] = useState(String(current?.priority ?? OSPF_DEFAULT_PRIORITY));
+  const [area, setArea] = useState(current?.area ?? OSPF_BACKBONE_AREA);
   const [error, setError] = useState<string | null>(null);
   const apply = (ospf: OspfInterface | null) => {
     const result = useLabStore.getState().apply(projectId, (doc) => setOspfInterface(doc, { deviceId, interfaceId, ospf }));
@@ -42,7 +43,8 @@ function OspfRow({ projectId, deviceId, interfaceId, current, disabled }: RowPro
       setError(t.ospfInvalidNumber);
       return;
     }
-    apply({ ...current, ...values });
+    // Zone saisie en décimal ou en notation pointée ; une saisie invalide est expliquée par la commande.
+    apply({ ...current, ...values, area: parseOspfArea(area) ?? area });
   };
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-2">
@@ -53,7 +55,7 @@ function OspfRow({ projectId, deviceId, interfaceId, current, disabled }: RowPro
         options={(["off", "active", "passive"] as const).map((mode) => ({ value: mode, label: t.ospfModes[mode] }))}
         onChange={(event) => {
           const mode = event.target.value === "off" ? null : (event.target.value as OspfMode);
-          apply(mode === null ? null : { mode, cost: current?.cost ?? OSPF_DEFAULT_COST, priority: current?.priority ?? OSPF_DEFAULT_PRIORITY });
+          apply(mode === null ? null : { mode, cost: current?.cost ?? OSPF_DEFAULT_COST, priority: current?.priority ?? OSPF_DEFAULT_PRIORITY, area: current?.area ?? OSPF_BACKBONE_AREA });
         }}
       />
       {current && (
@@ -76,6 +78,15 @@ function OspfRow({ projectId, deviceId, interfaceId, current, disabled }: RowPro
             className="w-28"
             onChange={(event) => {
               setPriority(event.target.value);
+            }}
+          />
+          <TextField
+            label={fill(t.ospfArea, { port: interfaceId })}
+            value={area}
+            disabled={disabled}
+            className="w-32"
+            onChange={(event) => {
+              setArea(event.target.value);
             }}
           />
           <Button type="submit" size="sm" disabled={disabled} aria-label={fill(t.ospfApply, { port: interfaceId })}>
@@ -113,7 +124,7 @@ export function OspfSection({ projectId, deviceId, config, disabled }: { project
           {interfaces.map((interfaceId) => {
             const current = config?.ospfInterfaces[interfaceId];
             // Remonté quand la configuration change (console, annulation) : les champs repartent des valeurs du projet.
-            const key = `${interfaceId}|${current ? `${current.mode}|${String(current.cost)}|${String(current.priority)}` : "off"}`;
+            const key = `${interfaceId}|${current ? `${current.mode}|${String(current.cost)}|${String(current.priority)}|${current.area}` : "off"}`;
             return <OspfRow key={key} projectId={projectId} deviceId={deviceId} interfaceId={interfaceId} current={current} disabled={disabled} />;
           })}
         </>

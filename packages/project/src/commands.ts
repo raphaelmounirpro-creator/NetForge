@@ -1,7 +1,7 @@
 import { CATALOG_VERSION, findPort, getModel, type DeviceModelId } from "./catalog.js";
 import { DHCP_LEASE_MAX, DHCP_LEASE_MIN, isDhcpLease, type DhcpPool } from "./dhcp.js";
 import { DNS_MAX_RECORDS, isDnsAddress, normalizeDnsName } from "./dns.js";
-import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, type OspfInterface } from "./ospf.js";
+import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, parseOspfArea, type OspfInterface } from "./ospf.js";
 import type { RipMode } from "./rip.js";
 import { VRID_MAX, VRID_MIN, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority, type VrrpGroup } from "./vrrp.js";
 import { error, type Issue } from "./issues.js";
@@ -710,12 +710,14 @@ export function setOspfInterface(doc: NfgDocument, params: { deviceId: string; i
   const ospf = params.ospf;
   if (ospf && !isOspfCost(ospf.cost)) return fail(error("ospf.invalid-cost", { value: String(ospf.cost), min: OSPF_COST_MIN, max: OSPF_COST_MAX }));
   if (ospf && !isOspfPriority(ospf.priority)) return fail(error("ospf.invalid-priority", { value: String(ospf.priority), max: OSPF_PRIORITY_MAX }));
+  const area = ospf ? parseOspfArea(ospf.area) : null;
+  if (ospf && area === null) return fail(error("ospf.invalid-area", { value: ospf.area }));
   const config = doc.configurations[device.id] ?? emptyConfig();
   if (ospf !== null && !config.interfaces[params.interfaceId]?.ipv4) {
     return fail(error("ospf.interface-not-addressed", { deviceId: device.id, deviceName: device.name, portId: params.interfaceId }));
   }
   const { [params.interfaceId]: _previous, ...others } = config.ospfInterfaces;
-  const ospfInterfaces = ospf === null ? others : { ...others, [params.interfaceId]: { mode: ospf.mode, cost: ospf.cost, priority: ospf.priority } };
+  const ospfInterfaces = ospf === null ? others : { ...others, [params.interfaceId]: { mode: ospf.mode, cost: ospf.cost, priority: ospf.priority, area: area ?? ospf.area } };
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ospfInterfaces } } });
 }
 

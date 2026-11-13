@@ -127,11 +127,15 @@ function DeviceRuntime({ device, names, disabled }: { device: DeviceView; names:
       {device.ospf && (
         <>
           <EntryList title={t.ospfTitle} empty={null}>
-            <li className="text-xs text-text-muted">{fill(t.ospfRouter, { routerId: device.ospf.routerId, time: formatSimTime(device.ospf.nextHelloAt) })}</li>
+            <li className="text-xs text-text-muted">{fill(t.ospfRouter, {
+                routerId: device.ospf.routerId,
+                areas: fill(device.ospf.abr ? t.ospfAbr : t.ospfAreas, { areas: device.ospf.areas.join(", ") }),
+                time: formatSimTime(device.ospf.nextHelloAt),
+              })}</li>
             {device.ospf.interfaces.map((item) => (
               <Entry
                 key={item.portId}
-                main={fill(t.ospfInterface, { port: item.portId, state: messages.simulation.ospfInterfaceStates[item.state], cost: item.cost, priority: item.priority })}
+                main={fill(t.ospfInterface, { port: item.portId, state: messages.simulation.ospfInterfaceStates[item.state], cost: item.cost, priority: item.priority, area: item.area })}
                 detail={
                   item.state === "down" ? (
                     <State ok={false} label={messages.simulation.ospfInterfaceStates.down} />
@@ -165,12 +169,17 @@ function DeviceRuntime({ device, names, disabled }: { device: DeviceView; names:
           <EntryList title={t.ospfLsdbTitle} empty={device.ospf.lsdb.length === 0 ? messages.console.ospfLsdbEmpty : null}>
             {device.ospf.lsdb.map((lsa) => (
               <Entry
-                key={`${lsa.lsaType}|${lsa.lsId}|${lsa.advertisingRouter}`}
-                main={`${messages.simulation.ospfLsaTypes[lsa.lsaType]} ${lsa.lsId} · ${names.router(lsa.advertisingRouter)}`}
+                key={`${lsa.area}|${lsa.lsaType}|${lsa.lsId}|${lsa.advertisingRouter}`}
+                main={`${fill(t.ospfAreas, { areas: lsa.area })} · ${messages.simulation.ospfLsaTypes[lsa.lsaType]} ${lsa.lsId} · ${names.router(lsa.advertisingRouter)}`}
                 detail={fill(t.ospfLsa, {
                   sequence: ospfSequence(lsa.sequence),
                   age: lsa.age,
-                  content: lsa.lsaType === "router" ? fill(t.ospfRouterLinks, { count: lsa.links.length }) : fill(t.ospfAttached, { routers: lsa.attachedRouters.map((id) => names.router(id)).join(", ") }),
+                  content:
+                    lsa.lsaType === "summary"
+                      ? fill(t.ospfSummaryContent, { mask: lsa.mask ?? "", metric: lsa.metric ?? 0 })
+                      : lsa.lsaType === "router"
+                        ? fill(t.ospfRouterLinks, { count: lsa.links.length })
+                        : fill(t.ospfAttached, { routers: lsa.attachedRouters.map((id) => names.router(id)).join(", ") }),
                 })}
               />
             ))}

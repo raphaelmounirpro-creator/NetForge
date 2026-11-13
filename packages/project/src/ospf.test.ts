@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { configurationCommands, interpret, OPERATION_MODE, type CliMode } from "./cli.js";
 import { setInterfaceIpv4, setOspfInterface } from "./commands.js";
-import { isOspfCost, isOspfPriority } from "./ospf.js";
+import { isOspfCost, isOspfPriority, parseOspfArea } from "./ospf.js";
 import type { NfgDocument } from "./schema.js";
 import { expectOk, projectWith } from "./test-helpers.js";
 import { validateDocument } from "./validation.js";
@@ -28,7 +28,7 @@ function base(): NfgDocument {
   return expectOk(setInterfaceIpv4(doc, { deviceId: "r1", portId: "ge2.10", ipv4: { address: "10.10.0.1", prefixLength: 24 } }));
 }
 
-const ACTIVE = { mode: "active", cost: 10, priority: 1 } as const;
+const ACTIVE = { mode: "active", cost: 10, priority: 1, area: "0.0.0.0" } as const;
 
 describe("OSPF : participation des interfaces d'un routeur", () => {
   it("accepte un coût de 1 à 65535 et une priorité de 0 à 255", () => {
@@ -40,12 +40,12 @@ describe("OSPF : participation des interfaces d'un routeur", () => {
 
   it("active, rend passive, modifie coût et priorité puis retire une interface, sous-interface comprise", () => {
     let doc = expectOk(setOspfInterface(base(), { deviceId: "r1", interfaceId: "ge1", ospf: ACTIVE }));
-    doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge0", ospf: { mode: "passive", cost: 1, priority: 0 } }));
-    doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge2.10", ospf: { ...ACTIVE, cost: 65535, priority: 255 } }));
+    doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge0", ospf: { mode: "passive", cost: 1, priority: 0, area: "0.0.0.0" } }));
+    doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge2.10", ospf: { ...ACTIVE, cost: 65535, priority: 255, area: "0.0.0.0" } }));
     expect(doc.configurations["r1"]?.ospfInterfaces).toEqual({
       ge1: ACTIVE,
-      ge0: { mode: "passive", cost: 1, priority: 0 },
-      "ge2.10": { mode: "active", cost: 65535, priority: 255 },
+      ge0: { mode: "passive", cost: 1, priority: 0, area: "0.0.0.0" },
+      "ge2.10": { mode: "active", cost: 65535, priority: 255, area: "0.0.0.0" },
     });
     expect(validateDocument(doc)).toEqual([]);
     doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge0", ospf: null }));
@@ -59,7 +59,7 @@ describe("OSPF : participation des interfaces d'un routeur", () => {
     expect(codes(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge9", ospf: ACTIVE }))).toEqual(["config.unknown-port"]);
     expect(codes(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge3", ospf: ACTIVE }))).toEqual(["ospf.interface-not-addressed"]);
     expect(codes(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge1", ospf: { ...ACTIVE, cost: 0 } }))).toEqual(["ospf.invalid-cost"]);
-    expect(codes(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge1", ospf: { ...ACTIVE, priority: 256 } }))).toEqual(["ospf.invalid-priority"]);
+    expect(codes(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge1", ospf: { ...ACTIVE, priority: 256, area: "0.0.0.0" } }))).toEqual(["ospf.invalid-priority"]);
   });
 
   it("n'empêche pas de retirer l'adresse d'une interface OSPF, mais avertit qu'elle ne participe plus", () => {
@@ -84,10 +84,10 @@ describe("OSPF : console équivalente aux formulaires", () => {
     const active = session(doc, "r1", ["configure", "interface ge1", "ospf enable"]);
     expect(active).toEqual(expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge1", ospf: ACTIVE })));
     const tuned = session(active, "r1", ["configure", "interface ge1", "ospf cost 25", "ospf priority 0"]);
-    expect(tuned).toEqual(expectOk(setOspfInterface(active, { deviceId: "r1", interfaceId: "ge1", ospf: { mode: "active", cost: 25, priority: 0 } })));
+    expect(tuned).toEqual(expectOk(setOspfInterface(active, { deviceId: "r1", interfaceId: "ge1", ospf: { mode: "active", cost: 25, priority: 0, area: "0.0.0.0" } })));
     // Passer en passif conserve coût et priorité.
     const passive = session(tuned, "r1", ["configure", "interface ge1", "ospf passive"]);
-    expect(passive.configurations["r1"]?.ospfInterfaces["ge1"]).toEqual({ mode: "passive", cost: 25, priority: 0 });
+    expect(passive.configurations["r1"]?.ospfInterfaces["ge1"]).toEqual({ mode: "passive", cost: 25, priority: 0, area: "0.0.0.0" });
     expect(session(passive, "r1", ["configure", "interface ge1", "ospf disable"])).toEqual(expectOk(setOspfInterface(passive, { deviceId: "r1", interfaceId: "ge1", ospf: null })));
     const show = interpret(doc, "r1", OPERATION_MODE, "show ospf");
     const database = interpret(doc, "r1", OPERATION_MODE, "sh ospf data");
@@ -113,13 +113,44 @@ describe("OSPF : console équivalente aux formulaires", () => {
 
   it("réécrit OSPF en commandes rejouables, après les adresses, sans répéter les valeurs par défaut", () => {
     let doc = expectOk(setOspfInterface(base(), { deviceId: "r1", interfaceId: "ge1", ospf: ACTIVE }));
-    doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge0", ospf: { mode: "passive", cost: 1, priority: 1 } }));
-    doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge2.10", ospf: { mode: "active", cost: 10, priority: 200 } }));
+    doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge0", ospf: { mode: "passive", cost: 1, priority: 1, area: "0.0.0.0" } }));
+    doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge2.10", ospf: { mode: "active", cost: 10, priority: 200, area: "0.0.0.0" } }));
     const lines = configurationCommands(doc, "r1");
     expect(lines).toEqual(expect.arrayContaining(["ospf enable", "ospf passive", "ospf cost 1", "ospf priority 200"]));
     expect(lines.filter((line) => line.startsWith("ospf cost"))).toEqual(["ospf cost 1"]);
     expect(lines.indexOf("ospf passive")).toBeGreaterThan(lines.indexOf("address 10.1.0.1/24"));
     const blank = projectWith(["r1", "R-200"], ["pc1", "PC"], ["sw1", "S-24"]);
     expect(session(blank, "r1", lines).configurations["r1"]).toEqual(doc.configurations["r1"]);
+  });
+});
+
+describe("OSPF : zones (format v11)", () => {
+  it("lit une zone en décimal ou en notation pointée et la range en notation pointée", () => {
+    expect(["0", "1", "0.0.0.1", " 255 ", "4294967295", "10.0.0.0"].map(parseOspfArea)).toEqual(["0.0.0.0", "0.0.0.1", "0.0.0.1", "0.0.0.255", "255.255.255.255", "10.0.0.0"]);
+    expect(["", "-1", "4294967296", "1.2.3", "zone1"].map(parseOspfArea)).toEqual([null, null, null, null, null]);
+  });
+
+  it("ospf area donne le même document que le formulaire, se réécrit et refuse une zone invalide", () => {
+    const enabled = expectOk(setOspfInterface(base(), { deviceId: "r1", interfaceId: "ge1", ospf: ACTIVE }));
+    const viaCli = session(enabled, "r1", ["configure", "interface ge1", "ospf area 1"]);
+    expect(viaCli).toEqual(expectOk(setOspfInterface(enabled, { deviceId: "r1", interfaceId: "ge1", ospf: { ...ACTIVE, area: "0.0.0.1" } })));
+    expect(configurationCommands(viaCli, "r1")).toContain("ospf area 0.0.0.1");
+    const blank = projectWith(["r1", "R-200"], ["pc1", "PC"], ["sw1", "S-24"]);
+    expect(session(blank, "r1", configurationCommands(viaCli, "r1")).configurations["r1"]).toEqual(viaCli.configurations["r1"]);
+    const refused = interpret(enabled, "r1", { kind: "interface", portId: "ge1" }, "ospf area zone1");
+    expect(refused.ok ? null : refused.issues.map((issue) => issue.code)).toEqual(["ospf.invalid-area"]);
+    expect(codes(setOspfInterface(base(), { deviceId: "r1", interfaceId: "ge1", ospf: { ...ACTIVE, area: "x" } }))).toEqual(["ospf.invalid-area"]);
+  });
+
+  it("avertit d'un routeur relié à plusieurs zones sans la dorsale, et de deux zones sur un même réseau", () => {
+    let doc = expectOk(setOspfInterface(base(), { deviceId: "r1", interfaceId: "ge0", ospf: { ...ACTIVE, area: "0.0.0.1" } }));
+    const result = setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge1", ospf: { ...ACTIVE, area: "0.0.0.2" } });
+    expect(result.ok && result.warnings.map((issue) => [issue.code, issue.params["areas"]])).toEqual([["ospf.abr-without-backbone", "0.0.0.1, 0.0.0.2"]]);
+    doc = projectWith(["r1", "R-200"], ["r2", "R-200"]);
+    doc = expectOk(setInterfaceIpv4(doc, { deviceId: "r1", portId: "ge0", ipv4: { address: "10.0.0.1", prefixLength: 30 } }));
+    doc = expectOk(setInterfaceIpv4(doc, { deviceId: "r2", portId: "ge0", ipv4: { address: "10.0.0.2", prefixLength: 30 } }));
+    doc = expectOk(setOspfInterface(doc, { deviceId: "r1", interfaceId: "ge0", ospf: ACTIVE }));
+    const mismatch = setOspfInterface(doc, { deviceId: "r2", interfaceId: "ge0", ospf: { ...ACTIVE, area: "0.0.0.1" } });
+    expect(mismatch.ok && mismatch.warnings.map((issue) => [issue.code, issue.params["otherArea"]])).toEqual([["ospf.area-mismatch", "0.0.0.0"]]);
   });
 });

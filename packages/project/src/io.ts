@@ -155,6 +155,20 @@ function migrateV9toV10(doc: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
+/** Version 10 → 11 : toutes les interfaces OSPF existantes sont dans la dorsale (zone 0.0.0.0). */
+function migrateV10toV11(doc: Record<string, unknown>): Record<string, unknown> {
+  const configs = doc["configurations"];
+  const withArea = (interfaces: unknown) =>
+    isRecord(interfaces) ? Object.fromEntries(Object.entries(interfaces).map(([id, value]) => [id, isRecord(value) ? { ...value, area: "0.0.0.0" } : value])) : interfaces;
+  return {
+    ...doc,
+    schemaVersion: 11,
+    configurations: isRecord(configs)
+      ? Object.fromEntries(Object.entries(configs).map(([id, config]) => [id, isRecord(config) ? { ...config, ospfInterfaces: withArea(config["ospfInterfaces"]) } : config]))
+      : configs,
+  };
+}
+
 /**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
@@ -169,6 +183,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   7: migrateV7toV8,
   8: migrateV8toV9,
   9: migrateV9toV10,
+  10: migrateV10toV11,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

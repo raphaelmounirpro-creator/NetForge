@@ -5,6 +5,7 @@ import {
   dhcpScenario,
   dnsScenario,
   lanScenario,
+  ospfAreasScenario,
   ospfLanScenario,
   ospfScenario,
   ripScenario,
@@ -403,6 +404,7 @@ describe("observation OSPF sur des échanges réels", () => {
     long(ospfLanScenario(), [converge, { type: "set-link", linkId: "l2", up: false }], 3_700_000_000_000),
     long(ospfScenario(), [converge], 1_850_000_000_000),
     run(mask, []),
+    run(ospfAreasScenario(), [converge, { type: "set-link", linkId: "l5", up: false }]),
   ];
 
   it("explique chaque décision OSPF aux deux niveaux, sans paramètre manquant", () => {
@@ -442,6 +444,13 @@ describe("observation OSPF sur des échanges réels", () => {
       "R1 change la route OSPF 10.3.0.0/24 : par 10.13.0.2, coût 40 (avant : coût 30 par 10.12.0.2).",
     );
     expect(traceCategory("ospf.spf")).toBe("routing");
+    const areas = runs[4];
+    if (!areas) throw new Error("scénario multi-zone attendu");
+    const areaNames = buildNameIndex(areas.snapshot.devices);
+    const interRoute = areas.trace.find((entry) => entry.code === "ospf.route-added" && entry.deviceId === "r1" && entry.params["route"] === "10.4.0.0/24");
+    expect(interRoute && formatTrace(interRoute, areaNames)).toBe("R1 ajoute la route OSPF inter-zones 10.4.0.0/24 par 10.12.0.2 (ge1), coût 40, d'après le résumé de 10.23.0.1 (R2).");
+    const summary = areas.trace.find((entry) => entry.code === "ospf.lsa-originated" && entry.deviceId === "r2" && entry.params["lsId"] === "10.3.0.0");
+    expect(summary && formatTrace(summary, areaNames)).toBe("R2, routeur de bordure, annonce dans la zone 0.0.0.1 le réseau 10.3.0.0 (255.255.255.0) avec un coût de 20 : LSA de résumé (séquence 0x80000001).");
     const mismatch = runs[3]?.trace.find((entry) => entry.code === "ospf.hello-mismatch");
     expect(mismatch && formatTrace(mismatch, names)).toBe(
       "R2 ignore le Hello de 10.0.0.1 : masque de réseau différent (255.255.255.0 au lieu de 255.255.255.128), pas de voisinage possible.",

@@ -34,12 +34,12 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 10", () => {
+describe("migration du format version 1 → 11", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(10);
+    expect(result.document.schemaVersion).toBe(11);
     expect(result.document.models).toEqual({ catalog: 2 });
     expect(result.document.faults).toEqual([]);
     // Routes (v2), ports de switch, STP (v5), DHCP (v6), DNS (v7), RIP (v8) et OSPF (v9) : tous les ports en accès dans
@@ -129,7 +129,7 @@ describe("migration du format version 1 → 10", () => {
     const result = parseNfgValue(versionThree);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(10);
+    expect(result.document.schemaVersion).toBe(11);
     expect(result.document.models.catalog).toBe(2);
     expect(result.document.topology.links[0]?.fiber).toBeNull();
     expect(result.document.faults).toEqual([]);
@@ -209,9 +209,21 @@ describe("migration du format version 1 → 10", () => {
     expect(errorCodes({ ...old, schemaVersion: 9 })).toEqual(["import.schema", "import.schema"]);
   });
 
+  it("migre les anciens fichiers v10 en plaçant les interfaces OSPF dans la dorsale", () => {
+    let current = expectOk(setInterfaceIpv4(projectWith(["pc1", "PC"], ["r1", "R-200"]), { deviceId: "r1", portId: "ge0", ipv4: { address: "192.168.1.2", prefixLength: 24 } }));
+    current = expectOk(setOspfInterface(current, { deviceId: "r1", interfaceId: "ge0", ospf: { mode: "active", cost: 20, priority: 1, area: "0.0.0.0" } }));
+    const r1 = current.configurations["r1"];
+    if (!r1) throw new Error("configuration attendue");
+    const old = { ...current, schemaVersion: 10, configurations: { ...current.configurations, r1: { ...r1, ospfInterfaces: { ge0: { mode: "active", cost: 20, priority: 1 } } } } };
+    const result = parseNfgValue(old);
+    expect(result.ok && result.document).toEqual(current);
+    // Un fichier v11 doit porter la zone de chaque interface OSPF.
+    expect(errorCodes({ ...old, schemaVersion: 11 })).toEqual(["import.schema"]);
+  });
+
   it("migre les anciens fichiers v9 en conservant OSPF sans groupe VRRP", () => {
     let current = expectOk(setInterfaceIpv4(projectWith(["pc1", "PC"], ["r1", "R-200"]), { deviceId: "r1", portId: "ge0", ipv4: { address: "192.168.1.2", prefixLength: 24 } }));
-    current = expectOk(setOspfInterface(current, { deviceId: "r1", interfaceId: "ge0", ospf: { mode: "passive", cost: 10, priority: 1 } }));
+    current = expectOk(setOspfInterface(current, { deviceId: "r1", interfaceId: "ge0", ospf: { mode: "passive", cost: 10, priority: 1, area: "0.0.0.0" } }));
     const old = { ...current, schemaVersion: 9, configurations: Object.fromEntries(Object.entries(current.configurations).map(([id, { vrrpGroups: _vrrp, ...config }]) => [id, config])) };
     const result = parseNfgValue(old);
     expect(result.ok && result.document).toEqual(current);

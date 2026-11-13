@@ -24,9 +24,10 @@ import { createSimulation } from "./simulation.js";
  * convergence initiale. Version 6 : OSPF (format v9), mode, coût et priorité
  * des interfaces protégés par « routes » ; routes OSPF préférées à RIP.
  * Version 7 : VRRP (format v10), groupes des routeurs protégés par « routes »
- * (passerelle des postes) ; contrôles après l'élection du maître.
+ * (passerelle des postes) ; contrôles après l'élection du maître. Version 8 :
+ * zones OSPF (format v11), zone des interfaces protégée par « routes ».
  */
-export const EVALUATOR_VERSION = 7;
+export const EVALUATOR_VERSION = 8;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */

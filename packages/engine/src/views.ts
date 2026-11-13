@@ -205,6 +205,8 @@ export interface OspfInterfaceView {
   readonly mode: "active" | "passive";
   readonly cost: number;
   readonly priority: number;
+  /** Zone de l'interface (« 0.0.0.0 » : dorsale). */
+  readonly area: string;
   readonly state: OspfInterfaceStateView;
   /** DR et BDR élus : identifiant de routeur (null : aucun). */
   readonly dr: string | null;
@@ -213,7 +215,9 @@ export interface OspfInterfaceView {
 }
 
 export interface OspfLsaView {
-  readonly lsaType: "router" | "network";
+  /** Zone de la base qui contient ce LSA. */
+  readonly area: string;
+  readonly lsaType: "router" | "network" | "summary";
   readonly lsId: string;
   readonly advertisingRouter: string;
   /** Numéro de séquence non signé (0x80000001 pour la première instance). */
@@ -221,14 +225,22 @@ export interface OspfLsaView {
   readonly age: number;
   /** LSA routeur : liens décrits ; vide pour un LSA réseau. */
   readonly links: ReadonlyArray<{ readonly type: "transit" | "stub"; readonly linkId: string; readonly linkData: string; readonly metric: number }>;
-  /** LSA réseau : masque et routeurs rattachés ; null et vide pour un LSA routeur. */
+  /** LSA routeur : bit B (routeur de bordure). */
+  readonly abr: boolean;
+  /** LSA réseau ou résumé : masque ; null pour un LSA routeur. */
   readonly mask: string | null;
+  /** LSA de résumé : coût annoncé ; null sinon. */
+  readonly metric: number | null;
   readonly attachedRouters: readonly string[];
 }
 
-/** OSPF d'un routeur : identifiant, interfaces et voisins, base d'états des liens (triée par type, identifiant, annonceur). */
+/** OSPF d'un routeur : identifiant, interfaces et voisins, bases d'états des liens par zone (triées par type, identifiant, annonceur). */
 export interface OspfView {
   readonly routerId: string;
+  /** Routeur de bordure : relié à plusieurs zones. */
+  readonly abr: boolean;
+  /** Zones configurées sur ses interfaces, dans l'ordre. */
+  readonly areas: readonly string[];
   readonly interfaces: readonly OspfInterfaceView[];
   readonly lsdb: readonly OspfLsaView[];
   readonly nextHelloAt: SimTime;

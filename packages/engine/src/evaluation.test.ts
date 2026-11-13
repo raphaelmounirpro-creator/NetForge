@@ -214,7 +214,7 @@ describe("fonctions autorisées", () => {
 
   it("protègent le mode, le coût et la priorité OSPF par la fonction « routes »", () => {
     const initial = ospfScenario();
-    const cheaper = ok(setOspfInterface(initial, { deviceId: "r1", interfaceId: "ge2", ospf: { mode: "active", cost: 1, priority: 1 } }));
+    const cheaper = ok(setOspfInterface(initial, { deviceId: "r1", interfaceId: "ge2", ospf: { mode: "active", cost: 1, priority: 1, area: "0.0.0.0" } }));
     const removed = ok(setOspfInterface(initial, { deviceId: "r2", interfaceId: "ge2", ospf: null }));
     for (const changed of [cheaper, removed]) {
       expect(forbiddenChanges(initial, changed, ["simulation", "addressing", "switching"])).toEqual(["routes"]);

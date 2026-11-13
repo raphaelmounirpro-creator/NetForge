@@ -74,6 +74,9 @@ export const ISSUE_CODES = [
   "ospf.interface-not-enabled",
   "ospf.invalid-cost",
   "ospf.invalid-priority",
+  "ospf.invalid-area",
+  "ospf.abr-without-backbone",
+  "ospf.area-mismatch",
   // VRRP
   "vrrp.not-supported",
   "vrrp.interface-not-addressed",

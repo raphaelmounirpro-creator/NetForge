@@ -186,6 +186,31 @@ export function vrrpScenario(options: { owner?: boolean; r1Preempt?: boolean } =
     .build();
 }
 
+/**
+ * OSPF multi-zone : zone 1 (R1, PC1) — R2, routeur de bordure — dorsale (R2,
+ * R3, PC3) — R3, routeur de bordure — zone 2 (R4, PC4). Chaque routeur
+ * interne ne connaît que sa zone ; les autres réseaux lui parviennent par les
+ * résumés des routeurs de bordure. Identifiants : R1 10.12.0.1, R2 10.23.0.1,
+ * R3 10.34.0.1, R4 10.34.0.2.
+ */
+export function ospfAreasScenario(): NfgDocument {
+  return new ScenarioBuilder("ospf-zones", "OSPF : zones multiples")
+    .device("pc1", "PC", 0, 300).device("r1", "R-200", 200, 300).device("r2", "R-200", 420, 300)
+    .device("r3", "R-200", 640, 300).device("pc3", "PC", 640, 40).device("r4", "R-200", 860, 300).device("pc4", "PC", 1060, 300)
+    .link("pc1", "eth0", "r1", "ge0").link("r1", "ge1", "r2", "ge1").link("r2", "ge2", "r3", "ge2")
+    .link("r3", "ge0", "pc3", "eth0").link("r3", "ge1", "r4", "ge1").link("r4", "ge0", "pc4", "eth0")
+    .ip("r1", "ge0", "10.1.0.1/24").ip("r1", "ge1", "10.12.0.1/30").ip("r2", "ge1", "10.12.0.2/30")
+    .ip("r2", "ge2", "10.23.0.1/30").ip("r3", "ge2", "10.23.0.2/30").ip("r3", "ge0", "10.3.0.1/24")
+    .ip("r3", "ge1", "10.34.0.1/30").ip("r4", "ge1", "10.34.0.2/30").ip("r4", "ge0", "10.4.0.1/24")
+    .ip("pc1", "eth0", "10.1.0.10/24").gateway("pc1", "10.1.0.1")
+    .ip("pc3", "eth0", "10.3.0.10/24").gateway("pc3", "10.3.0.1")
+    .ip("pc4", "eth0", "10.4.0.10/24").gateway("pc4", "10.4.0.1")
+    .ospf("r1", "ge0", { mode: "passive", area: "0.0.0.1" }).ospf("r1", "ge1", { area: "0.0.0.1" }).ospf("r2", "ge1", { area: "0.0.0.1" })
+    .ospf("r2", "ge2").ospf("r3", "ge2").ospf("r3", "ge0", { mode: "passive" })
+    .ospf("r3", "ge1", { area: "0.0.0.2" }).ospf("r4", "ge1", { area: "0.0.0.2" }).ospf("r4", "ge0", { mode: "passive", area: "0.0.0.2" })
+    .build();
+}
+
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(`scénario invalide : ${result.errors.map((issue) => issue.code).join(", ")}`);
   return result.document;
@@ -260,9 +285,10 @@ export class ScenarioBuilder {
     return this;
   }
 
-  /** Participation d'une interface de routeur à OSPF (active, coût 10 et priorité 1 par défaut). */
-  ospf(deviceId: string, interfaceId: string, options: { mode?: OspfMode; cost?: number; priority?: number } = {}): this {
-    this.doc = ok(setOspfInterface(this.doc, { deviceId, interfaceId, ospf: { mode: options.mode ?? "active", cost: options.cost ?? 10, priority: options.priority ?? 1 } }));
+  /** Participation d'une interface de routeur à OSPF (active, coût 10, priorité 1 et dorsale par défaut). */
+  ospf(deviceId: string, interfaceId: string, options: { mode?: OspfMode; cost?: number; priority?: number; area?: string } = {}): this {
+    const ospf = { mode: options.mode ?? "active", cost: options.cost ?? 10, priority: options.priority ?? 1, area: options.area ?? "0.0.0.0" };
+    this.doc = ok(setOspfInterface(this.doc, { deviceId, interfaceId, ospf }));
     return this;
   }
 

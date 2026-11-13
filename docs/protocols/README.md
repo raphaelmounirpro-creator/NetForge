@@ -14,7 +14,7 @@ Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2), VLAN, STP, DHCP et DNS (
 | [Adressage IPv4 (configuration)](ipv4-adressage.md) | Pédagogique simplifié — configuration et validation |
 | [IPv4 : acheminement et routage statique](ipv4-routage.md) | Pédagogique simplifié |
 | [RIP version 2](rip.md) | Pédagogique simplifié — routeurs, interfaces actives ou passives |
-| [OSPF version 2 en zone unique](ospf.md) | Pédagogique simplifié — zone 0, réseaux à diffusion, sans accusés de réception |
+| [OSPF version 2](ospf.md) | Pédagogique simplifié — zones multiples par la dorsale, réseaux à diffusion, sans accusés de réception |
 | [VRRP version 3 (IPv4)](vrrp.md) | Pédagogique simplifié — un groupe par interface, Accept_Mode faux |
 | [ICMP et ping](icmp-ping.md) | Pédagogique simplifié (sous-ensemble) |
 | [Réseau optique FTTH : bilan, mesures et pannes](ftth-bilan-optique.md) | Pédagogique simplifié — calcul statique |
@@ -54,6 +54,6 @@ La trace (et l'inspecteur prévu en phase 3) n'affiche que ces champs ; aucun oc
 | DNS | 7 · application | identifiant, QR, AA, RD, RA, RCODE, question (nom, type A, classe IN), réponses A (nom, adresse, TTL) | — |
 | RIP | 7 · application (routage) | commande, version, entrées (famille, étiquette, réseau, masque, prochain saut, métrique) | — |
 | VRRP | 3 · réseau (protocole 112, redondance) | version, type, VRID, priorité, intervalle maximal, adresses virtuelles | — |
-| OSPF | 3 · réseau (protocole 89, routage) | version, type, identifiant du routeur, zone ; Hello (masque, intervalles, priorité, DR, BDR, voisins) ; description de base (MTU, bits I/M/MS, séquence, en-têtes de LSA) ; demande (LSA demandés) ; mise à jour (LSA routeur : liens ; LSA réseau : masque, routeurs rattachés) | — |
+| OSPF | 3 · réseau (protocole 89, routage) | version, type, identifiant du routeur, zone ; Hello (masque, intervalles, priorité, DR, BDR, voisins) ; description de base (MTU, bits I/M/MS, séquence, en-têtes de LSA) ; demande (LSA demandés) ; mise à jour (LSA routeur : bit B, liens ; LSA réseau : masque, routeurs rattachés ; LSA de résumé : masque, coût) | — |
 | ICMP écho | 3 · contrôle et diagnostic | type, identifiant, séquence, longueur des données | — |
 | ICMP erreur | 3 · contrôle et diagnostic | type, code, en-tête IP et identifiant/séquence de l'écho d'origine | — |

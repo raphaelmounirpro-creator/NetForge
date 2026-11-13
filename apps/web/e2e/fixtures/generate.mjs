@@ -2,7 +2,7 @@
 // scénarios versionnés du moteur. Usage : pnpm build:packages, puis
 // node apps/web/e2e/fixtures/generate.mjs (un test unitaire vérifie la synchronisation).
 import { writeFileSync } from "node:fs";
-import { dhcpScenario, dnsScenario, ftthScenario, ospfLanScenario, ospfScenario, performanceScenario, ripScenario, vrrpScenario, routedScenario, stpTriangleScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "@netforge/engine";
+import { dhcpScenario, dnsScenario, ftthScenario, ospfAreasScenario, ospfLanScenario, ospfScenario, performanceScenario, ripScenario, vrrpScenario, routedScenario, stpTriangleScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "@netforge/engine";
 import { serializeNfg } from "@netforge/project";
 
 const fixtures = {
@@ -12,6 +12,7 @@ const fixtures = {
   "rip.nfg.json": ripScenario(),
   "ospf.nfg.json": ospfScenario(),
   "ospf-lan.nfg.json": ospfLanScenario(),
+  "ospf-zones.nfg.json": ospfAreasScenario(),
   "vrrp.nfg.json": vrrpScenario(),
   "two-routers-no-return.nfg.json": twoRoutersScenario({ r2Route: false }),
   "perf-100.nfg.json": performanceScenario(),

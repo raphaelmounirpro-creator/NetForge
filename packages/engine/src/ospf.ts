@@ -10,7 +10,7 @@ export const lsaKey = (lsa: Pick<OspfLsaHeader, "lsaType" | "lsId" | "advertisin
 
 /** Code numérique du type de LSA (RFC 2328 §12.1.3). */
 export function lsaTypeNumber(type: OspfLsaType): number {
-  return type === "router" ? 1 : 2;
+  return type === "router" ? 1 : type === "network" ? 2 : 3;
 }
 
 /**
@@ -30,7 +30,8 @@ export function compareLsa(a: Pick<OspfLsaHeader, "sequence" | "age">, b: Pick<O
 
 /** Même contenu (hors en-tête variable : âge et séquence) : une nouvelle instance serait inutile (RFC 2328 §12.4). */
 export function sameLsaContent(a: OspfLsa, b: OspfLsa): boolean {
-  if (a.lsaType === "router" && b.lsaType === "router") return JSON.stringify(a.links) === JSON.stringify(b.links);
+  if (a.lsaType === "router" && b.lsaType === "router") return a.abr === b.abr && JSON.stringify(a.links) === JSON.stringify(b.links);
+  if (a.lsaType === "summary" && b.lsaType === "summary") return a.mask === b.mask && a.metric === b.metric;
   if (a.lsaType === "network" && b.lsaType === "network") return a.mask === b.mask && a.attachedRouters.join() === b.attachedRouters.join();
   return false;
 }
@@ -88,6 +89,13 @@ export function electDesignatedRouter(self: ElectionCandidate, neighbors: readon
   return calculate({ ...self, dr: first.dr, bdr: first.bdr });
 }
 
+/** Chemin vers un routeur de la zone (routeur de bordure compris) : coût et premier saut. */
+export interface SpfRouterPath {
+  readonly cost: number;
+  readonly nextHop: number | null;
+  readonly via: string;
+}
+
 /** Route calculée : réseau, coût total, prochain saut (null : réseau du routeur) et adresse de l'interface de sortie. */
 export interface SpfRoute {
   readonly destination: number;
@@ -122,15 +130,23 @@ const vertexId = (lsa: OspfLsa) => (lsa.lsaType === "router" ? `R:${lsa.lsId}` :
  * de charge) : à coût égal, le premier trouvé est gardé. LSA d'âge MaxAge exclus.
  */
 export function computeOspfRoutes(rootRouterId: string, lsas: Iterable<OspfLsa>): SpfRoute[] {
+  return shortestPaths(rootRouterId, lsas).routes;
+}
+
+/**
+ * Plus courts chemins d'une zone (RFC 2328 §16.1) : routes intra-zone et
+ * chemin vers chaque routeur atteint (sert au calcul inter-zones, §16.2).
+ */
+export function shortestPaths(rootRouterId: string, lsas: Iterable<OspfLsa>): { readonly routes: SpfRoute[]; readonly routers: ReadonlyMap<string, SpfRouterPath> } {
   const routers = new Map<string, Extract<OspfLsa, { lsaType: "router" }>>();
   const networks = new Map<string, Extract<OspfLsa, { lsaType: "network" }>>();
   for (const lsa of lsas) {
     if (lsa.age >= OSPF_MAX_AGE) continue;
     if (lsa.lsaType === "router") routers.set(lsa.advertisingRouter, lsa);
-    else networks.set(lsa.lsId, lsa);
+    else if (lsa.lsaType === "network") networks.set(lsa.lsId, lsa);
   }
   const root = routers.get(rootRouterId);
-  if (!root) return [];
+  if (!root) return { routes: [], routers: new Map() };
   const tree = new Map<string, Vertex>();
   const candidates = new Map<string, Vertex>([[vertexId(root), { id: vertexId(root), lsa: root, cost: 0, hop: null, parentId: null }]]);
   const consider = (lsa: OspfLsa, cost: number, hop: Hop | null, parentId: string) => {
@@ -156,7 +172,7 @@ export function computeOspfRoutes(rootRouterId: string, lsas: Iterable<OspfLsa>)
         const hop = next.parentId === null ? { nextHop: null, via: link.linkData } : next.hop;
         consider(network, next.cost + link.metric, hop, next.id);
       }
-    } else {
+    } else if (next.lsa.lsaType === "network") {
       const parentIsRoot = next.parentId === vertexId(root);
       for (const routerId of next.lsa.attachedRouters) {
         const router = routers.get(routerId);
@@ -196,7 +212,11 @@ export function computeOspfRoutes(rootRouterId: string, lsas: Iterable<OspfLsa>)
       offer(networkAddress(address, prefixLength), prefixLength, vertex.cost + link.metric, vertex.hop);
     }
   }
-  return [...routes.values()].sort((a, b) => a.destination - b.destination || a.prefixLength - b.prefixLength);
+  const reached = new Map<string, SpfRouterPath>();
+  for (const vertex of tree.values()) {
+    if (vertex.lsa.lsaType === "router" && vertex.parentId !== null && vertex.hop) reached.set(vertex.lsa.advertisingRouter, { cost: vertex.cost, nextHop: vertex.hop.nextHop, via: vertex.hop.via });
+  }
+  return { routes: [...routes.values()].sort((a, b) => a.destination - b.destination || a.prefixLength - b.prefixLength), routers: reached };
 }
 
 /** Ordre stable de la base : LSA routeur puis réseau, identifiant puis routeur annonceur croissants. */

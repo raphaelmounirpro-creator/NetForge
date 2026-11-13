@@ -173,8 +173,8 @@ export const DHCP_CLIENT_PORT = 68;
 export const LIMITED_BROADCAST = "255.255.255.255";
 export const UNSPECIFIED_ADDRESS = "0.0.0.0";
 
-/** Type de LSA modélisé (RFC 2328 §12.1.3) : 1 routeur, 2 réseau. */
-export type OspfLsaType = "router" | "network";
+/** Type de LSA modélisé (RFC 2328 §12.1.3) : 1 routeur, 2 réseau, 3 résumé (réseau d'une autre zone). */
+export type OspfLsaType = "router" | "network" | "summary";
 
 /** En-tête de LSA (RFC 2328 §12.1, A.4.1 : 20 octets) ; options, somme de contrôle et longueur non modélisées. */
 export interface OspfLsaHeader {
@@ -202,6 +202,8 @@ export interface OspfRouterLink {
 
 export interface OspfRouterLsa extends OspfLsaHeader {
   readonly lsaType: "router";
+  /** Bit B : routeur de bordure, relié à plusieurs zones (RFC 2328 A.4.2). */
+  readonly abr: boolean;
   readonly links: readonly OspfRouterLink[];
 }
 
@@ -212,7 +214,14 @@ export interface OspfNetworkLsa extends OspfLsaHeader {
   readonly attachedRouters: readonly string[];
 }
 
-export type OspfLsa = OspfRouterLsa | OspfNetworkLsa;
+/** LSA de résumé de réseau (type 3, RFC 2328 §12.4.3, A.4.4) : émis par un routeur de bordure, réseau d'une autre zone, masque et coût. */
+export interface OspfSummaryLsa extends OspfLsaHeader {
+  readonly lsaType: "summary";
+  readonly mask: string;
+  readonly metric: number;
+}
+
+export type OspfLsa = OspfRouterLsa | OspfNetworkLsa | OspfSummaryLsa;
 
 /** En-tête commun des paquets OSPF version 2 (RFC 2328 A.3.1) : identifiant du routeur émetteur et zone. */
 interface OspfHeader {
@@ -285,8 +294,10 @@ export const OSPF_INTERFACE_MTU = 1500;
 const OSPF_HEADER_BYTES = 24;
 const LSA_HEADER_BYTES = 20;
 
-/** Taille d'un LSA : en-tête (20), puis 4 octets fixes et 12 par lien (routeur) ou masque et 4 octets par routeur (réseau). */
+/** Taille d'un LSA : en-tête (20), puis 4 octets fixes et 12 par lien (routeur), masque et 4 octets par routeur (réseau), masque et métrique (résumé). */
 export function ospfLsaBytes(lsa: OspfLsa): number {
+  // Résumé : masque (4) puis octet TOS 0 et métrique sur 24 bits (4).
+  if (lsa.lsaType === "summary") return LSA_HEADER_BYTES + 8;
   return LSA_HEADER_BYTES + (lsa.lsaType === "router" ? 4 + 12 * lsa.links.length : 4 + 4 * lsa.attachedRouters.length);
 }
 

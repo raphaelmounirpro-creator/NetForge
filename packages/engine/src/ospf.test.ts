@@ -58,6 +58,7 @@ describe("OSPF : fonctions du protocole", () => {
     const router = (id: string, links: Array<[type: "transit" | "stub", linkId: string, linkData: string, metric: number]>): OspfLsa => ({
       ...header,
       lsaType: "router",
+      abr: false,
       lsId: id,
       advertisingRouter: id,
       links: links.map(([type, linkId, linkData, metric]) => ({ type, linkId, linkData, metric })),

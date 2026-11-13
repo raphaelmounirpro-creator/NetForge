@@ -64,7 +64,7 @@ import {
   type UdpDatagram,
   type VrrpAdvertisement,
 } from "./pdu.js";
-import { compareLsa, compareLsaKeys, compareRouterIds, computeOspfRoutes, electDesignatedRouter, lsaHeader, lsaKey, sameLsaContent, type SpfRoute } from "./ospf.js";
+import { compareLsa, compareLsaKeys, compareRouterIds, electDesignatedRouter, lsaHeader, lsaKey, sameLsaContent, shortestPaths, type SpfRoute } from "./ospf.js";
 import { Prng } from "./prng.js";
 import { EventQueue } from "./queue.js";
 import { lookup, routeCidr, routingTable, type Route } from "./routing.js";
@@ -134,7 +134,7 @@ type EventValue =
   | { readonly type: "vrrp-start"; readonly deviceId: string }
   | { readonly type: "vrrp-advert"; readonly deviceId: string; readonly portId: string; readonly generation: number }
   | { readonly type: "vrrp-down"; readonly deviceId: string; readonly portId: string; readonly generation: number }
-  | { readonly type: "ospf-lsa-timer"; readonly deviceId: string; readonly key: string; readonly stage: "refresh" | "max-age"; readonly generation: number };
+  | { readonly type: "ospf-lsa-timer"; readonly deviceId: string; readonly area: string; readonly key: string; readonly stage: "refresh" | "max-age"; readonly generation: number };
 
 interface QueuedEvent {
   readonly value: EventValue;
@@ -326,6 +326,7 @@ interface OspfInterfaceState {
   readonly mode: "active" | "passive";
   readonly cost: number;
   readonly priority: number;
+  readonly area: string;
   state: OspfInterfaceStateView;
   /** Adresses d'interface du DR et du BDR élus (0.0.0.0 : aucun). */
   dr: string;
@@ -341,11 +342,21 @@ interface StoredLsa {
   readonly generation: number;
 }
 
+/** Route OSPF retenue : intra-zone, ou inter-zones (résumé d'un routeur de bordure). */
+interface OspfRoute extends SpfRoute {
+  readonly inter: boolean;
+  readonly area: string;
+  readonly advertisingRouter: string | null;
+}
+
 interface OspfState {
   readonly routerId: string;
   readonly interfaces: Map<string, OspfInterfaceState>;
-  readonly lsdb: Map<string, StoredLsa>;
-  routes: SpfRoute[];
+  /** Base d'états des liens de chaque zone configurée. */
+  readonly lsdbs: Map<string, Map<string, StoredLsa>>;
+  /** Routeur de bordure : relié à plusieurs zones (bit B). */
+  abr: boolean;
+  routes: OspfRoute[];
   spfPending: boolean;
   nextHelloAt: SimTime;
 }
@@ -590,7 +601,8 @@ export class Simulation {
       for (const [portId, config] of device.ospfInterfaces) {
         interfaces.set(portId, { portId, ...config, state: "down", dr: NO_ROUTER, bdr: NO_ROUTER, waitGeneration: 0, helloPending: false, neighbors: new Map() });
       }
-      this.ospf.set(device.id, { routerId: formatIpv4(Math.max(...addresses)), interfaces, lsdb: new Map(), routes: [], spfPending: false, nextHelloAt: this.parameters.ospfHelloInterval });
+      const lsdbs = new Map([...new Set([...interfaces.values()].map((iface) => iface.area))].sort(compareRouterIds).map((area) => [area, new Map<string, StoredLsa>()] as const));
+      this.ospf.set(device.id, { routerId: formatIpv4(Math.max(...addresses)), interfaces, lsdbs, abr: false, routes: [], spfPending: false, nextHelloAt: this.parameters.ospfHelloInterval });
       this.schedule(0, { type: "ospf-start", deviceId: device.id });
       this.schedule(this.parameters.ospfHelloInterval, { type: "ospf-periodic", deviceId: device.id }, true);
     }
@@ -974,7 +986,7 @@ export class Simulation {
         this.onVrrpDown(value.deviceId, value.portId, value.generation);
         return;
       case "ospf-lsa-timer":
-        this.onOspfLsaTimer(value.deviceId, value.key, value.stage, value.generation);
+        this.onOspfLsaTimer(value.deviceId, value.area, value.key, value.stage, value.generation);
         return;
     }
   }
@@ -3050,8 +3062,23 @@ export class Simulation {
     return exchange;
   }
 
-  private ospfPacket<T extends OspfPacket>(state: OspfState, body: Omit<T, "kind" | "version" | "routerId" | "area">): T {
-    return { kind: "ospf", version: 2, routerId: state.routerId, area: OSPF_BACKBONE, ...body } as T;
+  private ospfPacket<T extends OspfPacket>(state: OspfState, area: string, body: Omit<T, "kind" | "version" | "routerId" | "area">): T {
+    return { kind: "ospf", version: 2, routerId: state.routerId, area, ...body } as T;
+  }
+
+  /** Zone de l'interface OSPF d'un port. */
+  private areaOf(state: OspfState, port: RuntimePort): string {
+    return state.interfaces.get(port.portId)?.area ?? OSPF_BACKBONE;
+  }
+
+  /** Base d'états des liens d'une zone. */
+  private lsdbOf(state: OspfState, area: string): Map<string, StoredLsa> {
+    let lsdb = state.lsdbs.get(area);
+    if (!lsdb) {
+      lsdb = new Map();
+      state.lsdbs.set(area, lsdb);
+    }
+    return lsdb;
   }
 
   /** Paquet OSPF vers un groupe (224.0.0.5 ou 224.0.0.6) : TTL 1, MAC de groupe, sans résolution ARP. */
@@ -3182,7 +3209,7 @@ export class Simulation {
     const state = this.ospf.get(device.id);
     const port = this.ospfUsable(device, iface);
     if (!state || !port?.ipv4 || iface.mode !== "active" || iface.state === "down") return;
-    const hello = this.ospfPacket<OspfHello>(state, {
+    const hello = this.ospfPacket<OspfHello>(state, iface.area, {
       type: "hello",
       networkMask: prefixToMask(port.ipv4.prefixLength),
       helloInterval: this.parameters.ospfHelloInterval / 1e9,
@@ -3220,7 +3247,7 @@ export class Simulation {
       this.emit("ospf.ignored", { reason: "other-network", from: packet.source }, where);
       return;
     }
-    if (message.area !== OSPF_BACKBONE) {
+    if (message.area !== iface.area) {
       this.emit("ospf.ignored", { reason: "area", from: packet.source, area: message.area }, where);
       return;
     }
@@ -3366,7 +3393,7 @@ export class Simulation {
     this.setNeighborState(device, port, neighbor, "exstart", "adjacency-ok");
     neighbor.master = true;
     neighbor.ddSequence = this.prng.nextInt(0x7fffffff) + 1;
-    const dd = this.ospfPacket<OspfDatabaseDescription>(state, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: true, more: true, master: true, sequence: neighbor.ddSequence, headers: [] });
+    const dd = this.ospfPacket<OspfDatabaseDescription>(state, this.areaOf(state, port), { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: true, more: true, master: true, sequence: neighbor.ddSequence, headers: [] });
     this.sendDd(device, port, neighbor, dd, true);
   }
 
@@ -3412,17 +3439,18 @@ export class Simulation {
   }
 
   /** En-têtes de la base (hors MaxAge), âge courant. */
-  private ospfSummary(state: OspfState): OspfLsaHeader[] {
-    return [...state.lsdb.values()]
+  private ospfSummary(state: OspfState, area: string): OspfLsaHeader[] {
+    return [...this.lsdbOf(state, area).values()]
       .map((stored) => this.currentLsa(stored))
       .filter((lsa) => lsa.age < OSPF_MAX_AGE)
       .map((lsa) => lsaHeader(lsa))
       .sort(compareLsaKeys);
   }
 
-  private collectRequests(state: OspfState, neighbor: OspfNeighbor, headers: readonly OspfLsaHeader[]): void {
+  private collectRequests(state: OspfState, area: string, neighbor: OspfNeighbor, headers: readonly OspfLsaHeader[]): void {
+    const lsdb = this.lsdbOf(state, area);
     for (const header of headers) {
-      const stored = state.lsdb.get(lsaKey(header));
+      const stored = lsdb.get(lsaKey(header));
       if (!stored || compareLsa(header, this.currentLsa(stored)) > 0) neighbor.requests.set(lsaKey(header), header);
     }
   }
@@ -3438,6 +3466,7 @@ export class Simulation {
       return;
     }
     const neighborIsMaster = compareRouterIds(neighbor.routerId, state.routerId) > 0;
+    const area = this.areaOf(state, port);
     const received = { neighbor: neighbor.routerId, sequence: dd.sequence >>> 0, init: dd.init, more: dd.more, master: dd.master, count: dd.headers.length };
     if (neighbor.state === "exstart") {
       if (dd.init && dd.more && dd.master && dd.headers.length === 0 && neighborIsMaster) {
@@ -3447,7 +3476,7 @@ export class Simulation {
         this.cancel(neighbor.rxmtSeq);
         neighbor.ddSequence = dd.sequence;
         this.setNeighborState(device, port, neighbor, "exchange", "negotiation-done");
-        this.sendDd(device, port, neighbor, this.ospfPacket<OspfDatabaseDescription>(state, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: false, more: false, master: false, sequence: dd.sequence, headers: this.ospfSummary(state) }), false);
+        this.sendDd(device, port, neighbor, this.ospfPacket<OspfDatabaseDescription>(state, area, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: false, more: false, master: false, sequence: dd.sequence, headers: this.ospfSummary(state, area) }), false);
         return;
       }
       if (!dd.init && !dd.master && dd.sequence === neighbor.ddSequence && !neighborIsMaster) {
@@ -3456,9 +3485,9 @@ export class Simulation {
         neighbor.awaiting = false;
         this.cancel(neighbor.rxmtSeq);
         this.setNeighborState(device, port, neighbor, "exchange", "negotiation-done");
-        this.collectRequests(state, neighbor, dd.headers);
+        this.collectRequests(state, area, neighbor, dd.headers);
         neighbor.ddSequence = (neighbor.ddSequence + 1) | 0;
-        this.sendDd(device, port, neighbor, this.ospfPacket<OspfDatabaseDescription>(state, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: false, more: false, master: true, sequence: neighbor.ddSequence, headers: this.ospfSummary(state) }), true);
+        this.sendDd(device, port, neighbor, this.ospfPacket<OspfDatabaseDescription>(state, area, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: false, more: false, master: true, sequence: neighbor.ddSequence, headers: this.ospfSummary(state, area) }), true);
         return;
       }
       // Description d'un voisin d'identifiant plus petit qui se croit maître : la nôtre l'emportera.
@@ -3468,8 +3497,8 @@ export class Simulation {
     if (neighbor.state === "exchange" && !neighbor.master && dd.master && dd.sequence === ((neighbor.ddSequence + 1) | 0)) {
       this.emit("ospf.dd-received", { ...received, role: "slave" }, where);
       neighbor.ddSequence = dd.sequence;
-      this.collectRequests(state, neighbor, dd.headers);
-      this.sendDd(device, port, neighbor, this.ospfPacket<OspfDatabaseDescription>(state, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: false, more: false, master: false, sequence: dd.sequence, headers: [] }), false);
+      this.collectRequests(state, area, neighbor, dd.headers);
+      this.sendDd(device, port, neighbor, this.ospfPacket<OspfDatabaseDescription>(state, area, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: false, more: false, master: false, sequence: dd.sequence, headers: [] }), false);
       if (!dd.more) this.exchangeDone(device, state, port, neighbor);
       return;
     }
@@ -3477,7 +3506,7 @@ export class Simulation {
       this.emit("ospf.dd-received", { ...received, role: "master" }, where);
       neighbor.awaiting = false;
       this.cancel(neighbor.rxmtSeq);
-      this.collectRequests(state, neighbor, dd.headers);
+      this.collectRequests(state, area, neighbor, dd.headers);
       if (!dd.more) this.exchangeDone(device, state, port, neighbor);
       return;
     }
@@ -3498,7 +3527,7 @@ export class Simulation {
       return;
     }
     this.setNeighborState(device, port, neighbor, "loading", "exchange-done");
-    const lsr = this.ospfPacket<OspfLinkStateRequest>(state, {
+    const lsr = this.ospfPacket<OspfLinkStateRequest>(state, this.areaOf(state, port), {
       type: "lsr",
       requests: [...neighbor.requests.values()].map((header) => ({ lsaType: header.lsaType, lsId: header.lsId, advertisingRouter: header.advertisingRouter })),
     });
@@ -3513,12 +3542,14 @@ export class Simulation {
       return;
     }
     this.emit("ospf.lsr-received", { neighbor: neighbor.routerId, count: lsr.requests.length }, where);
+    const area = this.areaOf(state, port);
+    const lsdb = this.lsdbOf(state, area);
     const lsas = lsr.requests.flatMap((request) => {
-      const stored = state.lsdb.get(lsaKey(request));
+      const stored = lsdb.get(lsaKey(request));
       return stored ? [this.currentLsa(stored)] : [];
     });
     if (lsas.length === 0) return;
-    const lsu = this.ospfPacket<OspfLinkStateUpdate>(state, { type: "lsu", lsas });
+    const lsu = this.ospfPacket<OspfLinkStateUpdate>(state, area, { type: "lsu", lsas });
     const exchange = this.newOspfExchange();
     this.emit("ospf.lsu-sent", { count: lsas.length, destination: neighbor.address, reason: "request" }, { device, port, exchange, pdu: lsu });
     this.unicastOspf(device, port, neighbor.address, lsu, exchange);
@@ -3534,9 +3565,10 @@ export class Simulation {
     let duplicates = 0;
     let older = 0;
     const accepted: OspfLsa[] = [];
+    const lsdb = this.lsdbOf(state, iface.area);
     for (const lsa of lsu.lsas) {
       const key = lsaKey(lsa);
-      const stored = state.lsdb.get(key);
+      const stored = lsdb.get(key);
       const current = stored ? this.currentLsa(stored) : null;
       const comparison = current ? compareLsa(lsa, current) : lsa.age >= OSPF_MAX_AGE ? 0 : 1;
       // Une instance de nos propres LSA ne peut venir que de notre inondation : elle n'est jamais plus récente.
@@ -3561,35 +3593,38 @@ export class Simulation {
     return age === stored.lsa.age ? stored.lsa : { ...stored.lsa, age };
   }
 
-  /** Nouvelle instance reçue : inondée, installée (ou retirée si MaxAge), calcul SPF programmé. */
+  /** Nouvelle instance reçue : inondée dans sa zone, installée (ou retirée si MaxAge), calcul SPF programmé. */
   private installLsa(device: RuntimeDevice, state: OspfState, lsa: OspfLsa, from: { readonly iface: OspfInterfaceState; readonly neighbor: OspfNeighbor }): void {
+    const area = from.iface.area;
+    const lsdb = this.lsdbOf(state, area);
     const key = lsaKey(lsa);
-    const generation = (state.lsdb.get(key)?.generation ?? 0) + 1;
-    const params = { lsaType: lsa.lsaType, lsId: lsa.lsId, advertisingRouter: lsa.advertisingRouter, sequence: lsa.sequence >>> 0, neighbor: from.neighbor.routerId };
-    this.floodLsa(device, state, lsa, from);
+    const generation = (lsdb.get(key)?.generation ?? 0) + 1;
+    const params = { lsaType: lsa.lsaType, lsId: lsa.lsId, advertisingRouter: lsa.advertisingRouter, sequence: lsa.sequence >>> 0, neighbor: from.neighbor.routerId, area };
+    this.floodLsa(device, state, area, lsa, from);
     if (lsa.age >= OSPF_MAX_AGE) {
-      state.lsdb.delete(key);
+      lsdb.delete(key);
       this.emit("ospf.lsa-flushed", params, { device });
     } else {
-      state.lsdb.set(key, { lsa, installedAt: this.clock, generation });
+      lsdb.set(key, { lsa, installedAt: this.clock, generation });
       this.emit("ospf.lsa-installed", { ...params, age: lsa.age }, { device });
-      this.schedule(this.clock + fromSeconds(OSPF_MAX_AGE - lsa.age), { type: "ospf-lsa-timer", deviceId: device.id, key, stage: "max-age", generation }, true);
+      this.schedule(this.clock + fromSeconds(OSPF_MAX_AGE - lsa.age), { type: "ospf-lsa-timer", deviceId: device.id, area, key, stage: "max-age", generation }, true);
     }
     this.scheduleSpf(device, state);
   }
 
   /**
-   * Inondation (RFC 2328 §13.3) : vers les voisins en état Exchange au moins
-   * (sauf celui qui l'a envoyé), jamais en retour vers le DR ou le BDR qui
-   * l'a transmis, ni par le BDR sur l'interface de réception ; vers
-   * AllSPFRouters depuis le DR ou le BDR, AllDRouters sinon. Sans accusé de
-   * réception ni retransmission (le simulateur ne perd pas de paquet).
+   * Inondation (RFC 2328 §13.3), limitée aux interfaces de la zone du LSA :
+   * vers les voisins en état Exchange au moins (sauf celui qui l'a envoyé),
+   * jamais en retour vers le DR ou le BDR qui l'a transmis, ni par le BDR sur
+   * l'interface de réception ; vers AllSPFRouters depuis le DR ou le BDR,
+   * AllDRouters sinon. Sans accusé de réception ni retransmission (le
+   * simulateur ne perd pas de paquet).
    */
-  private floodLsa(device: RuntimeDevice, state: OspfState, lsa: OspfLsa, from: { readonly iface: OspfInterfaceState; readonly neighbor: OspfNeighbor } | null): void {
+  private floodLsa(device: RuntimeDevice, state: OspfState, area: string, lsa: OspfLsa, from: { readonly iface: OspfInterfaceState; readonly neighbor: OspfNeighbor } | null): void {
     const key = lsaKey(lsa);
     for (const iface of state.interfaces.values()) {
       const port = this.ospfUsable(device, iface);
-      if (!port || iface.mode !== "active") continue;
+      if (!port || iface.mode !== "active" || iface.area !== area) continue;
       let eligible = 0;
       for (const neighbor of iface.neighbors.values()) {
         if (!OSPF_SYNCING.has(neighbor.state)) continue;
@@ -3606,38 +3641,49 @@ export class Simulation {
       if (eligible === 0) continue;
       if (from && iface === from.iface && (from.neighbor.address === iface.dr || from.neighbor.address === iface.bdr || iface.state === "backup")) continue;
       const destination = iface.state === "dr" || iface.state === "backup" ? OSPF_ALL_ROUTERS : OSPF_ALL_DROUTERS;
-      const lsu = this.ospfPacket<OspfLinkStateUpdate>(state, { type: "lsu", lsas: [lsa] });
+      const lsu = this.ospfPacket<OspfLinkStateUpdate>(state, area, { type: "lsu", lsas: [lsa] });
       const exchange = this.newOspfExchange();
       this.emit("ospf.lsu-sent", { count: 1, destination, reason: "flood" }, { device, port, exchange, pdu: lsu });
       this.multicastOspf(device, port, destination, lsu, exchange);
     }
   }
 
+  /** Zones auxquelles le routeur est relié : au moins une interface OSPF en service. */
+  private attachedAreas(device: RuntimeDevice, state: OspfState): Set<string> {
+    const areas = new Set<string>();
+    for (const iface of state.interfaces.values()) if (this.ospfUsable(device, iface)) areas.add(iface.area);
+    return areas;
+  }
+
   /**
-   * LSA du routeur (RFC 2328 §12.4.1.2 et §12.4.2) : un lien de transit vers
-   * chaque réseau où il est pleinement adjacent au DR (ou DR avec un voisin
-   * plein), un lien terminal sinon (attente, interface passive) ; LSA réseau
-   * de chaque réseau dont il est DR avec au moins un voisin plein, retiré dès
-   * que ce n'est plus le cas.
+   * LSA du routeur (RFC 2328 §12.4.1.2 et §12.4.2), un par zone : un lien de
+   * transit vers chaque réseau de la zone où il est pleinement adjacent au DR
+   * (ou DR avec un voisin plein), un lien terminal sinon (attente, interface
+   * passive) ; bit B s'il est relié à plusieurs zones. LSA réseau de chaque
+   * réseau dont il est DR avec au moins un voisin plein, retiré dès que ce
+   * n'est plus le cas.
    */
   private updateOwnLsas(device: RuntimeDevice, state: OspfState): void {
-    const links: OspfRouterLink[] = [];
-    for (const iface of [...state.interfaces.values()].sort((a, b) => a.portId.localeCompare(b.portId))) {
-      const port = this.ospfUsable(device, iface);
-      if (!port?.ipv4) continue;
-      const stub: OspfRouterLink = { type: "stub", linkId: formatIpv4(port.ipv4.network), linkData: prefixToMask(port.ipv4.prefixLength), metric: iface.cost };
-      const full = [...iface.neighbors.values()].filter((neighbor) => neighbor.state === "full");
-      const transit = iface.mode === "active" && ((iface.state === "dr" && full.length > 0) || full.some((neighbor) => neighbor.address === iface.dr));
-      links.push(transit ? { type: "transit", linkId: iface.dr, linkData: port.ipv4.address, metric: iface.cost } : stub);
+    const abr = this.attachedAreas(device, state).size > 1;
+    for (const area of state.lsdbs.keys()) {
+      const links: OspfRouterLink[] = [];
+      for (const iface of [...state.interfaces.values()].filter((item) => item.area === area).sort((a, b) => a.portId.localeCompare(b.portId))) {
+        const port = this.ospfUsable(device, iface);
+        if (!port?.ipv4) continue;
+        const stub: OspfRouterLink = { type: "stub", linkId: formatIpv4(port.ipv4.network), linkData: prefixToMask(port.ipv4.prefixLength), metric: iface.cost };
+        const full = [...iface.neighbors.values()].filter((neighbor) => neighbor.state === "full");
+        const transit = iface.mode === "active" && ((iface.state === "dr" && full.length > 0) || full.some((neighbor) => neighbor.address === iface.dr));
+        links.push(transit ? { type: "transit", linkId: iface.dr, linkData: port.ipv4.address, metric: iface.cost } : stub);
+      }
+      this.originate(device, state, area, { lsaType: "router", age: 0, lsId: state.routerId, advertisingRouter: state.routerId, sequence: 0, abr, links });
     }
-    this.originate(device, state, { lsaType: "router", age: 0, lsId: state.routerId, advertisingRouter: state.routerId, sequence: 0, links });
     for (const iface of state.interfaces.values()) {
       const port = device.portById.get(iface.portId);
       if (!port?.ipv4) continue;
       const key = lsaKey({ lsaType: "network", lsId: port.ipv4.address, advertisingRouter: state.routerId });
       const full = [...iface.neighbors.values()].filter((neighbor) => neighbor.state === "full").map((neighbor) => neighbor.routerId);
       if (iface.mode === "active" && iface.state === "dr" && full.length > 0 && this.isUp(port)) {
-        this.originate(device, state, {
+        this.originate(device, state, iface.area, {
           lsaType: "network",
           age: 0,
           lsId: port.ipv4.address,
@@ -3646,53 +3692,54 @@ export class Simulation {
           mask: prefixToMask(port.ipv4.prefixLength),
           attachedRouters: [state.routerId, ...full].sort(compareRouterIds),
         });
-      } else if (state.lsdb.has(key)) {
-        this.flushOwnLsa(device, state, key);
+      } else if (this.lsdbOf(state, iface.area).has(key)) {
+        this.flushOwnLsa(device, state, iface.area, key);
       }
     }
   }
 
-  /** Nouvelle instance d'un LSA du routeur, seulement si son contenu change (ou rafraîchissement à LSRefreshTime). */
-  private originate(device: RuntimeDevice, state: OspfState, draft: OspfLsa, refresh = false): void {
+  /** Nouvelle instance d'un LSA du routeur dans une zone, seulement si son contenu change (ou rafraîchissement à LSRefreshTime). */
+  private originate(device: RuntimeDevice, state: OspfState, area: string, draft: OspfLsa, refresh = false): void {
+    const lsdb = this.lsdbOf(state, area);
     const key = lsaKey(draft);
-    const stored = state.lsdb.get(key);
+    const stored = lsdb.get(key);
     if (stored && !refresh && sameLsaContent(stored.lsa, draft)) return;
     const lsa: OspfLsa = { ...draft, age: 0, sequence: stored ? (stored.lsa.sequence + 1) | 0 : OSPF_INITIAL_SEQUENCE };
     const generation = (stored?.generation ?? 0) + 1;
-    state.lsdb.set(key, { lsa, installedAt: this.clock, generation });
-    this.emit(
-      "ospf.lsa-originated",
-      { lsaType: lsa.lsaType, lsId: lsa.lsId, sequence: lsa.sequence >>> 0, count: lsa.lsaType === "router" ? lsa.links.length : lsa.attachedRouters.length, refresh },
-      { device },
-    );
-    this.schedule(this.clock + fromSeconds(OSPF_LS_REFRESH_TIME), { type: "ospf-lsa-timer", deviceId: device.id, key, stage: "refresh", generation }, true);
-    this.floodLsa(device, state, lsa, null);
+    lsdb.set(key, { lsa, installedAt: this.clock, generation });
+    const count = lsa.lsaType === "router" ? lsa.links.length : lsa.lsaType === "network" ? lsa.attachedRouters.length : 0;
+    const summary = lsa.lsaType === "summary" ? { mask: lsa.mask, metric: lsa.metric } : {};
+    this.emit("ospf.lsa-originated", { lsaType: lsa.lsaType, lsId: lsa.lsId, sequence: lsa.sequence >>> 0, count, refresh, area, ...summary }, { device });
+    this.schedule(this.clock + fromSeconds(OSPF_LS_REFRESH_TIME), { type: "ospf-lsa-timer", deviceId: device.id, area, key, stage: "refresh", generation }, true);
+    this.floodLsa(device, state, area, lsa, null);
     this.scheduleSpf(device, state);
   }
 
-  /** Retrait d'un LSA du routeur (vieillissement prématuré, RFC 2328 §14.1) : inondé avec l'âge MaxAge. */
-  private flushOwnLsa(device: RuntimeDevice, state: OspfState, key: string): void {
-    const stored = state.lsdb.get(key);
+  /** Retrait d'un LSA du routeur (vieillissement prématuré, RFC 2328 §14.1) : inondé dans sa zone avec l'âge MaxAge. */
+  private flushOwnLsa(device: RuntimeDevice, state: OspfState, area: string, key: string): void {
+    const lsdb = this.lsdbOf(state, area);
+    const stored = lsdb.get(key);
     if (!stored) return;
     const lsa: OspfLsa = { ...stored.lsa, age: OSPF_MAX_AGE };
-    state.lsdb.delete(key);
-    this.emit("ospf.lsa-flushed", { lsaType: lsa.lsaType, lsId: lsa.lsId, advertisingRouter: lsa.advertisingRouter, sequence: lsa.sequence >>> 0, neighbor: null }, { device });
-    this.floodLsa(device, state, lsa, null);
+    lsdb.delete(key);
+    this.emit("ospf.lsa-flushed", { lsaType: lsa.lsaType, lsId: lsa.lsId, advertisingRouter: lsa.advertisingRouter, sequence: lsa.sequence >>> 0, neighbor: null, area }, { device });
+    this.floodLsa(device, state, area, lsa, null);
     this.scheduleSpf(device, state);
   }
 
-  private onOspfLsaTimer(deviceId: string, key: string, stage: "refresh" | "max-age", generation: number): void {
+  private onOspfLsaTimer(deviceId: string, area: string, key: string, stage: "refresh" | "max-age", generation: number): void {
     const device = this.device(deviceId);
     const state = this.ospf.get(deviceId);
-    const stored = state?.lsdb.get(key);
-    if (!state || stored?.generation !== generation) return;
+    const lsdb = state?.lsdbs.get(area);
+    const stored = lsdb?.get(key);
+    if (!state || !lsdb || stored?.generation !== generation) return;
     if (stage === "refresh") {
-      this.originate(device, state, stored.lsa, true);
+      this.originate(device, state, area, stored.lsa, true);
       return;
     }
     // Instance d'un autre routeur jamais rafraîchie : retirée à MaxAge et exclue du calcul.
-    state.lsdb.delete(key);
-    this.emit("ospf.lsa-expired", { lsaType: stored.lsa.lsaType, lsId: stored.lsa.lsId, advertisingRouter: stored.lsa.advertisingRouter }, { device });
+    lsdb.delete(key);
+    this.emit("ospf.lsa-expired", { lsaType: stored.lsa.lsaType, lsId: stored.lsa.lsId, advertisingRouter: stored.lsa.advertisingRouter, area }, { device });
     this.scheduleSpf(device, state);
   }
 
@@ -3735,36 +3782,123 @@ export class Simulation {
     this.schedule(this.clock, { type: "ospf-spf", deviceId: device.id });
   }
 
+  /**
+   * Calcul des routes (RFC 2328 §16) : plus courts chemins de chaque zone
+   * (routes intra-zone), puis routes inter-zones d'après les résumés (§16.2 :
+   * ceux de la dorsale pour un routeur de bordure, de sa zone sinon ; la route
+   * intra-zone l'emporte toujours), enfin résumés d'un routeur de bordure.
+   */
   private onOspfSpf(deviceId: string): void {
     const device = this.device(deviceId);
     const state = this.ospf.get(deviceId);
     if (!state) return;
     state.spfPending = false;
-    const lsas = [...state.lsdb.values()].map((stored) => this.currentLsa(stored));
-    const routes = computeOspfRoutes(state.routerId, lsas);
-    const key = (route: SpfRoute) => `${formatIpv4(route.destination)}/${String(route.prefixLength)}`;
+    const key = (route: { readonly destination: number; readonly prefixLength: number }) => `${formatIpv4(route.destination)}/${String(route.prefixLength)}`;
+    const attached = this.attachedAreas(device, state);
+    state.abr = attached.size > 1;
+    const own = new Map<string, { readonly destination: number; readonly prefixLength: number; readonly cost: number; readonly area: string }>();
+    for (const iface of state.interfaces.values()) {
+      const port = this.ospfUsable(device, iface);
+      if (port?.ipv4) own.set(key({ destination: port.ipv4.network, prefixLength: port.ipv4.prefixLength }), { destination: port.ipv4.network, prefixLength: port.ipv4.prefixLength, cost: iface.cost, area: iface.area });
+    }
+    const paths = new Map<string, ReturnType<typeof shortestPaths>>();
+    const intra = new Map<string, OspfRoute>();
+    let lsaCount = 0;
+    for (const [area, lsdb] of state.lsdbs) {
+      const lsas = [...lsdb.values()].map((stored) => this.currentLsa(stored));
+      lsaCount += lsas.length;
+      const result = shortestPaths(state.routerId, lsas);
+      paths.set(area, result);
+      for (const route of result.routes) {
+        const current = intra.get(key(route));
+        if (!current || route.cost < current.cost) intra.set(key(route), { ...route, inter: false, area, advertisingRouter: null });
+      }
+    }
+    const inter = new Map<string, OspfRoute>();
+    const summaryAreas = state.abr ? [OSPF_BACKBONE].filter((area) => attached.has(area)) : [...attached];
+    for (const area of summaryAreas) {
+      const routers = paths.get(area)?.routers;
+      for (const stored of this.lsdbOf(state, area).values()) {
+        const lsa = this.currentLsa(stored);
+        if (lsa.lsaType !== "summary" || lsa.age >= OSPF_MAX_AGE || lsa.advertisingRouter === state.routerId) continue;
+        const border = routers?.get(lsa.advertisingRouter);
+        const prefixLength = parsePrefixOrMask(lsa.mask);
+        const address = parseIpv4(lsa.lsId);
+        if (!border || border.nextHop === null || prefixLength === null || address === null) continue;
+        const route: OspfRoute = { destination: networkAddress(address, prefixLength), prefixLength, cost: border.cost + lsa.metric, nextHop: border.nextHop, via: border.via, inter: true, area, advertisingRouter: lsa.advertisingRouter };
+        if (intra.has(key(route)) || own.has(key(route))) continue;
+        const current = inter.get(key(route));
+        if (!current || route.cost < current.cost) inter.set(key(route), route);
+      }
+    }
+    const routes = [...intra.values(), ...inter.values()].sort((a, b) => a.destination - b.destination || a.prefixLength - b.prefixLength);
     const previous = new Map(state.routes.map((route) => [key(route), route]));
     const portOf = (route: SpfRoute) => device.ports.find((port) => port.ipv4?.address === route.via)?.portId ?? null;
     let changes = 0;
     for (const route of routes) {
       const before = previous.get(key(route));
       previous.delete(key(route));
-      const params = { route: key(route), cost: route.cost, nextHop: route.nextHop === null ? null : formatIpv4(route.nextHop), outPort: portOf(route) };
+      const params = {
+        route: key(route),
+        cost: route.cost,
+        nextHop: route.nextHop === null ? null : formatIpv4(route.nextHop),
+        outPort: portOf(route),
+        inter: route.inter,
+        advertisingRouter: route.advertisingRouter,
+      };
       if (!before) {
         changes += 1;
         this.emit("ospf.route-added", params, { device });
-      } else if (before.cost !== route.cost || before.nextHop !== route.nextHop || before.via !== route.via) {
+      } else if (before.cost !== route.cost || before.nextHop !== route.nextHop || before.via !== route.via || before.inter !== route.inter) {
         changes += 1;
         this.emit("ospf.route-changed", { ...params, previousCost: before.cost, previousNextHop: before.nextHop === null ? null : formatIpv4(before.nextHop) }, { device });
       }
     }
     for (const [route, before] of previous) {
       changes += 1;
-      this.emit("ospf.route-removed", { route, cost: before.cost }, { device });
+      this.emit("ospf.route-removed", { route, cost: before.cost, inter: before.inter }, { device });
     }
     state.routes = routes;
     this.dirtyDevices.add(deviceId);
-    this.emit("ospf.spf", { lsas: lsas.length, routes: routes.length, changes }, { device });
+    this.emit("ospf.spf", { lsas: lsaCount, routes: routes.length, changes, areas: state.lsdbs.size }, { device });
+    this.updateSummaries(device, state, attached, own, intra, inter);
+  }
+
+  /**
+   * Résumés d'un routeur de bordure (RFC 2328 §12.4.3) : dans chaque zone
+   * reliée, un LSA de résumé par réseau des autres zones (routes intra-zone,
+   * réseaux du routeur compris), plus, hors de la dorsale, les routes
+   * inter-zones apprises de la dorsale ; jamais une route dans sa propre zone ;
+   * coût = coût de la route. Un résumé devenu inutile est retiré.
+   */
+  private updateSummaries(
+    device: RuntimeDevice,
+    state: OspfState,
+    attached: ReadonlySet<string>,
+    own: ReadonlyMap<string, { readonly destination: number; readonly prefixLength: number; readonly cost: number; readonly area: string }>,
+    intra: ReadonlyMap<string, OspfRoute>,
+    inter: ReadonlyMap<string, OspfRoute>,
+  ): void {
+    for (const [area, lsdb] of state.lsdbs) {
+      const desired = new Map<string, { readonly lsId: string; readonly mask: string; readonly metric: number }>();
+      if (state.abr && attached.has(area)) {
+        const add = (destination: number, prefixLength: number, cost: number) => {
+          const id = formatIpv4(destination);
+          const current = desired.get(id);
+          if (!current || cost < current.metric) desired.set(id, { lsId: id, mask: prefixToMask(prefixLength), metric: cost });
+        };
+        const inThisArea = new Set([...own.entries(), ...intra.entries()].filter(([, item]) => item.area === area).map(([id]) => id));
+        for (const [id, item] of own) if (item.area !== area && !inThisArea.has(id)) add(item.destination, item.prefixLength, item.cost);
+        for (const [id, route] of intra) if (route.area !== area && !inThisArea.has(id)) add(route.destination, route.prefixLength, route.cost);
+        if (area !== OSPF_BACKBONE) for (const [id, route] of inter) if (!inThisArea.has(id)) add(route.destination, route.prefixLength, route.cost);
+      }
+      for (const stored of [...lsdb.values()]) {
+        if (stored.lsa.lsaType === "summary" && stored.lsa.advertisingRouter === state.routerId && !desired.has(stored.lsa.lsId)) this.flushOwnLsa(device, state, area, lsaKey(stored.lsa));
+      }
+      for (const item of desired.values()) {
+        this.originate(device, state, area, { lsaType: "summary", age: 0, lsId: item.lsId, advertisingRouter: state.routerId, sequence: 0, mask: item.mask, metric: item.metric });
+      }
+    }
   }
 
   /** Routes OSPF calculées, dans la table de routage (préférence entre statique et RIP). */
@@ -3775,7 +3909,7 @@ export class Simulation {
       const port = device.ports.find((item) => item.ipv4?.address === route.via) ?? null;
       const up = port !== null && this.isUp(port);
       return {
-        kind: "ospf",
+        kind: route.inter ? "ospf-inter" : "ospf",
         destination: route.destination,
         prefixLength: route.prefixLength,
         nextHop: route.nextHop,
@@ -3792,6 +3926,8 @@ export class Simulation {
     if (!state) return null;
     return {
       routerId: state.routerId,
+      abr: state.abr,
+      areas: [...state.lsdbs.keys()],
       nextHelloAt: state.nextHelloAt,
       interfaces: [...state.interfaces.values()].map((iface) => {
         const port = device.portById.get(iface.portId);
@@ -3801,6 +3937,7 @@ export class Simulation {
           mode: iface.mode,
           cost: iface.cost,
           priority: iface.priority,
+          area: iface.area,
           state: iface.state,
           dr: routerOf(iface.dr),
           bdr: routerOf(iface.bdr),
@@ -3817,19 +3954,24 @@ export class Simulation {
             })),
         };
       }),
-      lsdb: [...state.lsdb.values()]
-        .map((stored) => this.currentLsa(stored))
-        .sort(compareLsaKeys)
-        .map((lsa) => ({
-          lsaType: lsa.lsaType,
-          lsId: lsa.lsId,
-          advertisingRouter: lsa.advertisingRouter,
-          sequence: lsa.sequence >>> 0,
-          age: lsa.age,
-          links: lsa.lsaType === "router" ? lsa.links : [],
-          mask: lsa.lsaType === "network" ? lsa.mask : null,
-          attachedRouters: lsa.lsaType === "network" ? lsa.attachedRouters : [],
-        })),
+      lsdb: [...state.lsdbs.entries()].flatMap(([area, lsdb]) =>
+        [...lsdb.values()]
+          .map((stored) => this.currentLsa(stored))
+          .sort(compareLsaKeys)
+          .map((lsa) => ({
+            area,
+            lsaType: lsa.lsaType,
+            lsId: lsa.lsId,
+            advertisingRouter: lsa.advertisingRouter,
+            sequence: lsa.sequence >>> 0,
+            age: lsa.age,
+            abr: lsa.lsaType === "router" ? lsa.abr : false,
+            links: lsa.lsaType === "router" ? lsa.links : [],
+            mask: lsa.lsaType === "router" ? null : lsa.mask,
+            metric: lsa.lsaType === "summary" ? lsa.metric : null,
+            attachedRouters: lsa.lsaType === "network" ? lsa.attachedRouters : [],
+          })),
+      ),
     };
   }
 

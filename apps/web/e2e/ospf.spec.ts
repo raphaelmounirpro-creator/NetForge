@@ -128,3 +128,28 @@ test("OSPF : formulaire de l'onglet Routes et console équivalents", async ({ pa
   await propertiesPanel(page).getByRole("tab", { name: "Routes", exact: true }).click();
   await expect(section.getByLabel("Coût de ge2", { exact: true })).toHaveValue("30");
 });
+
+test("OSPF multi-zone : base limitée à la zone, résumés des routeurs de bordure, route inter-zones", async ({ page }) => {
+  await load(page, "ospf-zones.nfg.json");
+  await selectDevice(page, "R1");
+  await propertiesPanel(page).getByRole("tab", { name: "Routes", exact: true }).click();
+  await expect(propertiesPanel(page).getByLabel("Zone de ge1", { exact: true })).toHaveValue("0.0.0.1");
+  await openSimulation(page);
+  await finish(page);
+  await runtime(page).getByLabel("Équipement inspecté").selectOption({ label: "R2" });
+  await expect(runtime(page).getByRole("region", { name: "OSPF", exact: true })).toContainText("routeur de bordure, zones 0.0.0.0, 0.0.0.1");
+  await runtime(page).getByLabel("Équipement inspecté").selectOption({ label: "R1" });
+  const lsdb = runtime(page).getByRole("region", { name: "Base d'états des liens OSPF", exact: true });
+  await expect(lsdb).toContainText("zone 0.0.0.1 · résumé 10.4.0.0 · 10.23.0.1 (R2)");
+  await expect(lsdb).not.toContainText("10.34.0.2 (R4)");
+  await page.screenshot({ path: "test-results/ospf-zones-1440.png" });
+  await consoleOf(page, "R1");
+  await line(page, "show routes");
+  await expect(log(page)).toContainText("OSPF inter-zones, métrique 40");
+  await line(page, "show ospf database");
+  await expect(log(page)).toContainText(/0\.0\.0\.1\s+résumé\s+10\.4\.0\.0\s+10\.23\.0\.1/);
+  await consoleOf(page, "PC1");
+  await line(page, "ping 10.4.0.10 -n 1");
+  await finish(page);
+  await expect(log(page)).toContainText("TTL 60");
+});

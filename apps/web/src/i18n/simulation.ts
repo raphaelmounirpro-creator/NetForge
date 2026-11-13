@@ -232,7 +232,10 @@ function templateKey(entry: TraceEntry): keyof typeof messages.trace {
     case "ospf.dd-sent":
       return typeof params["retransmission"] === "number" ? "ospf.dd-sent.retransmission" : entry.code;
     case "ospf.lsa-originated":
-      return params["refresh"] === true ? "ospf.lsa-originated.refresh" : params["lsaType"] === "network" ? "ospf.lsa-originated.network" : entry.code;
+      if (params["refresh"] === true) return "ospf.lsa-originated.refresh";
+      return params["lsaType"] === "network" ? "ospf.lsa-originated.network" : params["lsaType"] === "summary" ? "ospf.lsa-originated.summary" : entry.code;
+    case "ospf.route-added":
+      return params["inter"] === true ? "ospf.route-added.inter" : entry.code;
     case "ospf.lsa-flushed":
       return params["neighbor"] === null ? "ospf.lsa-flushed.own" : entry.code;
     case "ip.no-route": {
@@ -496,7 +499,7 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
 function ospfFields(pdu: Extract<Pdu, { kind: "ospf" }>, names: NameIndex): Array<readonly [string, string]> {
   const f = t.fields;
   const v = t.values;
-  const header = (lsa: { lsaType: "router" | "network"; lsId: string; advertisingRouter: string; sequence: number; age: number }) =>
+  const header = (lsa: { lsaType: "router" | "network" | "summary"; lsId: string; advertisingRouter: string; sequence: number; age: number }) =>
     fill(v.ospfLsaHeader, { type: v.ospfLsaTypes[lsa.lsaType], lsId: lsa.lsId, advertisingRouter: names.router(lsa.advertisingRouter), sequence: ospfSequence(lsa.sequence), age: lsa.age });
   const common: Array<readonly [string, string]> = [
     [f.ospfVersion, String(pdu.version)],
@@ -534,8 +537,13 @@ function ospfFields(pdu: Extract<Pdu, { kind: "ospf" }>, names: NameIndex): Arra
         ...common,
         ...pdu.lsas.flatMap((lsa) => [
           [f.ospfLsa, header(lsa)] as const,
-          ...(lsa.lsaType === "router"
-            ? lsa.links.map((link) => [f.ospfLink, fill(v.ospfLink, { type: v.ospfLinkTypes[link.type], linkId: link.linkId, linkData: link.linkData, metric: link.metric })] as const)
+          ...(lsa.lsaType === "summary"
+            ? [[f.ospfMask, fill(v.ospfSummary, { mask: lsa.mask, metric: lsa.metric })] as const]
+            : lsa.lsaType === "router"
+            ? [
+                ...(lsa.abr ? [[f.ospfBits, v.ospfBorder] as const] : []),
+                ...lsa.links.map((link) => [f.ospfLink, fill(v.ospfLink, { type: v.ospfLinkTypes[link.type], linkId: link.linkId, linkData: link.linkData, metric: link.metric })] as const),
+              ]
             : [
                 [f.ospfMask, fill(v.ospfNetwork, { mask: lsa.mask })] as const,
                 [f.ospfAttached, lsa.attachedRouters.map((id) => names.router(id)).join(", ")] as const,

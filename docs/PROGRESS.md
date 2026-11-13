@@ -21,7 +21,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 8 — Routage dynamique et redondance
 
-**État : tranches 1 à 3 terminées et vérifiées (2026-11-13) ; en attente de la validation du propriétaire.** RIP, OSPF en zone unique et VRRP sont livrés ; tous les critères d'acceptation du tableau sont atteints. La tranche 4 (OSPF multi-zone, puis BGP simplifié) n'est pas commencée : son report vers la feuille de route est proposé au propriétaire, à qui revient la décision de clôture (périmètre ci-dessous).
+**État : en cours.** Tranches 1 à 3 (RIP, OSPF en zone unique, VRRP) terminées et vérifiées le 2026-11-13. Le propriétaire a décidé le 2026-11-13 de réaliser la tranche 4 dans la phase 8 (« la faire dans la phase 8 ») : OSPF multi-zone terminé et vérifié ; BGP simplifié en cours.
 
 ### Périmètre retenu
 
@@ -44,7 +44,18 @@ La ligne « phase 8 » de la feuille de route (P-04 et la part routage de P-05) 
 | RIP | Coupure d'un chemin redondant : route retirée puis chemin de secours, reconvergence mesurée en temps simulé | atteint : `rip.test.ts` (retrait immédiat aux deux extrémités, ping refusé par R1, route de secours en métrique 3 à l'annonce périodique de 30 s, suppression du réseau coupé à +120 s, retour du chemin court au rétablissement ; expiration à 180 s et suppression à 300 s derrière un switch), `rip.spec.ts` (coupure, lecture accélérée, ping TTL 61) |
 | RIP | Horizon partagé et métrique 16 observables ; console et formulaires équivalents ; anciens projets migrés sans RIP | atteint : `rip.test.ts` (aucune annonce d'une route sur son interface d'apprentissage, diamètre de 15 sauts, voisin passif, voisin d'un autre réseau), `project/rip.test.ts` (documents identiques, configuration rejouée), `migration.test.ts` (v7 → v8), `rip.spec.ts` (formulaire puis console) |
 | OSPF | Voisinages établis, base d'état des liens identique sur tous les routeurs, routes de plus faible coût ; reconvergence après coupure | atteint : `ospf.test.ts` (triangle de référence : voisinages pleins, base identique sur les trois routeurs, coût 30 par R2 plutôt que 40 en direct, ping TTL 61 ; coupure : voisin perdu aussitôt, LSA réseau retiré, détour en coût 40, retour du chemin court après l'attente de 40 s ; réseau à diffusion : DR par priorité, BDR par identifiant, perte du DR détectée après 40 s et nouvelle élection), `ospf.spec.ts` (panneau d'exécution, `show ospf`, `show ospf database`, coupure et détour, élection, formulaire et console équivalents) |
+| OSPF multi-zone | Chaque zone garde sa base ; les réseaux des autres zones arrivent par les résumés des routeurs de bordure ; un poste joint une autre zone ; une zone injoignable disparaît des autres | atteint : `ospf-areas.test.ts` (bases par zone identiques entre routeurs, résumés calculés à la main, route inter-zones de coût 40, ping à travers trois zones TTL 60, retrait de proche en proche après coupure, Hello d'une autre zone rejeté), `ospf.spec.ts` (champ de zone, routeur de bordure, base de la zone 1, `show routes`, `show ospf database`, ping) |
+| BGP | Sessions entre systèmes autonomes voisins ; réseaux annoncés et chemins d'AS observables ; meilleur chemin et retrait après une coupure | en cours |
 | VRRP | Un poste garde sa passerelle virtuelle quand le routeur maître tombe ; bascule et retour observables | atteint : `vrrp.test.ts` (élection à 3,5703125 s, bascule exactement Master_Down_Interval après la dernière annonce reçue, ARP gratuit et MAC virtuelle déplacée dans le switch, poste dont le cache ARP garde la même MAC virtuelle et dont le ping passe par le secours, retour par préemption et maintien sans préemption), `vrrp.spec.ts` (maître et secours, bascule en lecture accélérée, ping et `arp -a` inchangés, retour, `show vrrp`, formulaire et console) |
+
+### Vérifications de la tranche OSPF multi-zone (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- `pnpm check` réussi (lint, typecheck, **539 tests** : format 185, moteur 205, interface 94, contrats 2, API 53 sur PostgreSQL réel ; builds). Bundle principal 1 273 kB (371 kB gzip), Worker 235 kB.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **37 parcours** réussis, dont le parcours multi-zone de `ospf.spec.ts` ; `pnpm test:e2e:accounts` : **5 parcours** réussis (« correcteur version 8 »).
+- Inspection visuelle réelle (Edge, 1 440 px) : panneau d'exécution d'un routeur interne et d'un routeur de bordure, base de la zone 1 ; défaut corrigé : adresse de PC3 masquée par une étiquette de port (disposition revue).
+- Défaut trouvé par les tests : une attente de coût erronée de ma part (lien R2–R3 compté deux fois) ; le moteur était juste, l'attente a été corrigée après recalcul.
+- Format **v11**, moteur **0.9.0**, correcteur **v8**. Références consultées le 2026-11-13 : RFC 2328 §12.4.1, §12.4.3, §16.2, A.4.2, A.4.4.
+- Limites connues : ni liens virtuels, ni zones terminales ou NSSA, ni agrégation de plages, ni LSA de types 4 et 5.
 
 ### Vérifications de la tranche VRRP (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
 

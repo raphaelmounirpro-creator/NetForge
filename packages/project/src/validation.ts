@@ -26,7 +26,39 @@ import { parseSubinterface, switchportOf } from "./vlan.js";
  * passerelle erronée ou une adresse en double.
  */
 export function validateDocument(doc: NfgDocument): Issue[] {
-  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkDhcp(doc), ...checkVrrp(doc), ...checkFaults(doc)];
+  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkDhcp(doc), ...checkVrrp(doc), ...checkOspfAreas(doc), ...checkFaults(doc)];
+}
+
+/**
+ * Zones OSPF (v11), avertissements : un routeur relié à plusieurs zones sans
+ * la dorsale (pas de liens virtuels, ses résumés ne servent à personne) ;
+ * deux routeurs d'un même réseau placés dans des zones différentes (leurs
+ * Hello seront rejetés, aucun voisinage).
+ */
+function checkOspfAreas(doc: NfgDocument): Issue[] {
+  const issues: Issue[] = [];
+  const seen = new Map<string, { deviceName: string; portId: string; area: string }>();
+  for (const device of doc.topology.devices) {
+    const config = doc.configurations[device.id];
+    if (!config || getModel(device.model).kind !== "router") continue;
+    const areas = new Set(Object.values(config.ospfInterfaces).map((item) => item.area));
+    if (areas.size > 1 && !areas.has("0.0.0.0")) {
+      issues.push(warning("ospf.abr-without-backbone", { deviceId: device.id, deviceName: device.name, areas: [...areas].sort().join(", ") }));
+    }
+    for (const [portId, item] of Object.entries(config.ospfInterfaces)) {
+      const ipv4 = config.interfaces[portId]?.ipv4;
+      if (!ipv4 || item.mode !== "active") continue;
+      const network = networkCidr(ipv4);
+      const first = seen.get(network);
+      if (!first) seen.set(network, { deviceName: device.name, portId, area: item.area });
+      else if (first.area !== item.area) {
+        issues.push(
+          warning("ospf.area-mismatch", { deviceId: device.id, deviceName: device.name, portId, area: item.area, network, otherDeviceName: first.deviceName, otherPortId: first.portId, otherArea: first.area }),
+        );
+      }
+    }
+  }
+  return issues;
 }
 
 /**

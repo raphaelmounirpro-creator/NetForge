@@ -1,6 +1,6 @@
-# OSPF version 2 en zone unique
+# OSPF version 2 (zone unique et zones multiples)
 
-Niveau : pédagogique simplifié (phase 8, tranche 2) — routeurs R-200, IPv4, zone 0 seulement, réseaux à diffusion (Ethernet).
+Niveau : pédagogique simplifié (phase 8, tranches 2 et 4) — routeurs R-200, IPv4, réseaux à diffusion (Ethernet) ; zone unique, puis zones multiples reliées par la dorsale.
 
 ## Références
 
@@ -14,6 +14,7 @@ Consultée le 2026-11-13 : [RFC 2328](https://www.rfc-editor.org/rfc/rfc2328) (O
 - §16.1, §16.1.1 : plus court chemin (liens vérifiés dans les deux sens, réseau avant routeur à coût égal, réseaux terminaux en seconde étape) et calcul du prochain saut.
 - Annexes A.1, A.3.1 à A.3.5, A.4.1 à A.4.3 : groupes 224.0.0.5 et 224.0.0.6, TTL 1 ; en-tête de 24 octets ; champs des paquets ; en-tête de LSA de 20 octets ; LSA routeur et réseau.
 - Annexe B : LSRefreshTime 30 min, MaxAge 1 h, MaxAgeDiff 15 min, MinLSInterval 5 s, InitialSequenceNumber 0x80000001.
+- §12.4.1 et A.4.2 (bit B : routeur de bordure, relié à plusieurs zones), §12.4.3 (LSA de résumé : un par route d'une autre zone, coût de la route, jamais dans sa propre zone ; routes intra-zone seulement dans la dorsale, intra- et inter-zones dans les autres), A.4.4 (masque puis métrique sur 24 bits), §16.2 (routes inter-zones : résumés de la dorsale pour un routeur relié à plusieurs zones, de sa zone sinon ; coût jusqu'au routeur de bordure + coût annoncé ; la route intra-zone l'emporte toujours) — consultés le 2026-11-13.
 - Annexe C.3 : HelloInterval 10 s et RxmtInterval 5 s (valeurs d'exemple d'un réseau local), RouterDeadInterval multiple de HelloInterval (« say 4 ») ; coût d'interface supérieur à 0, priorité 0 = jamais DR. **La RFC ne fixe ni coût ni priorité par défaut.**
 
 La MAC de groupe (01:00:5e + 23 bits de poids faible) suit RFC 1112 §6.4, déjà utilisée par RIP ([rip.md](rip.md)).
@@ -32,6 +33,17 @@ La MAC de groupe (01:00:5e + 23 bits de poids faible) suit RFC 1112 §6.4, déj�
 | LSA | LSA routeur (liens de transit vers le DR de chaque réseau pleinement adjacent, terminaux sinon : attente, interface passive, aucun voisin) ; LSA réseau émis par le DR avec les routeurs pleinement adjacents ; nouvelle instance seulement si le contenu change ; rafraîchissement à 30 min ; LSA du DR retiré (âge MaxAge) quand il cesse de l'être ; LSA d'un routeur disparu effacé à MaxAge (1 h) | `ospf.lsa-originated`, `ospf.lsa-installed`, `ospf.lsa-flushed`, `ospf.lsa-expired` |
 | Inondation | Vers les voisins en état Exchange au moins, sauf l'émetteur ; jamais en retour vers le DR ou le BDR qui l'a transmis, ni par le BDR sur l'interface de réception ; vers 224.0.0.5 depuis le DR ou le BDR, 224.0.0.6 sinon (seuls DR et BDR écoutent ce groupe) | `ospf.lsu-sent`, `ospf.lsu-received` |
 | Calcul | Dijkstra sur la base (RFC 2328 §16.1) dès qu'elle change, une fois par instant ; routes de type « OSPF » avec leur coût, préférées après connecté et statique, avant RIP (préférences NetForge 0, 1, 110, 120) | `ospf.spf`, `ospf.route-added`, `ospf.route-changed`, `ospf.route-removed` |
+
+### Zones multiples (format v11)
+
+| Élément | Comportement | Code de trace |
+|---|---|---|
+| Zone | Chaque interface OSPF appartient à une zone (0.0.0.0 = dorsale, par défaut) ; saisie en décimal (« 1 ») ou en notation pointée ; deux routeurs d'un même lien doivent être dans la même zone (Hello rejeté sinon, avertissement de validation) | `ospf.ignored` |
+| Bases | Une base d'états des liens par zone ; inondation limitée aux interfaces de la zone ; un routeur interne ne voit que sa zone | `ospf.lsa-installed` |
+| Routeur de bordure | Relié à plusieurs zones (bit B dans ses LSA routeur) : il annonce dans chaque zone un LSA de résumé par réseau des autres zones, au coût de sa route ; dans les zones autres que la dorsale, il résume aussi les routes inter-zones apprises de la dorsale ; un résumé devenu inutile est retiré | `ospf.lsa-originated`, `ospf.lsa-flushed` |
+| Routes inter-zones | Coût jusqu'au routeur de bordure + coût du résumé, prochain saut vers ce routeur ; type « OSPF inter-zones » dans la table de routage ; une route intra-zone l'emporte toujours | `ospf.route-added` |
+
+Configuration équivalente : champ « Zone de … » de l'onglet Routes, ou `ospf area <zone>` en mode interface (interface déjà dans OSPF). `show ospf` et `show ospf database` indiquent la zone de chaque interface et de chaque LSA.
 
 Démarrage : les interfaces se mettent en service à l'instant 0 ; l'attente de 40 s, l'élection, l'échange de base et l'inondation sont des échanges actifs, donc « Terminer les échanges » calcule la convergence (juste après 40 s simulées). Les Hello périodiques, l'intervalle de mort, le rafraîchissement et l'âge maximal sont des temporisations de fond : lancer la lecture ou avancer le temps pour les observer (par exemple la perte d'un DR derrière un switch, détectée 40 s plus tard).
 
@@ -54,7 +66,7 @@ show routes
 
 ## Simplifications et limites
 
-- Zone unique 0 ; ni zones multiples, ni LSA de résumé ou externes (types 3 à 5), ni redistribution, ni authentification, ni OSPFv3.
+- Zones : ni liens virtuels (un routeur de bordure doit être relié à la dorsale ; avertissement sinon), ni zones terminales ou NSSA, ni agrégation de plages (un résumé par réseau), ni LSA de résumé de routeur de frontière d'AS (type 4) ou externes (type 5), ni redistribution ; un seul résumé par adresse de réseau (masques différents d'un même réseau confondus). Ni authentification, ni OSPFv3.
 - Réseaux à diffusion uniquement : pas de type point à point ni NBMA ; un câble direct entre deux routeurs élit aussi un DR et un BDR (comportement réel d'une interface Ethernet).
 - Pas d'accusés de réception (LSAck) ni de listes de retransmission des LSA : le simulateur ne perd aucun paquet, une perte ne vient que d'une coupure, qui fait tomber l'adjacence. Seule la description de base du maître est renvoyée faute de réponse ; au-delà de trois renvois, ceux-ci deviennent des temporisations de fond.
 - Échange de base en une description par côté : la base tient toujours dans un paquet (MTU annoncée 1500, non contrôlée) ; pas de bit M à 1 au-delà de l'amorce.
@@ -75,6 +87,7 @@ Le panneau d'exécution d'un routeur montre son identifiant, chaque interface OS
 - `packages/project/src/ospf.test.ts` : bornes du coût et de la priorité, modes et retrait, refus (équipement, port, interface sans adresse, valeurs hors bornes), avertissement après retrait d'une adresse, console équivalente aux formulaires, configuration rejouable sans valeurs par défaut répétées.
 - `packages/project/src/migration.test.ts` : migration v8 → v9 sans OSPF, RIP conservé.
 - `packages/engine/src/ospf.test.ts` : élection (priorité, identifiant, priorité 0, sans préemption), comparaison d'instances, plus court chemin calculé à la main (lien à sens unique, MaxAge) ; triangle de référence (voisinages pleins, base identique sur les trois routeurs, route de coût 30 par R2 plutôt que 40 en direct, ping TTL 61) ; Hello déclenché puis attente de 40 s et élection en deux temps ; paquets conformes (groupe, TTL, taille, maître) ; coupure (voisin perdu aussitôt, LSA réseau retiré, détour, retour du chemin court après l'attente) ; masques différents ; rafraîchissement à 30 min ; réseau à diffusion (DR par priorité, BDR par identifiant, 2-Way entre DR Other, inondation vers 224.0.0.6 et 224.0.0.5, trafic direct sans passer par le DR) ; perte du DR détectée après 40 s et nouvelle élection ; déterminisme.
+- `packages/engine/src/ospf-areas.test.ts` : base limitée à la zone et identique entre routeurs d'une zone, bit B, résumés calculés à la main (dorsale : intra-zone seulement ; zones : intra et inter, jamais la zone elle-même), routes inter-zones et préférence intra-zone, ping à travers trois zones (TTL 60), retrait des résumés de proche en proche après une coupure, Hello d'une autre zone rejeté.
 - `packages/engine/src/evaluation.test.ts` : OSPF protégé par la fonction « routes » ; ping noté après l'attente et l'échange de base.
 - `apps/web/src/i18n/simulation.test.ts` : chaque décision OSPF expliquée aux deux niveaux sur des traces réelles (coupure et rétablissement, perte du DR suivie de l'âge maximal, rafraîchissement, masques différents), phrases attendues, inspecteur.
-- `apps/web/e2e/ospf.spec.ts` : convergence, panneau d'exécution, `show routes`, `show ospf`, `show ospf database`, coupure et détour, inspecteur ; élection sur réseau à diffusion ; formulaire de l'onglet Routes et console équivalents.
+- `apps/web/e2e/ospf.spec.ts` : zones multiples (champ de zone, routeur de bordure, base de la zone 1, route inter-zones dans `show routes`, résumé dans `show ospf database`, ping TTL 60) ; convergence, panneau d'exécution, `show routes`, `show ospf`, `show ospf database`, coupure et détour, inspecteur ; élection sur réseau à diffusion ; formulaire de l'onglet Routes et console équivalents.

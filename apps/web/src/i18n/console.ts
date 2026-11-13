@@ -171,11 +171,11 @@ export function showOspf(view: DeviceView): string[] {
   const s = messages.simulation;
   const c = t.columns;
   return [
-    fill(s.runtime.ospfRouter, { routerId: ospf.routerId, time: formatSimTime(ospf.nextHelloAt) }),
+    fill(s.runtime.ospfRouter, { routerId: ospf.routerId, areas: fill(ospf.abr ? s.runtime.ospfAbr : s.runtime.ospfAreas, { areas: ospf.areas.join(", ") }), time: formatSimTime(ospf.nextHelloAt) }),
     "",
     ...table(
-      [c.port, c.state, c.cost, c.priority, c.dr, c.bdr],
-      ospf.interfaces.map((item) => [item.portId, s.ospfInterfaceStates[item.state], String(item.cost), String(item.priority), item.dr ?? s.ospfNone, item.bdr ?? s.ospfNone]),
+      [c.port, c.area, c.state, c.cost, c.priority, c.dr, c.bdr],
+      ospf.interfaces.map((item) => [item.portId, item.area, s.ospfInterfaceStates[item.state], String(item.cost), String(item.priority), item.dr ?? s.ospfNone, item.bdr ?? s.ospfNone]),
     ),
     "",
     ...table(
@@ -203,14 +203,17 @@ export function showOspfDatabase(view: DeviceView): string[] {
   const v = messages.simulation.values;
   const c = t.columns;
   return table(
-    [c.lsaType, c.lsId, c.advertisingRouter, c.sequence, c.age, c.content],
+    [c.area, c.lsaType, c.lsId, c.advertisingRouter, c.sequence, c.age, c.content],
     ospf.lsdb.map((lsa) => [
+      lsa.area,
       messages.simulation.ospfLsaTypes[lsa.lsaType],
       lsa.lsId,
       lsa.advertisingRouter,
       ospfSequence(lsa.sequence),
       String(lsa.age),
-      lsa.lsaType === "router"
+      lsa.lsaType === "summary"
+        ? fill(v.ospfSummary, { mask: lsa.mask ?? "", metric: lsa.metric ?? 0 })
+        : lsa.lsaType === "router"
         ? lsa.links.map((link) => fill(v.ospfLink, { type: v.ospfLinkTypes[link.type], linkId: link.linkId, linkData: link.linkData, metric: link.metric })).join(" ; ")
         : `${fill(v.ospfNetwork, { mask: lsa.mask ?? "" })} ; ${lsa.attachedRouters.join(", ")}`,
     ]),

@@ -23,7 +23,19 @@ import { DHCP_LEASE_DEFAULT, formatLeaseDuration, parseDhcpPoolInput } from "./d
 import { isDnsAddress, normalizeDnsName, parseDnsRecordInput, sortedDnsRecords } from "./dns.js";
 import { error, type Issue } from "./issues.js";
 import { VRID_MAX, VRID_MIN, VRRP_DEFAULT_PRIORITY, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority } from "./vrrp.js";
-import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_DEFAULT_COST, OSPF_DEFAULT_PRIORITY, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, type OspfInterface, type OspfMode } from "./ospf.js";
+import {
+  OSPF_BACKBONE_AREA,
+  OSPF_COST_MAX,
+  OSPF_COST_MIN,
+  OSPF_DEFAULT_COST,
+  OSPF_DEFAULT_PRIORITY,
+  OSPF_PRIORITY_MAX,
+  isOspfCost,
+  isOspfPriority,
+  parseOspfArea,
+  type OspfInterface,
+  type OspfMode,
+} from "./ospf.js";
 import { isIpv4Address, prefixToMask } from "./ipv4.js";
 import type { Device, NfgDocument } from "./schema.js";
 import { STP_DEFAULT_PRIORITY, STP_PRIORITY_MAX, STP_PRIORITY_STEP, isStpPriority } from "./stp.js";
@@ -180,7 +192,7 @@ function stpOf(doc: NfgDocument, device: Device): { enabled: boolean; priority: 
 /** Configuration OSPF d'une interface avec un nouveau mode ; coût et priorité conservés, sinon valeurs par défaut. */
 function ospfWith(doc: NfgDocument, device: Device, interfaceId: string, change: { mode: OspfMode }): OspfInterface {
   const current = doc.configurations[device.id]?.ospfInterfaces[interfaceId];
-  return { mode: change.mode, cost: current?.cost ?? OSPF_DEFAULT_COST, priority: current?.priority ?? OSPF_DEFAULT_PRIORITY };
+  return { mode: change.mode, cost: current?.cost ?? OSPF_DEFAULT_COST, priority: current?.priority ?? OSPF_DEFAULT_PRIORITY, area: current?.area ?? OSPF_BACKBONE_AREA };
 }
 
 function pcPort(device: Device): string {
@@ -930,6 +942,23 @@ const COMMANDS: readonly CommandSpec[] = [
     },
   },
   {
+    id: "ospf-area",
+    words: ["ospf", "area"],
+    syntax: "<zone>",
+    modes: ["interface"],
+    devices: ["router"],
+    required: ["zone"],
+    maxArgs: 1,
+    run: ({ doc, device, mode, args }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "ospf area" });
+      const area = parseOspfArea(args[0] ?? "");
+      if (area === null) return invalid(mode, [error("ospf.invalid-area", { value: args[0] ?? "" })]);
+      const current = doc.configurations[device.id]?.ospfInterfaces[mode.portId];
+      if (!current) return invalid(mode, [error("ospf.interface-not-enabled", { deviceId: device.id, deviceName: device.name, portId: mode.portId })]);
+      return ok(mode, { edit: (next) => setOspfInterface(next, { deviceId: device.id, interfaceId: mode.portId, ospf: { ...current, area } }) });
+    },
+  },
+  {
     id: "route-add",
     words: ["route", "add"],
     syntax: "<réseau>/<préfixe> via <prochain-saut>",
@@ -1160,6 +1189,7 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
         // Coût et priorité : seulement s'ils diffèrent des valeurs par défaut.
         if (ospf.cost !== OSPF_DEFAULT_COST) lines.push(`ospf cost ${String(ospf.cost)}`);
         if (ospf.priority !== OSPF_DEFAULT_PRIORITY) lines.push(`ospf priority ${String(ospf.priority)}`);
+        if (ospf.area !== OSPF_BACKBONE_AREA) lines.push(`ospf area ${ospf.area}`);
         lines.push("exit");
       }
       const vrrp = config?.vrrpGroups[id];

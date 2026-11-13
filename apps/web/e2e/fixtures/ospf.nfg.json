@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 10,
+  "schemaVersion": 11,
   "models": {
     "catalog": 2
   },
@@ -189,17 +189,20 @@
         "ge0": {
           "mode": "passive",
           "cost": 10,
-          "priority": 1
+          "priority": 1,
+          "area": "0.0.0.0"
         },
         "ge1": {
           "mode": "active",
           "cost": 10,
-          "priority": 1
+          "priority": 1,
+          "area": "0.0.0.0"
         },
         "ge2": {
           "mode": "active",
           "cost": 30,
-          "priority": 1
+          "priority": 1,
+          "area": "0.0.0.0"
         }
       },
       "vrrpGroups": {}
@@ -240,17 +243,20 @@
         "ge0": {
           "mode": "passive",
           "cost": 10,
-          "priority": 1
+          "priority": 1,
+          "area": "0.0.0.0"
         },
         "ge1": {
           "mode": "active",
           "cost": 10,
-          "priority": 1
+          "priority": 1,
+          "area": "0.0.0.0"
         },
         "ge2": {
           "mode": "active",
           "cost": 10,
-          "priority": 1
+          "priority": 1,
+          "area": "0.0.0.0"
         }
       },
       "vrrpGroups": {}
@@ -312,17 +318,20 @@
         "ge0": {
           "mode": "passive",
           "cost": 10,
-          "priority": 1
+          "priority": 1,
+          "area": "0.0.0.0"
         },
         "ge2": {
           "mode": "active",
           "cost": 10,
-          "priority": 1
+          "priority": 1,
+          "area": "0.0.0.0"
         },
         "ge1": {
           "mode": "active",
           "cost": 30,
-          "priority": 1
+          "priority": 1,
+          "area": "0.0.0.0"
         }
       },
       "vrrpGroups": {}
