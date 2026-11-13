@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 11,
+  "schemaVersion": 12,
   "models": {
     "catalog": 2
   },
@@ -127,7 +127,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "sw1": {
       "interfaces": {},
@@ -143,7 +144,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "pc2": {
       "interfaces": {
@@ -164,7 +166,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "sw2": {
       "interfaces": {},
@@ -180,7 +183,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     }
   },
   "faults": [],

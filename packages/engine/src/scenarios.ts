@@ -15,6 +15,9 @@ import {
   setRipInterface,
   setStp,
   setVrrpGroup,
+  setBgpAs,
+  setBgpNeighbor,
+  setBgpNetwork,
   setSwitchport,
   type CommandResult,
   type DeviceModelId,
@@ -113,7 +116,7 @@ export function ripScenario(options: { redundant?: boolean; rip?: boolean } = {}
 export function ospfScenario(options: { ospf?: boolean } = {}): NfgDocument {
   const builder = new ScenarioBuilder("ospf", "OSPF : routage à état de liens")
     .device("pc1", "PC", 80, 320).device("r1", "R-200", 300, 320)
-    .device("r2", "R-200", 460, 130).device("pc2", "PC", 460, -100)
+    .device("r2", "R-200", 460, 130).device("pc2", "PC", 220, 130)
     .device("r3", "R-200", 620, 320).device("pc3", "PC", 840, 320)
     .link("pc1", "eth0", "r1", "ge0").link("r2", "ge0", "pc2", "eth0").link("r3", "ge0", "pc3", "eth0")
     .link("r1", "ge1", "r2", "ge1").link("r2", "ge2", "r3", "ge2").link("r1", "ge2", "r3", "ge1")
@@ -211,6 +214,35 @@ export function ospfAreasScenario(): NfgDocument {
     .build();
 }
 
+/**
+ * BGP : trois systèmes autonomes en triangle, un routeur chacun (R1 AS 65001,
+ * R2 AS 65002, R3 AS 65003), chacun annonçant le réseau de son poste. Le
+ * chemin direct (un AS) l'emporte sur le détour (deux AS) ; après une
+ * coupure, le détour prend le relais. Option `bgp` faux : aucun routage.
+ */
+export function bgpScenario(options: { bgp?: boolean } = {}): NfgDocument {
+  const builder = new ScenarioBuilder("bgp", "BGP : systèmes autonomes")
+    .device("pc1", "PC", 80, 320).device("r1", "R-200", 300, 320)
+    .device("r2", "R-200", 460, 130).device("pc2", "PC", 220, 130)
+    .device("r3", "R-200", 620, 320).device("pc3", "PC", 840, 320)
+    .link("pc1", "eth0", "r1", "ge0").link("r2", "ge0", "pc2", "eth0").link("r3", "ge0", "pc3", "eth0")
+    .link("r1", "ge1", "r2", "ge1").link("r2", "ge2", "r3", "ge2").link("r1", "ge2", "r3", "ge1")
+    .ip("r1", "ge0", "10.1.0.1/24").ip("r2", "ge0", "10.2.0.1/24").ip("r3", "ge0", "10.3.0.1/24")
+    .ip("r1", "ge1", "10.12.0.1/30").ip("r2", "ge1", "10.12.0.2/30")
+    .ip("r2", "ge2", "10.23.0.1/30").ip("r3", "ge2", "10.23.0.2/30")
+    .ip("r1", "ge2", "10.13.0.1/30").ip("r3", "ge1", "10.13.0.2/30")
+    .ip("pc1", "eth0", "10.1.0.10/24").gateway("pc1", "10.1.0.1")
+    .ip("pc2", "eth0", "10.2.0.10/24").gateway("pc2", "10.2.0.1")
+    .ip("pc3", "eth0", "10.3.0.10/24").gateway("pc3", "10.3.0.1");
+  if (options.bgp ?? true) {
+    builder
+      .bgp("r1", 65001, [["10.12.0.2", 65002], ["10.13.0.2", 65003]], ["10.1.0.0/24"])
+      .bgp("r2", 65002, [["10.12.0.1", 65001], ["10.23.0.2", 65003]], ["10.2.0.0/24"])
+      .bgp("r3", 65003, [["10.23.0.1", 65002], ["10.13.0.1", 65001]], ["10.3.0.0/24"]);
+  }
+  return builder.build();
+}
+
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(`scénario invalide : ${result.errors.map((issue) => issue.code).join(", ")}`);
   return result.document;
@@ -295,6 +327,17 @@ export class ScenarioBuilder {
   /** Groupe VRRP d'une interface de routeur (priorité 100 et préemption par défaut). */
   vrrp(deviceId: string, interfaceId: string, vrid: number, address: string, options: { priority?: number; preempt?: boolean } = {}): this {
     this.doc = ok(setVrrpGroup(this.doc, { deviceId, interfaceId, group: { vrid, address, priority: options.priority ?? 100, preempt: options.preempt ?? true } }));
+    return this;
+  }
+
+  /** BGP d'un routeur : AS, voisins externes (adresse, AS distant) et réseaux annoncés (CIDR). */
+  bgp(deviceId: string, as: number, neighbors: ReadonlyArray<readonly [address: string, remoteAs: number]>, networks: readonly string[]): this {
+    this.doc = ok(setBgpAs(this.doc, { deviceId, as }));
+    for (const [address, remoteAs] of neighbors) this.doc = ok(setBgpNeighbor(this.doc, { deviceId, address, remoteAs }));
+    for (const cidr of networks) {
+      const [address = "", prefix = "0"] = cidr.split("/");
+      this.doc = ok(setBgpNetwork(this.doc, { deviceId, network: { address, prefixLength: Number(prefix) }, present: true }));
+    }
     return this;
   }
 

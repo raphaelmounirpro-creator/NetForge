@@ -267,6 +267,41 @@ export interface VrrpGroupView {
   readonly nextAdvertAt: SimTime | null;
 }
 
+/** États d'une session BGP (RFC 4271 §8.2.2). */
+export type BgpPeerStateView = "idle" | "connect" | "active" | "opensent" | "openconfirm" | "established";
+
+export interface BgpPeerView {
+  readonly address: string;
+  readonly remoteAs: number;
+  readonly state: BgpPeerStateView;
+  /** Ce routeur ouvre la connexion TCP (adresse locale la plus grande) ; l'autre l'attend. */
+  readonly initiator: boolean;
+  readonly localAddress: string | null;
+  /** Identifiant BGP annoncé par le voisin dans son OPEN. */
+  readonly peerId: string | null;
+  /** Réseaux reçus et conservés (boucles d'AS exclues). */
+  readonly received: number;
+  readonly holdExpiresAt: SimTime | null;
+  readonly nextKeepaliveAt: SimTime | null;
+}
+
+/** Chemin connu vers un réseau : local (from null) ou reçu d'un voisin ; best : retenu. */
+export interface BgpRouteView {
+  readonly network: string;
+  readonly asPath: readonly number[];
+  readonly nextHop: string | null;
+  readonly from: string | null;
+  readonly best: boolean;
+}
+
+export interface BgpView {
+  readonly as: number;
+  readonly routerId: string;
+  readonly peers: readonly BgpPeerView[];
+  /** Tous les chemins connus, triés par réseau, le meilleur d'abord. */
+  readonly table: readonly BgpRouteView[];
+}
+
 export interface DeviceView {
   readonly deviceId: string;
   readonly name: string;
@@ -293,6 +328,8 @@ export interface DeviceView {
   readonly ospf: OspfView | null;
   /** VRRP (routeur ayant au moins un groupe). */
   readonly vrrp: readonly VrrpGroupView[] | null;
+  /** BGP (routeur où BGP est activé). */
+  readonly bgp: BgpView | null;
 }
 
 export type PingFailure = "no-address" | "no-route" | "host-unreachable" | "queue-full";

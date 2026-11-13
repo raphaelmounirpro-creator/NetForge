@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 11,
+  "schemaVersion": 12,
   "models": {
     "catalog": 2
   },
@@ -300,7 +300,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "odf1": {
       "interfaces": {},
@@ -313,7 +314,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "cpl1": {
       "interfaces": {},
@@ -326,7 +328,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "cpl2": {
       "interfaces": {},
@@ -339,7 +342,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "pbo1": {
       "interfaces": {},
@@ -352,7 +356,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "pto1": {
       "interfaces": {},
@@ -365,7 +370,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "pto2": {
       "interfaces": {},
@@ -378,7 +384,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "pto3": {
       "interfaces": {},
@@ -391,7 +398,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "ont1": {
       "interfaces": {},
@@ -404,7 +412,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "ont2": {
       "interfaces": {},
@@ -417,7 +426,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     },
     "ont3": {
       "interfaces": {},
@@ -430,7 +440,8 @@
       "dnsRecords": null,
       "ripInterfaces": {},
       "ospfInterfaces": {},
-      "vrrpGroups": {}
+      "vrrpGroups": {},
+      "bgp": null
     }
   },
   "faults": [],

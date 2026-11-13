@@ -26,8 +26,10 @@ import { createSimulation } from "./simulation.js";
  * Version 7 : VRRP (format v10), groupes des routeurs protégés par « routes »
  * (passerelle des postes) ; contrôles après l'élection du maître. Version 8 :
  * zones OSPF (format v11), zone des interfaces protégée par « routes ».
+ * Version 9 : BGP (format v12), AS, voisins et réseaux annoncés protégés par
+ * « routes » ; contrôles après l'établissement des sessions.
  */
-export const EVALUATOR_VERSION = 8;
+export const EVALUATOR_VERSION = 9;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */
@@ -224,9 +226,9 @@ function routesOf(doc: NfgDocument): string {
     sortedEntries(doc.configurations)
       .filter(
         ([, config]) =>
-          config.defaultGateway !== null || config.staticRoutes.length > 0 || Object.keys(config.ripInterfaces).length > 0 || Object.keys(config.ospfInterfaces).length > 0 || Object.keys(config.vrrpGroups).length > 0,
+          config.defaultGateway !== null || config.staticRoutes.length > 0 || Object.keys(config.ripInterfaces).length > 0 || Object.keys(config.ospfInterfaces).length > 0 || Object.keys(config.vrrpGroups).length > 0 || config.bgp !== null,
       )
-      .map(([id, config]) => [id, config.defaultGateway, config.staticRoutes, sortedEntries(config.ripInterfaces), sortedEntries(config.ospfInterfaces), sortedEntries(config.vrrpGroups)]),
+      .map(([id, config]) => [id, config.defaultGateway, config.staticRoutes, sortedEntries(config.ripInterfaces), sortedEntries(config.ospfInterfaces), sortedEntries(config.vrrpGroups), config.bgp]),
   );
 }
 

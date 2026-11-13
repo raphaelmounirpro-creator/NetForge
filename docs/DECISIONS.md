@@ -300,3 +300,13 @@ Décision du propriétaire : 15 caractères minimum est jugé trop contraignant 
 - **Table de routage** : type « ospf-inter » (OSPF inter-zones), même préférence que l'intra-zone (110) ; le calcul OSPF choisit déjà l'intra-zone.
 - **Évaluations** : la zone relève de la fonction « routes » (déjà couverte par la comparaison des interfaces OSPF) ; `EVALUATOR_VERSION` 8, une même soumission pouvant désormais recevoir une autre note.
 - **Interface** : champ « Zone de … » de l'onglet Routes, `ospf area`, zones dans `show ospf` et `show ospf database`, routeur de bordure et zone des LSA dans le panneau d'exécution, résumés et bit B dans l'inspecteur.
+
+## D-060 — BGP-4 simplifié sur TCP réduit, format v12 et correcteur v9 (phase 8)
+
+- **Format v12** : `bgp` par configuration (routeurs) : AS sur 2 octets (1 à 65535, champ de l'OPEN), voisins externes (adresse, AS distant, 16 au plus), réseaux annoncés (CIDR, 32 au plus) ; null sans BGP. Migration explicite v11 → v12 : aucun routeur BGP. Erreurs : voisin du même AS (iBGP non pris en charge), doublons, réseau qui n'est pas une adresse de réseau ; avertissement : voisin hors des réseaux connectés.
+- **TCP réduit** plutôt que des messages BGP « hors transport » : poignée de main, numéros de séquence, RST, sans perte ni retransmission ; un seul côté ouvre la connexion (adresse la plus grande), ce qui évite la résolution des collisions.
+- **Moteur** : automate de session de RFC 4271 §8.2.2, OPEN/KEEPALIVE/UPDATE/NOTIFICATION, Adj-RIB-In et Adj-RIB-Out par voisin, boucle d'AS, décision réduite (local, AS_PATH, identifiant, adresse), réseaux annoncés seulement s'ils sont dans la table hors BGP. Établissement et convergence actifs (« Terminer les échanges »), KEEPALIVE, Hold Time et ConnectRetryTime en temporisations de fond ; pas de MinRouteAdvertisementInterval. Interface vers le voisin coupée : session fermée aussitôt (choix NetForge). `ENGINE_VERSION` 0.10.0.
+- **Table de routage** : routes « bgp » de préférence 20 (avant OSPF 110 et RIP 120, choix NetForge), métrique affichée = nombre d'AS traversés.
+- **Évaluations** : BGP relève de la fonction « routes » ; `EVALUATOR_VERSION` 9.
+- **Interface** : section « Routage entre systèmes autonomes BGP » de l'onglet Routes, `bgp as|disable|neighbor|network`, `show bgp`, sections BGP et table BGP du panneau d'exécution, inspecteur TCP et BGP, catégorie « Routage dynamique », paquets animés « BGP » ou « TCP ».
+- **Disposition** : un poste placé juste au-dessus de son routeur voyait son nom couvert par l'étiquette de port ; placé à droite de R2, il passait ensuite sous la mini-carte de la vue Simulation ; dans les scénarios OSPF et BGP, PC2 est placé à gauche de R2, comme le poste du routeur du haut dans le scénario RIP.

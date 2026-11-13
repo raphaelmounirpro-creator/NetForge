@@ -8,6 +8,7 @@ import {
   switchportOf,
   type DeviceKind,
   type NfgDocument,
+  type BgpConfig,
   type OspfInterface,
   type VrrpGroup,
   type RipMode,
@@ -94,6 +95,8 @@ export interface RuntimeDevice {
   readonly ospfInterfaces: ReadonlyMap<string, OspfInterface>;
   /** VRRP (routeur) : groupe de chaque interface qui en a un ; vide sans VRRP. */
   readonly vrrpGroups: ReadonlyMap<string, VrrpGroup>;
+  /** BGP (routeur) : AS, voisins et réseaux annoncés ; null sans BGP. */
+  readonly bgp: BgpConfig | null;
 }
 
 export interface RuntimeDhcpPool {
@@ -208,6 +211,7 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
       ripInterfaces: new Map(model.kind === "router" ? Object.entries(config?.ripInterfaces ?? {}).sort(([a], [b]) => a.localeCompare(b)) : []),
       ospfInterfaces: new Map(model.kind === "router" ? Object.entries(config?.ospfInterfaces ?? {}).sort(([a], [b]) => a.localeCompare(b)) : []),
       vrrpGroups: new Map(model.kind === "router" ? Object.entries(config?.vrrpGroups ?? {}).sort(([a], [b]) => a.localeCompare(b)) : []),
+      bgp: model.kind === "router" ? (config?.bgp ?? null) : null,
     });
   }
   return { devices, links };

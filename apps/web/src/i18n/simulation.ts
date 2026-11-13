@@ -112,6 +112,8 @@ export function traceCategory(code: TraceCode): TraceCategory {
     case "rip":
     case "ospf":
     case "vrrp":
+    case "bgp":
+    case "tcp": // TCP ne transporte ici que les sessions BGP.
       return "routing";
     case "ip":
       return "ip";
@@ -168,6 +170,9 @@ const LOSS_OR_ERROR_CODES: ReadonlySet<TraceCode> = new Set<TraceCode>([
   "ospf.hello-mismatch",
   "vrrp.not-accepted",
   "vrrp.ignored",
+  "tcp.reset",
+  "bgp.notification-sent",
+  "bgp.notification-received",
 ]);
 
 export function isLossOrError(entry: TraceEntry): boolean {
@@ -225,6 +230,12 @@ function templateKey(entry: TraceEntry): keyof typeof messages.trace {
       return params["server"] === null ? "command.nslookup.no-server" : entry.code;
     case "rip.route-unreachable":
       return params["nextHop"] === null ? "rip.route-unreachable.local" : entry.code;
+    case "tcp.reset":
+      return params["direction"] === "received" ? "tcp.reset.received" : entry.code;
+    case "bgp.update-sent":
+      return params["announced"] === 0 ? "bgp.update-sent.withdraw" : entry.code;
+    case "bgp.best-path":
+      return params["local"] === true ? "bgp.best-path.local" : entry.code;
     case "vrrp.state":
       return params["to"] === "master" ? "vrrp.state.master" : params["to"] === "backup" ? "vrrp.state.backup" : "vrrp.state.initialize";
     case "ospf.hello-received":
@@ -285,6 +296,13 @@ export function formatTrace(entry: TraceEntry, names: NameIndex, level: Explanat
     values["reasonText"] = ripReasons[params["reason"] as keyof typeof ripReasons];
   }
   if (entry.code.startsWith("ospf.")) Object.assign(values, ospfValues(params, names, entry.code));
+  if (entry.code.startsWith("bgp.") || entry.code.startsWith("tcp.")) {
+    values["fromText"] = label(t.bgpStates, params["from"]);
+    values["toText"] = label(t.bgpStates, params["to"]);
+    values["eventText"] = label(t.bgpEvents, params["event"]);
+    values["errorText"] = label(t.bgpErrors, params["error"]);
+    if (entry.code === "tcp.reset") values["reasonText"] = label(t.tcpResetReasons, params["reason"]);
+  }
   if (entry.code.startsWith("vrrp.")) {
     values["fromText"] = label(t.vrrpStates, params["from"]);
     values["causeText"] = label(t.vrrpCauses, params["cause"]);
@@ -349,6 +367,8 @@ export function formatExchange(exchange: string): string {
   if (ospf) return fill(t.exchangeOspf, { session: ospf[1] ?? "" });
   const vrrp = /^vrrp-(\d+)$/.exec(exchange);
   if (vrrp) return fill(t.exchangeVrrp, { session: vrrp[1] ?? "" });
+  const bgp = /^bgp-(\d+)$/.exec(exchange);
+  if (bgp) return fill(t.exchangeBgp, { session: bgp[1] ?? "" });
   const echo = /^ping-(\d+)#(\d+)$/.exec(exchange);
   if (echo) return fill(t.exchangeEcho, { session: echo[1] ?? "", sequence: echo[2] ?? "" });
   const session = /^ping-(\d+)$/.exec(exchange);
@@ -356,7 +376,7 @@ export function formatExchange(exchange: string): string {
 }
 
 export interface PduLayer {
-  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp" | "dns" | "rip" | "ospf" | "vrrp";
+  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp" | "dns" | "rip" | "ospf" | "vrrp" | "tcp" | "bgp";
   readonly title: string;
   readonly osi: string;
   readonly fields: ReadonlyArray<readonly [label: string, value: string]>;
@@ -400,7 +420,7 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
           [f.ipDestination, pdu.destination],
           [f.ttl, String(pdu.ttl)],
           [f.identification, String(pdu.identification)],
-          [f.protocol, { udp: v.protocolUdp, ospf: v.protocolOspf, vrrp: v.protocolVrrp, icmp: v.protocolIcmp }[pdu.payload.kind]],
+          [f.protocol, { udp: v.protocolUdp, tcp: v.protocolTcp, ospf: v.protocolOspf, vrrp: v.protocolVrrp, icmp: v.protocolIcmp }[pdu.payload.kind]],
         ]),
         ...pduLayers(pdu.payload, names),
       ];
@@ -418,6 +438,38 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
     }
     case "ospf":
       return [layer("ospf", ospfFields(pdu, names))];
+    case "tcp":
+      return [
+        layer("tcp", [
+          [f.sourcePort, String(pdu.sourcePort)],
+          [f.destinationPort, String(pdu.destinationPort)],
+          [f.tcpSequence, String(pdu.sequence)],
+          [f.tcpAcknowledgment, String(pdu.acknowledgment)],
+          [f.tcpFlags, fill(v.tcpFlags, { syn: pdu.flags.syn ? 1 : 0, ack: pdu.flags.ack ? 1 : 0, rst: pdu.flags.rst ? 1 : 0 })],
+        ]),
+        ...(pdu.payload ? pduLayers(pdu.payload, names) : []),
+      ];
+    case "bgp": {
+      const prefixes = (list: ReadonlyArray<{ readonly address: string; readonly prefixLength: number }>) =>
+        list.length === 0 ? v.bgpNone : list.map((item) => `${item.address}/${String(item.prefixLength)}`).join(", ");
+      const fields: Array<readonly [string, string]> = [[f.bgpType, v.bgpTypes[pdu.type]]];
+      if (pdu.type === "open") {
+        fields.push([f.bgpVersion, String(pdu.version)], [f.bgpMyAs, String(pdu.myAs)], [f.bgpHoldTime, fill(v.bgpHoldTime, { seconds: pdu.holdTime })], [f.bgpIdentifier, pdu.bgpId]);
+      } else if (pdu.type === "update") {
+        fields.push([f.bgpWithdrawn, prefixes(pdu.withdrawn)]);
+        if (pdu.attributes) {
+          fields.push(
+            [f.bgpOrigin, v.bgpOriginIgp],
+            [f.bgpAsPath, pdu.attributes.asPath.length === 0 ? v.bgpEmptyPath : pdu.attributes.asPath.join(" ")],
+            [f.bgpNextHop, pdu.attributes.nextHop],
+          );
+        }
+        fields.push([f.bgpNlri, prefixes(pdu.nlri)]);
+      } else if (pdu.type === "notification") {
+        fields.push([f.bgpError, t.bgpErrors[pdu.error]]);
+      }
+      return [layer("bgp", fields)];
+    }
     case "vrrp":
       return [
         layer("vrrp", [

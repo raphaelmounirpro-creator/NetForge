@@ -101,6 +101,27 @@ function DeviceRuntime({ device, names, disabled }: { device: DeviceView; names:
         </EntryList>
       )}
 
+      {device.bgp && (
+        <>
+          <EntryList title={t.bgpTitle} empty={null}>
+            <li className="text-xs text-text-muted">{fill(t.bgpRouter, { as: device.bgp.as, routerId: device.bgp.routerId })}</li>
+            {device.bgp.peers.map((peer) => {
+              const label = fill(t.bgpPeerDetail, { state: messages.simulation.bgpStates[peer.state], role: peer.initiator ? t.bgpInitiator : t.bgpListener, received: peer.received });
+              return <Entry key={peer.address} main={fill(t.bgpPeer, { address: peer.address, as: peer.remoteAs })} detail={<State ok={peer.state === "established"} label={label} />} />;
+            })}
+          </EntryList>
+          <EntryList title={t.bgpTableTitle} empty={device.bgp.table.length === 0 ? t.bgpTableEmpty : null}>
+            {device.bgp.table.map((route) => (
+              <Entry
+                key={`${route.network}|${route.from ?? "local"}`}
+                main={fill(t.bgpRoute, { network: route.network, path: route.asPath.length === 0 ? "—" : route.asPath.join(" ") })}
+                detail={`${route.best ? t.bgpBest : t.bgpAlternative} · ${route.from === null ? t.bgpLocal : fill(t.bgpLearned, { nextHop: route.nextHop ?? "", from: route.from })}`}
+              />
+            ))}
+          </EntryList>
+        </>
+      )}
+
       {device.vrrp && (
         <EntryList title={t.vrrpTitle} empty={null}>
           {device.vrrp.map((group) => (
@@ -263,7 +284,7 @@ function DeviceRuntime({ device, names, disabled }: { device: DeviceView; names:
                 main={`${route.destination}/${String(route.prefixLength)} → ${route.nextHop ?? t.direct}${route.portId ? ` (${route.portId})` : ""}`}
                 detail={
                   <>
-                    {route.metric === null ? t.routeKinds[route.kind] : fill(t.routeMetric, { kind: t.routeKinds[route.kind], metric: route.metric })} ·{" "}
+                    {route.metric === null ? t.routeKinds[route.kind] : fill(route.kind === "bgp" ? t.routeBgp : t.routeMetric, { kind: t.routeKinds[route.kind], metric: route.metric })} ·{" "}
                     <State ok={route.active} label={route.active ? t.active : fill(t.inactive, { reason: route.reason ? t.reasons[route.reason] : "" })} />
                   </>
                 }

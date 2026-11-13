@@ -3,6 +3,7 @@ import { DHCP_LEASE_MAX, DHCP_LEASE_MIN, isDhcpLease, type DhcpPool } from "./dh
 import { DNS_MAX_RECORDS, isDnsAddress, normalizeDnsName } from "./dns.js";
 import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, parseOspfArea, type OspfInterface } from "./ospf.js";
 import type { RipMode } from "./rip.js";
+import { BGP_AS_MAX, BGP_AS_MIN, BGP_MAX_NEIGHBORS, BGP_MAX_NETWORKS, isBgpAs } from "./bgp.js";
 import { VRID_MAX, VRID_MIN, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority, type VrrpGroup } from "./vrrp.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, parseIpv4, parsePrefixOrMask, type Ipv4Interface } from "./ipv4.js";
@@ -55,7 +56,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {}, vrrpGroups: {} };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {}, vrrpGroups: {}, bgp: null };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -749,4 +750,65 @@ export function setVrrpGroup(doc: NfgDocument, params: { deviceId: string; inter
   const { [params.interfaceId]: _previous, ...others } = config.vrrpGroups;
   const vrrpGroups = group === null ? others : { ...others, [params.interfaceId]: { vrid: group.vrid, address: group.address, priority: group.priority, preempt: group.preempt } };
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, vrrpGroups } } });
+}
+
+/** Routeur dont on modifie la configuration BGP, ou refus explicite. */
+function bgpRouter(doc: NfgDocument, deviceId: string): { device: Device; config: DeviceConfig } | { result: CommandResult } {
+  const device = findDevice(doc, deviceId);
+  if (!device) return { result: deviceNotFound(deviceId) };
+  if (getModel(device.model).kind !== "router") return { result: fail(error("bgp.not-supported", { deviceId: device.id, deviceName: device.name })) };
+  return { device, config: doc.configurations[device.id] ?? emptyConfig() };
+}
+
+/** Active BGP avec un numéro d'AS (voisins et réseaux conservés), ou le désactive (null). */
+export function setBgpAs(doc: NfgDocument, params: { deviceId: string; as: number | null }): CommandResult {
+  const found = bgpRouter(doc, params.deviceId);
+  if ("result" in found) return found.result;
+  const { device, config } = found;
+  if (params.as !== null && !isBgpAs(params.as)) return fail(error("bgp.invalid-as", { value: String(params.as), min: BGP_AS_MIN, max: BGP_AS_MAX }));
+  const bgp = params.as === null ? null : { as: params.as, neighbors: config.bgp?.neighbors ?? [], networks: config.bgp?.networks ?? [] };
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, bgp } } });
+}
+
+/** Ajoute ou modifie un voisin externe (AS distant), ou le retire (null). */
+export function setBgpNeighbor(doc: NfgDocument, params: { deviceId: string; address: string; remoteAs: number | null }): CommandResult {
+  const found = bgpRouter(doc, params.deviceId);
+  if ("result" in found) return found.result;
+  const { device, config } = found;
+  const bgp = config.bgp;
+  const base = { deviceId: device.id, deviceName: device.name };
+  if (!bgp) return fail(error("bgp.not-enabled", base));
+  const address = params.address.trim();
+  if (!isIpv4Address(address)) return fail(error("ipv4.invalid-address", { value: address }));
+  const others = bgp.neighbors.filter((neighbor) => neighbor.address !== address);
+  if (params.remoteAs === null) {
+    if (others.length === bgp.neighbors.length) return fail(error("bgp.neighbor-not-found", { ...base, address }));
+    return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, bgp: { ...bgp, neighbors: others } } } });
+  }
+  if (!isBgpAs(params.remoteAs)) return fail(error("bgp.invalid-as", { value: String(params.remoteAs), min: BGP_AS_MIN, max: BGP_AS_MAX }));
+  if (others.length === bgp.neighbors.length && bgp.neighbors.length >= BGP_MAX_NEIGHBORS) return fail(error("bgp.too-many", { ...base, max: BGP_MAX_NEIGHBORS }));
+  const neighbors = [...others, { address, remoteAs: params.remoteAs }].sort((a, b) => (parseIpv4(a.address) ?? 0) - (parseIpv4(b.address) ?? 0));
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, bgp: { ...bgp, neighbors } } } });
+}
+
+/** Ajoute (present vrai) ou retire un réseau annoncé. */
+export function setBgpNetwork(doc: NfgDocument, params: { deviceId: string; network: { address: string; prefixLength: number }; present: boolean }): CommandResult {
+  const found = bgpRouter(doc, params.deviceId);
+  if ("result" in found) return found.result;
+  const { device, config } = found;
+  const bgp = config.bgp;
+  const base = { deviceId: device.id, deviceName: device.name };
+  if (!bgp) return fail(error("bgp.not-enabled", base));
+  const { address, prefixLength } = params.network;
+  if (!isIpv4Address(address)) return fail(error("ipv4.invalid-address", { value: address }));
+  const cidr = `${address}/${String(prefixLength)}`;
+  const others = bgp.networks.filter((network) => network.address !== address || network.prefixLength !== prefixLength);
+  if (!params.present) {
+    if (others.length === bgp.networks.length) return fail(error("bgp.network-not-found", { ...base, network: cidr }));
+    return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, bgp: { ...bgp, networks: others } } } });
+  }
+  if (others.length !== bgp.networks.length) return fail(error("bgp.duplicate-network", { ...base, network: cidr }));
+  if (bgp.networks.length >= BGP_MAX_NETWORKS) return fail(error("bgp.too-many", { ...base, max: BGP_MAX_NETWORKS }));
+  const networks = [...bgp.networks, { address, prefixLength }].sort((a, b) => (parseIpv4(a.address) ?? 0) - (parseIpv4(b.address) ?? 0) || a.prefixLength - b.prefixLength);
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, bgp: { ...bgp, networks } } } });
 }

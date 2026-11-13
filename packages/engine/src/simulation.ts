@@ -31,6 +31,8 @@ import {
   OSPF_INTERFACE_MTU,
   OSPF_LS_REFRESH_TIME,
   OSPF_MAX_AGE,
+  BGP_PORT,
+  bgpBytes,
   VRRP_MULTICAST,
   VRRP_TTL,
   RIP_INFINITY,
@@ -63,6 +65,10 @@ import {
   type RipMessage,
   type UdpDatagram,
   type VrrpAdvertisement,
+  type BgpMessage,
+  type BgpPathAttributes,
+  type BgpPrefix,
+  type TcpSegment,
 } from "./pdu.js";
 import { compareLsa, compareLsaKeys, compareRouterIds, electDesignatedRouter, lsaHeader, lsaKey, sameLsaContent, shortestPaths, type SpfRoute } from "./ospf.js";
 import { Prng } from "./prng.js";
@@ -80,6 +86,7 @@ import type {
   OspfInterfaceStateView,
   OspfNeighborStateView,
   OspfView,
+  BgpPeerStateView,
   PingAttemptView,
   VrrpStateView,
   PingFailure,
@@ -131,6 +138,9 @@ type EventValue =
   | { readonly type: "ospf-dead"; readonly deviceId: string; readonly portId: string; readonly routerId: string; readonly generation: number }
   | { readonly type: "ospf-rxmt"; readonly deviceId: string; readonly portId: string; readonly routerId: string; readonly generation: number }
   | { readonly type: "ospf-spf"; readonly deviceId: string }
+  | { readonly type: "bgp-start"; readonly deviceId: string }
+  | { readonly type: "bgp-retry" | "bgp-hold" | "bgp-keepalive"; readonly deviceId: string; readonly address: string; readonly generation: number }
+  | { readonly type: "bgp-decision"; readonly deviceId: string }
   | { readonly type: "vrrp-start"; readonly deviceId: string }
   | { readonly type: "vrrp-advert"; readonly deviceId: string; readonly portId: string; readonly generation: number }
   | { readonly type: "vrrp-down"; readonly deviceId: string; readonly portId: string; readonly generation: number }
@@ -386,6 +396,76 @@ interface VrrpRuntime {
   generation: number;
 }
 
+/** Chemin reçu d'un voisin BGP (Adj-RIB-In). */
+interface BgpPath {
+  readonly prefix: BgpPrefix;
+  readonly asPath: readonly number[];
+  readonly nextHop: string;
+}
+
+/** Chemin candidat d'un réseau : local (from null) ou reçu d'un voisin. */
+interface BgpCandidate {
+  readonly prefix: BgpPrefix;
+  readonly asPath: readonly number[];
+  readonly nextHop: string | null;
+  readonly from: string | null;
+  readonly peerId: string;
+}
+
+/** Voisin BGP : automate de session, connexion TCP réduite, tables reçue et envoyée. */
+interface BgpPeer {
+  readonly address: string;
+  readonly remoteAs: number;
+  state: BgpPeerStateView;
+  initiator: boolean;
+  localAddress: string | null;
+  tcp: "closed" | "syn-sent" | "syn-received" | "established";
+  localPort: number;
+  remotePort: number;
+  sendNext: number;
+  receiveNext: number;
+  holdTime: SimTime;
+  holdExpiresAt: SimTime | null;
+  nextKeepaliveAt: SimTime | null;
+  peerId: string | null;
+  generation: number;
+  readonly ribIn: Map<string, BgpPath>;
+  /** Dernières annonces envoyées (attributs sérialisés), par réseau. */
+  readonly ribOut: Map<string, string>;
+}
+
+interface BgpState {
+  readonly as: number;
+  readonly routerId: string;
+  readonly peers: Map<string, BgpPeer>;
+  locRib: Map<string, BgpCandidate>;
+  candidates: Map<string, BgpCandidate[]>;
+  decisionPending: boolean;
+}
+
+const prefixKey = (prefix: BgpPrefix) => `${prefix.address}/${String(prefix.prefixLength)}`;
+
+function parsePrefixKey(key: string): BgpPrefix {
+  const [address = "0.0.0.0", length = "0"] = key.split("/");
+  return { address, prefixLength: Number(length) };
+}
+
+function comparePrefixKeys(a: string, b: string): number {
+  const x = parsePrefixKey(a);
+  const y = parsePrefixKey(b);
+  return (parseIpv4(x.address) ?? 0) - (parseIpv4(y.address) ?? 0) || x.prefixLength - y.prefixLength;
+}
+
+/** Ordre de préférence : réseau local, AS_PATH le plus court, plus petit identifiant BGP, plus petite adresse du voisin. */
+function compareBgpCandidates(a: BgpCandidate, b: BgpCandidate): number {
+  if ((a.from === null) !== (b.from === null)) return a.from === null ? -1 : 1;
+  return (
+    a.asPath.length - b.asPath.length ||
+    (parseIpv4(a.peerId) ?? 0) - (parseIpv4(b.peerId) ?? 0) ||
+    (parseIpv4(a.from ?? "0.0.0.0") ?? 0) - (parseIpv4(b.from ?? "0.0.0.0") ?? 0)
+  );
+}
+
 const vrrpKey = (deviceId: string, portId: string) => `${deviceId}/${portId}`;
 
 const ripKey = (destination: number, prefixLength: number) => `${formatIpv4(destination)}/${String(prefixLength)}`;
@@ -517,6 +597,9 @@ export class Simulation {
   /** VRRP : groupe de chaque interface de routeur qui en a un. */
   private readonly vrrp = new Map<string, VrrpRuntime>();
   private nextVrrpExchange = 1;
+  /** BGP : état des routeurs où BGP est activé. */
+  private readonly bgp = new Map<string, BgpState>();
+  private nextBgpExchange = 1;
 
   constructor(doc: NfgDocument, options: SimulationOptions = {}) {
     this.seed = options.seed ?? DEFAULT_SEED;
@@ -565,6 +648,36 @@ export class Simulation {
       this.syncRipNetworks(device, false);
       this.schedule(0, { type: "rip-start", deviceId: device.id });
       this.schedule(this.parameters.ripUpdateInterval, { type: "rip-periodic", deviceId: device.id }, true);
+    }
+    // BGP : identifiant = plus grande adresse IPv4 du routeur (choix NetForge) ; sessions ouvertes à l'instant 0.
+    for (const device of this.network.devices.values()) {
+      const config = device.bgp;
+      const addresses = device.ports.flatMap((port) => (port.ipv4 ? [port.ipv4.value] : []));
+      if (device.kind !== "router" || !config || addresses.length === 0) continue;
+      const peers = new Map<string, BgpPeer>();
+      for (const neighbor of config.neighbors) {
+        peers.set(neighbor.address, {
+          address: neighbor.address,
+          remoteAs: neighbor.remoteAs,
+          state: "idle",
+          initiator: false,
+          localAddress: null,
+          tcp: "closed",
+          localPort: 0,
+          remotePort: 0,
+          sendNext: 0,
+          receiveNext: 0,
+          holdTime: this.parameters.bgpHoldTime,
+          holdExpiresAt: null,
+          nextKeepaliveAt: null,
+          peerId: null,
+          generation: 0,
+          ribIn: new Map(),
+          ribOut: new Map(),
+        });
+      }
+      this.bgp.set(device.id, { as: config.as, routerId: formatIpv4(Math.max(...addresses)), peers, locRib: new Map(), candidates: new Map(), decisionPending: false });
+      this.schedule(0, { type: "bgp-start", deviceId: device.id });
     }
     // VRRP : groupes des routeurs, démarrage à l'instant 0.
     for (const device of this.network.devices.values()) {
@@ -976,6 +1089,21 @@ export class Simulation {
       case "ospf-spf":
         this.onOspfSpf(value.deviceId);
         return;
+      case "bgp-start":
+        this.onBgpStart(value.deviceId);
+        return;
+      case "bgp-retry":
+        this.onBgpTimer(value.deviceId, value.address, "retry", value.generation);
+        return;
+      case "bgp-hold":
+        this.onBgpTimer(value.deviceId, value.address, "hold", value.generation);
+        return;
+      case "bgp-keepalive":
+        this.onBgpTimer(value.deviceId, value.address, "keepalive", value.generation);
+        return;
+      case "bgp-decision":
+        this.onBgpDecision(value.deviceId);
+        return;
       case "vrrp-start":
         this.onVrrpStart(value.deviceId);
         return;
@@ -1008,7 +1136,7 @@ export class Simulation {
   private isUp = (port: RuntimePort): boolean => isPortUp(this.network, port);
 
   private routes(device: RuntimeDevice): Route[] {
-    return routingTable(device, this.isUp, [...this.ospfRoutes(device), ...this.ripRoutes(device)]);
+    return routingTable(device, this.isUp, [...this.bgpRoutes(device), ...this.ospfRoutes(device), ...this.ripRoutes(device)]);
   }
 
   /** Routes RIP apprises et utilisables (métrique inférieure à 16) ; un réseau local reste une route connectée. */
@@ -1153,6 +1281,8 @@ export class Simulation {
       }
     }
     this.recomputeStp();
+    // BGP : session fermée aussitôt si l'interface vers le voisin tombe, redémarrée à son retour.
+    for (const end of link.ends) this.bgpLinkChange(this.device(end.deviceId));
     // VRRP : groupe des interfaces concernées (initialisation, ou nouveau démarrage).
     for (const end of link.ends) {
       const device = this.device(end.deviceId);
@@ -1795,6 +1925,10 @@ export class Simulation {
       if (port) this.onOspf(device, port, packet, message, exchange);
       return;
     }
+    if (message.kind === "tcp") {
+      if (port) this.onTcp(device, port, packet, message, exchange);
+      return;
+    }
     if (message.kind === "vrrp") {
       if (port) this.onVrrp(device, port, packet, message, exchange);
       return;
@@ -1827,7 +1961,7 @@ export class Simulation {
   ): void {
     const message = offending.payload;
     // Datagramme UDP : DHCP seulement, jamais relayé (serveur sur le réseau du client) ; rien à signaler.
-    if (message.kind === "udp" || message.kind === "ospf" || message.kind === "vrrp") return;
+    if (message.kind === "udp" || message.kind === "ospf" || message.kind === "vrrp" || message.kind === "tcp") return;
     // RFC 1122 §3.2.2 : jamais d'erreur ICMP en réponse à une erreur ICMP.
     if (isIcmpError(message)) {
       this.emit("icmp.error-suppressed", { type, code }, { device, exchange, pdu: offending });
@@ -2866,6 +3000,395 @@ export class Simulation {
     };
   }
 
+  // ---------------------------------------------------------------- BGP-4 sur TCP réduit
+
+  private newBgpExchange(): string {
+    const exchange = `bgp-${String(this.nextBgpExchange)}`;
+    this.nextBgpExchange += 1;
+    return exchange;
+  }
+
+  /** Interface en service dont le réseau contient l'adresse du voisin (eBGP à un saut). */
+  private bgpPort(device: RuntimeDevice, address: string): RuntimePort | null {
+    const value = parseIpv4(address);
+    if (value === null) return null;
+    return device.ports.find((port) => port.ipv4 && this.isUp(port) && networkAddress(value, port.ipv4.prefixLength) === port.ipv4.network && port.ipv4.value !== value) ?? null;
+  }
+
+  private setBgpState(device: RuntimeDevice, peer: BgpPeer, to: BgpPeerStateView, event: string): void {
+    const from = peer.state;
+    peer.state = to;
+    this.dirtyDevices.add(device.id);
+    if (from !== to) this.emit("bgp.state", { peer: peer.address, from, to, event }, { device });
+  }
+
+  /**
+   * Démarrage d'une session (RFC 4271 §8.2.2) : le routeur dont l'adresse
+   * locale est la plus grande ouvre la connexion TCP (Connect) ; l'autre
+   * l'attend (Active). Choix NetForge qui évite les collisions de connexion.
+   */
+  private startBgpPeer(device: RuntimeDevice, peer: BgpPeer): void {
+    peer.generation += 1;
+    peer.tcp = "closed";
+    const port = this.bgpPort(device, peer.address);
+    if (!port?.ipv4) {
+      peer.localAddress = null;
+      this.setBgpState(device, peer, "idle", "no-interface");
+      return;
+    }
+    peer.localAddress = port.ipv4.address;
+    peer.initiator = port.ipv4.value > (parseIpv4(peer.address) ?? 0);
+    if (!peer.initiator) {
+      this.setBgpState(device, peer, "active", "start");
+      return;
+    }
+    peer.localPort = EPHEMERAL_PORT_MIN + this.prng.nextInt(EPHEMERAL_PORT_MAX - EPHEMERAL_PORT_MIN + 1);
+    peer.remotePort = BGP_PORT;
+    peer.sendNext = this.prng.nextInt(0x100000000);
+    peer.receiveNext = 0;
+    peer.tcp = "syn-sent";
+    this.setBgpState(device, peer, "connect", "start");
+    const exchange = this.newBgpExchange();
+    this.emit("tcp.syn-sent", { peer: peer.address, port: BGP_PORT, sequence: peer.sendNext }, { device, port, exchange });
+    this.sendTcp(device, peer, { syn: true, ack: false, rst: false }, null, exchange);
+    // Sans réponse (voisin muet ou connexion refusée), nouvelle tentative après ConnectRetryTime.
+    this.schedule(this.clock + this.parameters.bgpConnectRetry, { type: "bgp-retry", deviceId: device.id, address: peer.address, generation: peer.generation }, true);
+  }
+
+  /** Segment TCP vers le voisin : numéros de séquence et d'acquittement courants, TTL 1 (voisin direct). */
+  private sendTcp(device: RuntimeDevice, peer: BgpPeer, flags: TcpSegment["flags"], payload: BgpMessage | null, exchange: string): void {
+    if (!peer.localAddress) return;
+    const segment: TcpSegment = {
+      kind: "tcp",
+      sourcePort: peer.localPort,
+      destinationPort: peer.remotePort,
+      sequence: peer.sendNext,
+      acknowledgment: flags.ack ? peer.receiveNext : 0,
+      flags,
+      payload,
+    };
+    // SYN et données consomment des numéros de séquence ; un simple ACK non.
+    peer.sendNext = (peer.sendNext + (flags.syn ? 1 : 0) + (payload ? bgpBytes(payload) : 0)) >>> 0;
+    this.sendLocal(device, { source: peer.localAddress, destination: peer.address, ttl: 1, payload: segment }, { kind: "local" }, exchange);
+  }
+
+  private sendBgp(device: RuntimeDevice, peer: BgpPeer, message: BgpMessage): void {
+    const exchange = this.newBgpExchange();
+    const where = { device, exchange, pdu: message };
+    if (message.type === "open") this.emit("bgp.open-sent", { peer: peer.address, as: message.myAs, holdTime: message.holdTime, bgpId: message.bgpId }, where);
+    else if (message.type === "keepalive") this.emit("bgp.keepalive-sent", { peer: peer.address }, where);
+    else if (message.type === "notification") this.emit("bgp.notification-sent", { peer: peer.address, error: message.error }, where);
+    else {
+      this.emit(
+        "bgp.update-sent",
+        { peer: peer.address, announced: message.nlri.length, withdrawn: message.withdrawn.length, asPath: message.attributes ? message.attributes.asPath.join(" ") : null },
+        where,
+      );
+    }
+    this.sendTcp(device, peer, { syn: false, ack: true, rst: false }, message, exchange);
+  }
+
+  /** Connexion TCP établie : chaque côté envoie son OPEN (RFC 4271 §8.2.2, Connect/Active → OpenSent). */
+  private bgpConnected(device: RuntimeDevice, state: BgpState, peer: BgpPeer): void {
+    peer.tcp = "established";
+    this.emit("tcp.established", { peer: peer.address, localPort: peer.localPort, remotePort: peer.remotePort }, { device });
+    this.setBgpState(device, peer, "opensent", "tcp-established");
+    this.sendBgp(device, peer, { kind: "bgp", type: "open", version: 4, myAs: state.as, holdTime: this.parameters.bgpHoldTime / 1e9, bgpId: state.routerId });
+  }
+
+  private onTcp(device: RuntimeDevice, port: RuntimePort, packet: Ipv4Packet, segment: TcpSegment, exchange: string | null): void {
+    const where = { device, port, exchange, pdu: segment };
+    const state = this.bgp.get(device.id);
+    const peer = state?.peers.get(packet.source);
+    const listening = segment.destinationPort === BGP_PORT || (peer !== undefined && segment.destinationPort === peer.localPort);
+    if (!state || !peer || !listening) {
+      // Aucune connexion ni écoute pour ce segment : réinitialisation (RFC 9293 §3.5.2), sauf pour un RST.
+      if (segment.flags.rst) return;
+      this.emit("tcp.reset", { peer: packet.source, direction: "sent", reason: state ? "unknown-peer" : "no-listener" }, where);
+      const reset: TcpSegment = {
+        kind: "tcp",
+        sourcePort: segment.destinationPort,
+        destinationPort: segment.sourcePort,
+        sequence: segment.flags.ack ? segment.acknowledgment : 0,
+        acknowledgment: (segment.sequence + (segment.flags.syn ? 1 : 0)) >>> 0,
+        flags: { syn: false, ack: true, rst: true },
+        payload: null,
+      };
+      this.sendLocal(device, { source: packet.destination, destination: packet.source, ttl: 1, payload: reset }, { kind: "local" }, exchange);
+      return;
+    }
+    if (segment.flags.rst) {
+      this.emit("tcp.reset", { peer: peer.address, direction: "received", reason: "refused" }, where);
+      this.closeBgpSession(device, peer, "tcp-reset", false);
+      return;
+    }
+    if (segment.flags.syn && !segment.flags.ack) {
+      // Côté qui attend (Active) : SYN,ACK en réponse.
+      if (peer.initiator || peer.state !== "active") return;
+      peer.localPort = BGP_PORT;
+      peer.remotePort = segment.sourcePort;
+      peer.receiveNext = (segment.sequence + 1) >>> 0;
+      peer.sendNext = this.prng.nextInt(0x100000000);
+      peer.tcp = "syn-received";
+      this.emit("tcp.syn-received", { peer: peer.address, port: BGP_PORT }, where);
+      this.sendTcp(device, peer, { syn: true, ack: true, rst: false }, null, exchange ?? this.newBgpExchange());
+      return;
+    }
+    if (segment.flags.syn && segment.flags.ack) {
+      if (peer.tcp !== "syn-sent" || segment.acknowledgment !== peer.sendNext) return;
+      peer.receiveNext = (segment.sequence + 1) >>> 0;
+      this.sendTcp(device, peer, { syn: false, ack: true, rst: false }, null, exchange ?? this.newBgpExchange());
+      this.bgpConnected(device, state, peer);
+      return;
+    }
+    if (peer.tcp === "syn-received" && !segment.payload) {
+      if (segment.acknowledgment === peer.sendNext) this.bgpConnected(device, state, peer);
+      return;
+    }
+    if (peer.tcp !== "established" || !segment.payload) return;
+    peer.receiveNext = (peer.receiveNext + bgpBytes(segment.payload)) >>> 0;
+    this.onBgpMessage(device, state, peer, segment.payload, exchange);
+  }
+
+  private armHold(device: RuntimeDevice, peer: BgpPeer): void {
+    peer.holdExpiresAt = this.clock + peer.holdTime;
+    this.schedule(peer.holdExpiresAt, { type: "bgp-hold", deviceId: device.id, address: peer.address, generation: peer.generation }, true);
+  }
+
+  private onBgpMessage(device: RuntimeDevice, state: BgpState, peer: BgpPeer, message: BgpMessage, exchange: string | null): void {
+    const where = { device, exchange, pdu: message };
+    if (message.type === "notification") {
+      this.emit("bgp.notification-received", { peer: peer.address, error: message.error }, where);
+      this.closeBgpSession(device, peer, "notification", false);
+      return;
+    }
+    if (message.type === "open") {
+      this.emit("bgp.open-received", { peer: peer.address, as: message.myAs, holdTime: message.holdTime, bgpId: message.bgpId }, where);
+      if (peer.state !== "opensent") return;
+      if (message.myAs !== peer.remoteAs) {
+        this.sendBgp(device, peer, { kind: "bgp", type: "notification", error: "bad-peer-as" });
+        this.closeBgpSession(device, peer, "bad-peer-as", false);
+        return;
+      }
+      // Hold Time négocié : la plus petite des deux valeurs (RFC 4271 §4.2).
+      peer.holdTime = Math.min(this.parameters.bgpHoldTime, message.holdTime * 1e9);
+      peer.peerId = message.bgpId;
+      this.sendBgp(device, peer, { kind: "bgp", type: "keepalive" });
+      this.setBgpState(device, peer, "openconfirm", "open-received");
+      this.armHold(device, peer);
+      return;
+    }
+    if (message.type === "keepalive") {
+      this.emit("bgp.keepalive-received", { peer: peer.address }, where);
+      this.armHold(device, peer);
+      if (peer.state !== "openconfirm") return;
+      this.setBgpState(device, peer, "established", "keepalive-received");
+      peer.nextKeepaliveAt = this.clock + this.parameters.bgpKeepalive;
+      this.schedule(peer.nextKeepaliveAt, { type: "bgp-keepalive", deviceId: device.id, address: peer.address, generation: peer.generation }, true);
+      // Session établie : envoi de toute la table (Adj-RIB-Out vide jusque-là).
+      this.advertise(device, state, peer);
+      return;
+    }
+    if (peer.state !== "established") return;
+    this.armHold(device, peer);
+    let accepted = 0;
+    for (const prefix of message.withdrawn) peer.ribIn.delete(prefixKey(prefix));
+    if (message.attributes) {
+      const attributes = message.attributes;
+      for (const prefix of message.nlri) {
+        // Boucle d'AS : un chemin qui contient déjà notre AS est exclu (RFC 4271 §9.1.2).
+        if (attributes.asPath.includes(state.as)) {
+          this.emit("bgp.loop-rejected", { peer: peer.address, network: prefixKey(prefix), asPath: attributes.asPath.join(" "), as: state.as }, where);
+          peer.ribIn.delete(prefixKey(prefix));
+          continue;
+        }
+        accepted += 1;
+        peer.ribIn.set(prefixKey(prefix), { prefix, asPath: attributes.asPath, nextHop: attributes.nextHop });
+      }
+    }
+    this.emit("bgp.update-received", { peer: peer.address, announced: message.nlri.length, accepted, withdrawn: message.withdrawn.length }, where);
+    this.scheduleBgpDecision(device);
+  }
+
+  /** Fin de session : table du voisin oubliée, nouvelle décision ; nouvelle tentative après ConnectRetryTime, sauf interface tombée. */
+  private closeBgpSession(device: RuntimeDevice, peer: BgpPeer, event: string, linkDown: boolean): void {
+    peer.generation += 1;
+    peer.tcp = "closed";
+    peer.ribIn.clear();
+    peer.ribOut.clear();
+    peer.holdExpiresAt = null;
+    peer.nextKeepaliveAt = null;
+    peer.peerId = null;
+    this.setBgpState(device, peer, "idle", event);
+    this.scheduleBgpDecision(device);
+    if (!linkDown) this.schedule(this.clock + this.parameters.bgpConnectRetry, { type: "bgp-retry", deviceId: device.id, address: peer.address, generation: peer.generation }, true);
+  }
+
+  private onBgpStart(deviceId: string): void {
+    const device = this.device(deviceId);
+    const state = this.bgp.get(deviceId);
+    if (!state) return;
+    for (const peer of state.peers.values()) this.startBgpPeer(device, peer);
+    this.scheduleBgpDecision(device);
+  }
+
+  private onBgpTimer(deviceId: string, address: string, kind: "retry" | "hold" | "keepalive", generation: number): void {
+    const device = this.device(deviceId);
+    const state = this.bgp.get(deviceId);
+    const peer = state?.peers.get(address);
+    if (!state || peer?.generation !== generation) return;
+    if (kind === "retry") {
+      if (peer.state !== "established") this.startBgpPeer(device, peer);
+      return;
+    }
+    if (kind === "keepalive") {
+      if (peer.state !== "established") return;
+      this.sendBgp(device, peer, { kind: "bgp", type: "keepalive" });
+      peer.nextKeepaliveAt = this.clock + this.parameters.bgpKeepalive;
+      this.dirtyDevices.add(deviceId);
+      this.schedule(peer.nextKeepaliveAt, { type: "bgp-keepalive", deviceId, address, generation }, true);
+      return;
+    }
+    // Hold Timer : aucun message depuis Hold Time ; NOTIFICATION puis fin de session (RFC 4271 §8.2.2).
+    if (peer.holdExpiresAt === null || peer.holdExpiresAt > this.clock) return;
+    this.sendBgp(device, peer, { kind: "bgp", type: "notification", error: "hold-timer-expired" });
+    this.closeBgpSession(device, peer, "hold-timer-expired", false);
+  }
+
+  /** Interface vers un voisin tombée ou rétablie : session fermée aussitôt, ou redémarrée (choix NetForge). */
+  private bgpLinkChange(device: RuntimeDevice): void {
+    const state = this.bgp.get(device.id);
+    if (!state) return;
+    for (const peer of state.peers.values()) {
+      const port = this.bgpPort(device, peer.address);
+      if (!port && peer.state !== "idle") this.closeBgpSession(device, peer, "interface-down", true);
+      else if (port && peer.state === "idle") this.startBgpPeer(device, peer);
+    }
+    this.scheduleBgpDecision(device);
+  }
+
+  private scheduleBgpDecision(device: RuntimeDevice): void {
+    const state = this.bgp.get(device.id);
+    if (!state || state.decisionPending) return;
+    state.decisionPending = true;
+    this.schedule(this.clock, { type: "bgp-decision", deviceId: device.id });
+  }
+
+  /** Chemins candidats d'un réseau : réseau local annoncé (présent dans la table hors BGP) et chemins reçus, NEXT_HOP joignable. */
+  private bgpCandidates(device: RuntimeDevice, state: BgpState): Map<string, BgpCandidate[]> {
+    const candidates = new Map<string, BgpCandidate[]>();
+    const add = (key: string, candidate: BgpCandidate) => {
+      candidates.set(key, [...(candidates.get(key) ?? []), candidate]);
+    };
+    const igp = routingTable(device, this.isUp, [...this.ospfRoutes(device), ...this.ripRoutes(device)]);
+    for (const network of device.bgp?.networks ?? []) {
+      const value = parseIpv4(network.address);
+      if (value === null || !igp.some((route) => route.active && route.destination === value && route.prefixLength === network.prefixLength)) continue;
+      add(prefixKey(network), { prefix: network, asPath: [], nextHop: null, from: null, peerId: state.routerId });
+    }
+    for (const peer of state.peers.values()) {
+      if (peer.state !== "established") continue;
+      for (const [key, path] of peer.ribIn) {
+        if (!this.bgpPort(device, path.nextHop)) continue;
+        add(key, { prefix: path.prefix, asPath: path.asPath, nextHop: path.nextHop, from: peer.address, peerId: peer.peerId ?? peer.address });
+      }
+    }
+    for (const list of candidates.values()) list.sort(compareBgpCandidates);
+    return candidates;
+  }
+
+  /**
+   * Décision (RFC 4271 §9.1, sous-ensemble) : réseau local d'abord, puis
+   * AS_PATH le plus court, puis plus petit identifiant BGP, puis plus petite
+   * adresse du voisin ; le chemin retenu est installé et annoncé.
+   */
+  private onBgpDecision(deviceId: string): void {
+    const device = this.device(deviceId);
+    const state = this.bgp.get(deviceId);
+    if (!state) return;
+    state.decisionPending = false;
+    const candidates = this.bgpCandidates(device, state);
+    const next = new Map<string, BgpCandidate>();
+    for (const [key, list] of candidates) {
+      const best = list[0];
+      if (best) next.set(key, best);
+    }
+    for (const [key, best] of next) {
+      const before = state.locRib.get(key);
+      if (before && before.from === best.from && before.asPath.join() === best.asPath.join() && before.nextHop === best.nextHop) continue;
+      this.emit("bgp.best-path", { network: key, asPath: best.asPath.join(" "), nextHop: best.nextHop, from: best.from, local: best.from === null, alternatives: (candidates.get(key)?.length ?? 1) - 1 }, { device });
+    }
+    for (const key of state.locRib.keys()) if (!next.has(key)) this.emit("bgp.route-removed", { network: key }, { device });
+    state.locRib = next;
+    state.candidates = candidates;
+    this.dirtyDevices.add(deviceId);
+    for (const peer of state.peers.values()) if (peer.state === "established") this.advertise(device, state, peer);
+  }
+
+  /**
+   * Annonces vers un voisin externe (RFC 4271 §5.1.2, §5.1.3) : notre AS en
+   * tête de l'AS_PATH, NEXT_HOP = notre adresse sur le lien ; seuls les
+   * changements par rapport au dernier envoi partent (Adj-RIB-Out), un
+   * UPDATE par ensemble d'attributs, les retraits ensemble.
+   */
+  private advertise(device: RuntimeDevice, state: BgpState, peer: BgpPeer): void {
+    if (!peer.localAddress) return;
+    const desired = new Map<string, { readonly prefix: BgpPrefix; readonly attributes: BgpPathAttributes }>();
+    for (const [key, best] of state.locRib) {
+      desired.set(key, { prefix: best.prefix, attributes: { origin: "igp", asPath: [state.as, ...best.asPath], nextHop: peer.localAddress } });
+    }
+    const withdrawn = [...peer.ribOut.keys()].filter((key) => !desired.has(key)).map((key) => parsePrefixKey(key));
+    const groups = new Map<string, { attributes: BgpPathAttributes; nlri: BgpPrefix[] }>();
+    for (const [key, item] of desired) {
+      const signature = JSON.stringify(item.attributes);
+      if (peer.ribOut.get(key) === signature) continue;
+      const group = groups.get(signature) ?? { attributes: item.attributes, nlri: [] };
+      group.nlri.push(item.prefix);
+      groups.set(signature, group);
+      peer.ribOut.set(key, signature);
+    }
+    for (const prefix of withdrawn) peer.ribOut.delete(prefixKey(prefix));
+    if (withdrawn.length > 0) this.sendBgp(device, peer, { kind: "bgp", type: "update", withdrawn, attributes: null, nlri: [] });
+    for (const group of groups.values()) this.sendBgp(device, peer, { kind: "bgp", type: "update", withdrawn: [], attributes: group.attributes, nlri: group.nlri });
+  }
+
+  /** Routes BGP retenues (reçues d'un voisin), dans la table de routage. */
+  private bgpRoutes(device: RuntimeDevice): Route[] {
+    const state = this.bgp.get(device.id);
+    if (!state) return [];
+    return [...state.locRib.values()].flatMap((best) => {
+      if (best.from === null || best.nextHop === null) return [];
+      const destination = parseIpv4(best.prefix.address);
+      const nextHop = parseIpv4(best.nextHop);
+      if (destination === null || nextHop === null) return [];
+      const port = this.bgpPort(device, best.nextHop);
+      return [{ kind: "bgp" as const, destination, prefixLength: best.prefix.prefixLength, nextHop, port, active: port !== null, reason: port ? null : ("next-hop-unreachable" as const), metric: best.asPath.length }];
+    });
+  }
+
+  private bgpView(device: RuntimeDevice): DeviceView["bgp"] {
+    const state = this.bgp.get(device.id);
+    if (!state) return null;
+    return {
+      as: state.as,
+      routerId: state.routerId,
+      peers: [...state.peers.values()].map((peer) => ({
+        address: peer.address,
+        remoteAs: peer.remoteAs,
+        state: peer.state,
+        initiator: peer.initiator,
+        localAddress: peer.localAddress,
+        peerId: peer.peerId,
+        received: peer.ribIn.size,
+        holdExpiresAt: peer.holdExpiresAt,
+        nextKeepaliveAt: peer.nextKeepaliveAt,
+      })),
+      table: [...state.candidates.entries()]
+        .sort(([a], [b]) => comparePrefixKeys(a, b))
+        .flatMap(([key, list]) => list.map((candidate, index) => ({ network: key, asPath: candidate.asPath, nextHop: candidate.nextHop, from: candidate.from, best: index === 0 }))),
+    };
+  }
+
   // ---------------------------------------------------------------- VRRP version 3
 
   private newVrrpExchange(): string {
@@ -3862,6 +4385,8 @@ export class Simulation {
     this.dirtyDevices.add(deviceId);
     this.emit("ospf.spf", { lsas: lsaCount, routes: routes.length, changes, areas: state.lsdbs.size }, { device });
     this.updateSummaries(device, state, attached, own, intra, inter);
+    // Réseaux annoncés par BGP : présents ou non dans la table selon les routes OSPF.
+    this.scheduleBgpDecision(device);
   }
 
   /**
@@ -4189,6 +4714,7 @@ export class Simulation {
       rip: this.ripView(device),
       ospf: this.ospfView(device),
       vrrp: this.vrrpView(device),
+      bgp: this.bgpView(device),
       routes:
         device.kind === "switch"
           ? []

@@ -54,6 +54,10 @@ export interface SimulationParameters {
   readonly ospfRxmtInterval: SimTime;
   /** VRRP : intervalle des annonces du maître (Advertisement_Interval, 1 s par défaut, RFC 5798 §6.1). */
   readonly vrrpAdvertisementInterval: SimTime;
+  /** BGP : valeurs suggérées par RFC 4271 §10 — ConnectRetryTime 120 s, HoldTime 90 s, KeepaliveTime 30 s (1/3). */
+  readonly bgpConnectRetry: SimTime;
+  readonly bgpHoldTime: SimTime;
+  readonly bgpKeepalive: SimTime;
   readonly limits: SimulationLimits;
 }
 
@@ -104,6 +108,9 @@ export const DEFAULT_PARAMETERS: SimulationParameters = {
   ospfDeadInterval: fromSeconds(40),
   ospfRxmtInterval: fromSeconds(5),
   vrrpAdvertisementInterval: fromSeconds(1),
+  bgpConnectRetry: fromSeconds(120),
+  bgpHoldTime: fromSeconds(90),
+  bgpKeepalive: fromSeconds(30),
   limits: DEFAULT_LIMITS,
 };
 

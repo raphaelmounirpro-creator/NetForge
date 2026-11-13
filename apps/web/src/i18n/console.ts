@@ -54,7 +54,9 @@ export function showRoutes(view: DeviceView): string[] {
   return table(
     [c.kind, c.destination, c.nextHop, c.port, c.state],
     view.routes.map((route) => [
-      route.metric === null ? kinds[route.kind] : fill(messages.simulation.runtime.routeMetric, { kind: kinds[route.kind], metric: route.metric }),
+      route.metric === null
+        ? kinds[route.kind]
+        : fill(route.kind === "bgp" ? messages.simulation.runtime.routeBgp : messages.simulation.runtime.routeMetric, { kind: kinds[route.kind], metric: route.metric }),
       `${route.destination}/${String(route.prefixLength)}`,
       route.nextHop ?? messages.simulation.runtime.direct,
       route.portId ?? "—",
@@ -218,6 +220,28 @@ export function showOspfDatabase(view: DeviceView): string[] {
         : `${fill(v.ospfNetwork, { mask: lsa.mask ?? "" })} ; ${lsa.attachedRouters.join(", ")}`,
     ]),
   );
+}
+
+/** « show bgp » : sessions avec les voisins, puis tous les chemins connus (le retenu marqué). */
+export function showBgp(view: DeviceView): string[] {
+  const bgp = view.bgp;
+  if (!bgp) return [t.bgpNone];
+  const s = messages.simulation;
+  const r = s.runtime;
+  const c = t.columns;
+  return [
+    fill(r.bgpRouter, { as: bgp.as, routerId: bgp.routerId }),
+    "",
+    ...table(
+      [c.neighbor, c.remoteAs, c.state, c.received],
+      bgp.peers.map((peer) => [peer.address, String(peer.remoteAs), s.bgpStates[peer.state], String(peer.received)]),
+    ),
+    "",
+    ...table(
+      [c.network, c.asPath, c.nextHop, c.best],
+      bgp.table.map((route) => [route.network, route.asPath.length === 0 ? "—" : route.asPath.join(" "), route.nextHop ?? r.bgpLocal, route.best ? r.bgpBest : r.bgpAlternative]),
+    ),
+  ];
 }
 
 /** « show vrrp » : groupes VRRP, état, priorité, maître connu et échéances calculés par le moteur. */

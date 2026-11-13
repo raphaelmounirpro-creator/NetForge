@@ -13,6 +13,9 @@ import {
   setInterfaceDhcp,
   setInterfaceIpv4,
   setOspfInterface,
+  setBgpAs,
+  setBgpNeighbor,
+  setBgpNetwork,
   setRipInterface,
   setVrrpGroup,
   setStp,
@@ -21,6 +24,7 @@ import {
 } from "./commands.js";
 import { DHCP_LEASE_DEFAULT, formatLeaseDuration, parseDhcpPoolInput } from "./dhcp.js";
 import { isDnsAddress, normalizeDnsName, parseDnsRecordInput, sortedDnsRecords } from "./dns.js";
+import { BGP_AS_MAX, BGP_AS_MIN, isBgpAs } from "./bgp.js";
 import { error, type Issue } from "./issues.js";
 import { VRID_MAX, VRID_MIN, VRRP_DEFAULT_PRIORITY, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority } from "./vrrp.js";
 import {
@@ -71,6 +75,7 @@ export type CliRequest =
   | { readonly kind: "show-ospf" }
   | { readonly kind: "show-ospf-database" }
   | { readonly kind: "show-vrrp" }
+  | { readonly kind: "show-bgp" }
   | { readonly kind: "ipconfig" }
   /** Client DHCP d'un PC : renouveler ou libérer le bail (demande d'exécution). */
   | { readonly kind: "dhcp"; readonly action: "renew" | "release" }
@@ -193,6 +198,13 @@ function stpOf(doc: NfgDocument, device: Device): { enabled: boolean; priority: 
 function ospfWith(doc: NfgDocument, device: Device, interfaceId: string, change: { mode: OspfMode }): OspfInterface {
   const current = doc.configurations[device.id]?.ospfInterfaces[interfaceId];
   return { mode: change.mode, cost: current?.cost ?? OSPF_DEFAULT_COST, priority: current?.priority ?? OSPF_DEFAULT_PRIORITY, area: current?.area ?? OSPF_BACKBONE_AREA };
+}
+
+/** Numéro d'AS saisi en décimal sans zéro initial, de 1 à 65535 ; null sinon. */
+function asNumber(text: string): number | null {
+  if (!/^[1-9]\d{0,4}$/.test(text)) return null;
+  const value = Number(text);
+  return isBgpAs(value) ? value : null;
 }
 
 function pcPort(device: Device): string {
@@ -521,6 +533,16 @@ const COMMANDS: readonly CommandSpec[] = [
     required: [],
     maxArgs: 0,
     run: ({ mode }) => ok(mode, { request: { kind: "show-ospf-database" } }),
+  },
+  {
+    id: "show-bgp",
+    words: ["show", "bgp"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-bgp" } }),
   },
   {
     id: "show-vrrp",
@@ -959,6 +981,68 @@ const COMMANDS: readonly CommandSpec[] = [
     },
   },
   {
+    id: "bgp-as",
+    words: ["bgp", "as"],
+    syntax: "<as>",
+    modes: ["config"],
+    devices: ["router"],
+    required: ["as"],
+    maxArgs: 1,
+    run: ({ device, mode, args }) => {
+      const as = asNumber(args[0] ?? "");
+      if (as === null) return invalid(mode, [error("bgp.invalid-as", { value: args[0] ?? "", min: BGP_AS_MIN, max: BGP_AS_MAX })]);
+      return ok(mode, { edit: (doc) => setBgpAs(doc, { deviceId: device.id, as }) });
+    },
+  },
+  {
+    id: "bgp-disable",
+    words: ["bgp", "disable"],
+    syntax: "",
+    modes: ["config"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => {
+      return ok(mode, { edit: (doc) => setBgpAs(doc, { deviceId: device.id, as: null }) });
+    },
+  },
+  {
+    id: "bgp-neighbor",
+    words: ["bgp", "neighbor"],
+    syntax: "<adresse> remote-as <as> | <adresse> delete",
+    modes: ["config"],
+    devices: ["router"],
+    required: ["adresse"],
+    maxArgs: 3,
+    run: ({ device, mode, args }) => {
+      const [address = "", keyword = "", value] = args;
+      if (keyword.toLowerCase() === "delete") return ok(mode, { edit: (doc) => setBgpNeighbor(doc, { deviceId: device.id, address, remoteAs: null }) });
+      if (keyword.toLowerCase() !== "remote-as") return keyword === "" ? fail(mode, "cli.missing-argument", { argument: "remote-as" }) : fail(mode, "cli.unexpected-argument", { word: keyword });
+      if (value === undefined) return fail(mode, "cli.missing-argument", { argument: "as" });
+      const remoteAs = asNumber(value);
+      if (remoteAs === null) return invalid(mode, [error("bgp.invalid-as", { value, min: BGP_AS_MIN, max: BGP_AS_MAX })]);
+      return ok(mode, { edit: (doc) => setBgpNeighbor(doc, { deviceId: device.id, address, remoteAs }) });
+    },
+  },
+  {
+    id: "bgp-network",
+    words: ["bgp", "network"],
+    syntax: "<réseau>/<préfixe> [delete]",
+    modes: ["config"],
+    devices: ["router"],
+    required: ["réseau"],
+    maxArgs: 3,
+    run: ({ device, mode, args }) => {
+      const { address, mask, rest } = splitCidr(args);
+      const parsed = parseIpv4Input(address, mask);
+      if (!parsed.ok) return invalid(mode, parsed.errors);
+      const [keyword] = rest;
+      if (keyword !== undefined && keyword.toLowerCase() !== "delete") return fail(mode, "cli.unexpected-argument", { word: keyword });
+      const network = { address: parsed.ipv4.address, prefixLength: parsed.ipv4.prefixLength };
+      return ok(mode, { edit: (doc) => setBgpNetwork(doc, { deviceId: device.id, network, present: keyword === undefined }) });
+    },
+  },
+  {
     id: "route-add",
     words: ["route", "add"],
     syntax: "<réseau>/<préfixe> via <prochain-saut>",
@@ -1212,6 +1296,12 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
   if (config?.dnsRecords) {
     lines.push("dns enable");
     for (const record of sortedDnsRecords(config.dnsRecords)) lines.push(`dns record ${record.name} ${record.address}`);
+  }
+  // BGP : AS, voisins puis réseaux annoncés.
+  if (config?.bgp) {
+    lines.push(`bgp as ${String(config.bgp.as)}`);
+    for (const neighbor of config.bgp.neighbors) lines.push(`bgp neighbor ${neighbor.address} remote-as ${String(neighbor.remoteAs)}`);
+    for (const network of config.bgp.networks) lines.push(`bgp network ${network.address}/${String(network.prefixLength)}`);
   }
   // STP : seulement ce qui diffère d'un switch neuf (activé, priorité 32768).
   if (config?.stp && !config.stp.enabled) lines.push("spanning-tree disable");

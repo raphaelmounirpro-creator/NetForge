@@ -1,8 +1,8 @@
-import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setOspfInterface, setRipInterface, setVrrpGroup, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setBgpAs, setOspfInterface, setRipInterface, setVrrpGroup, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
-import { dhcpScenario, dnsScenario, ftthScenario, ospfScenario, ripScenario, vrrpScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
+import { dhcpScenario, dnsScenario, ftthScenario, bgpScenario, ospfScenario, ripScenario, vrrpScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
 
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(result.errors.map((issue) => issue.code).join(", "));
@@ -236,6 +236,15 @@ describe("fonctions autorisées", () => {
     expect(forbiddenChanges(initial, lower, ["simulation", "addressing"])).toEqual(["routes"]);
     expect(forbiddenChanges(initial, lower, ["routes"])).toEqual([]);
     const steps = [{ kind: "fix" as const, title: "Joindre PC2", instruction: "Vérifiez la passerelle.", criteria: [{ kind: "ping-succeeds" as const, from: "pc1", to: "10.3.0.10" }], points: 10 }];
+    expect(gradeSubmission(exerciseOn(initial, { allowed: ["simulation"], steps, hints: [] }), initial, [], 0)).toMatchObject({ ok: true, score: 10, max: 10 });
+  });
+
+  it("protègent BGP par la fonction « routes » et notent un ping après l'établissement des sessions", () => {
+    const initial = bgpScenario();
+    const otherAs = ok(setBgpAs(initial, { deviceId: "r1", as: 65010 }));
+    expect(forbiddenChanges(initial, otherAs, ["simulation", "addressing"])).toEqual(["routes"]);
+    expect(forbiddenChanges(initial, otherAs, ["routes"])).toEqual([]);
+    const steps = [{ kind: "fix" as const, title: "Joindre PC3", instruction: "Vérifiez BGP.", criteria: [{ kind: "ping-succeeds" as const, from: "pc1", to: "10.3.0.10" }], points: 10 }];
     expect(gradeSubmission(exerciseOn(initial, { allowed: ["simulation"], steps, hints: [] }), initial, [], 0)).toMatchObject({ ok: true, score: 10, max: 10 });
   });
 

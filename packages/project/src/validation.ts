@@ -26,7 +26,47 @@ import { parseSubinterface, switchportOf } from "./vlan.js";
  * passerelle erronée ou une adresse en double.
  */
 export function validateDocument(doc: NfgDocument): Issue[] {
-  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkDhcp(doc), ...checkVrrp(doc), ...checkOspfAreas(doc), ...checkFaults(doc)];
+  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkDhcp(doc), ...checkVrrp(doc), ...checkOspfAreas(doc), ...checkBgp(doc), ...checkFaults(doc)];
+}
+
+/**
+ * BGP (v12) : routeurs seulement ; voisins externes (AS différent), uniques ;
+ * réseaux annoncés en adresse de réseau, uniques (erreurs). Voisin hors des
+ * réseaux directement connectés : avertissement (session impossible, eBGP à
+ * un saut).
+ */
+function checkBgp(doc: NfgDocument): Issue[] {
+  const issues: Issue[] = [];
+  const interfaces = configuredInterfaces(doc);
+  for (const device of doc.topology.devices) {
+    const bgp = doc.configurations[device.id]?.bgp;
+    if (!bgp) continue;
+    const base = { deviceId: device.id, deviceName: device.name };
+    if (getModel(device.model).kind !== "router") {
+      issues.push(error("bgp.not-supported", base));
+      continue;
+    }
+    const own = interfaces.filter((item) => item.device.id === device.id);
+    const neighbors = new Set<string>();
+    for (const neighbor of bgp.neighbors) {
+      if (neighbors.has(neighbor.address)) issues.push(error("bgp.duplicate-neighbor", { ...base, address: neighbor.address }));
+      neighbors.add(neighbor.address);
+      if (neighbor.remoteAs === bgp.as) issues.push(error("bgp.internal-neighbor", { ...base, address: neighbor.address, as: bgp.as }));
+      const value = parseIpv4(neighbor.address) ?? 0;
+      if (!own.some((item) => inSameSubnet(value, parseIpv4(item.ipv4.address) ?? 0, item.ipv4.prefixLength) && item.ipv4.address !== neighbor.address)) {
+        issues.push(warning("bgp.neighbor-not-connected", { ...base, address: neighbor.address }));
+      }
+    }
+    const networks = new Set<string>();
+    for (const network of bgp.networks) {
+      const cidr = `${network.address}/${String(network.prefixLength)}`;
+      if (networks.has(cidr)) issues.push(error("bgp.duplicate-network", { ...base, network: cidr }));
+      networks.add(cidr);
+      const value = parseIpv4(network.address) ?? 0;
+      if (networkAddress(value, network.prefixLength) !== value) issues.push(error("bgp.not-network-address", { ...base, network: cidr, expected: formatIpv4(networkAddress(value, network.prefixLength)) }));
+    }
+  }
+  return issues;
 }
 
 /**

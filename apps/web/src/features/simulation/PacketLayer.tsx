@@ -55,6 +55,7 @@ function frameLabel(entry: TraceEntry): string {
   if (carried.kind === "udp") return carried.payload.kind.toUpperCase();
   if (carried.kind === "ospf") return "OSPF";
   if (carried.kind === "vrrp") return "VRRP";
+  if (carried.kind === "tcp") return carried.payload ? "BGP" : "TCP";
   return "ICMP";
 }
 

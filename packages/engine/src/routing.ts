@@ -10,12 +10,13 @@ import type { RuntimeDevice, RuntimePort } from "./network.js";
  * - « gateway » : route par défaut d'un PC vers sa passerelle ;
  * - « rip » : route apprise par RIP (état d'exécution, fournie par le moteur) ;
  * - « ospf » : route OSPF intra-zone (plus court chemin sur la base d'états des liens) ;
- * - « ospf-inter » : route OSPF inter-zones (résumé d'un routeur de bordure).
+ * - « ospf-inter » : route OSPF inter-zones (résumé d'un routeur de bordure) ;
+ * - « bgp » : route apprise d'un voisin BGP externe.
  *
  * Simplification documentée (docs/protocols/ipv4-routage.md) : le prochain
  * saut d'une route doit appartenir à un réseau directement connecté.
  */
-export type RouteKind = "connected" | "static" | "gateway" | "ospf" | "ospf-inter" | "rip";
+export type RouteKind = "connected" | "static" | "gateway" | "bgp" | "ospf" | "ospf-inter" | "rip";
 export type InactiveReason = "interface-down" | "next-hop-unreachable";
 
 export interface Route {
@@ -33,9 +34,9 @@ export interface Route {
 
 /**
  * Préférence en cas de préfixes de même longueur (distance administrative,
- * choix NetForge) : connecté, puis configuré, puis OSPF, puis RIP.
+ * choix NetForge) : connecté, puis configuré, puis BGP externe, puis OSPF, puis RIP.
  */
-const PREFERENCE: Record<RouteKind, number> = { connected: 0, static: 1, gateway: 1, ospf: 110, "ospf-inter": 110, rip: 120 };
+const PREFERENCE: Record<RouteKind, number> = { connected: 0, static: 1, gateway: 1, bgp: 20, ospf: 110, "ospf-inter": 110, rip: 120 };
 
 function contains(route: Pick<Route, "destination" | "prefixLength">, address: number): boolean {
   return networkAddress(address, route.prefixLength) === route.destination;

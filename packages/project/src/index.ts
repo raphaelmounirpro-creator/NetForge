@@ -2,6 +2,7 @@
  * Modèle de projet NetForge : format .nfg.json, catalogue, IPv4,
  * validation et commandes d'édition. Indépendant de React et du stockage.
  */
+export * from "./bgp.js";
 export * from "./catalog.js";
 export * from "./cli.js";
 export * from "./commands.js";

@@ -169,6 +169,18 @@ function migrateV10toV11(doc: Record<string, unknown>): Record<string, unknown> 
   };
 }
 
+/** Version 11 → 12 : aucun routeur ne participe à BGP. */
+function migrateV11toV12(doc: Record<string, unknown>): Record<string, unknown> {
+  const configs = doc["configurations"];
+  return {
+    ...doc,
+    schemaVersion: 12,
+    configurations: isRecord(configs)
+      ? Object.fromEntries(Object.entries(configs).map(([id, config]) => [id, isRecord(config) ? { ...config, bgp: null } : config]))
+      : configs,
+  };
+}
+
 /**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
@@ -184,6 +196,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   8: migrateV8toV9,
   9: migrateV9toV10,
   10: migrateV10toV11,
+  11: migrateV11toV12,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

@@ -31,6 +31,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `show dns` (routeur) | Noms enregistrés et réponses données par le service DNS (calculés par le moteur) |
 | | `show rip` (routeur) | Interfaces RIP, prochaine annonce et table RIP (métrique, prochain saut, expiration) calculées par le moteur |
 | | `show ospf` (routeur) | Identifiant OSPF, état des interfaces (coût, priorité, DR, BDR) et voisins (état, rôle, instant de perte) |
+| | `show bgp` (routeur) | AS et identifiant, voisins (AS, état, réseaux reçus), table BGP (chemin d'AS, prochain saut, retenu ou de secours) |
 | | `show vrrp` (routeur) | Groupes VRRP : VRID, adresse et MAC virtuelles, priorité, préemption, état, maître connu, échéance |
 | | `show ospf database` (routeur) | Base d'états des liens : type, identifiant, annonceur, séquence, âge et contenu de chaque LSA |
 | | `show config` | Configuration réécrite en commandes (rejouable) |
@@ -53,6 +54,9 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `rip enable` / `rip passive` / `rip disable` (routeur) | Interface active dans RIP / réseau annoncé sans message RIP / retirée de RIP (interface adressée) |
 | | `ospf enable` / `ospf passive` / `ospf disable` (routeur) | Interface active dans OSPF, zone 0 / réseau décrit sans paquet OSPF / retirée d'OSPF (interface adressée ; coût et priorité conservés) |
 | | `vrrp <vrid> <adresse> [priority <priorité>] [preempt on\|off]` / `vrrp clear` (routeur) | Groupe VRRP de l'interface : VRID 1 à 255, adresse virtuelle du réseau de l'interface, priorité 1 à 254 (100 par défaut), préemption (activée par défaut) / retrait |
+| | `bgp as <as>` / `bgp disable` (routeur, mode configuration) | Active BGP avec cet AS (1 à 65535) ou le désactive |
+| | `bgp neighbor <adresse> remote-as <as>` / `bgp neighbor <adresse> delete` | Déclare un voisin externe directement connecté, ou le retire |
+| | `bgp network <réseau>/<préfixe> [delete]` | Annonce un réseau présent dans la table de routage, ou cesse de l'annoncer |
 | | `ospf area <zone>` (routeur) | Zone de l'interface OSPF : décimal (« 1 ») ou notation pointée (« 0.0.0.1 ») ; 0 = dorsale (défaut) |
 | | `ospf cost <coût>` / `ospf priority <priorité>` (routeur) | Coût de 1 à 65535 (10 par défaut) / priorité de 0 à 255 pour l'élection du DR (1 par défaut) ; interface déjà dans OSPF |
 | Interface d'un switch (`SW1(config ge1)>`) | `access vlan <vlan>` | Port d'accès dans le VLAN (1 à 4094 ; `access vlan 1` revient au défaut) |

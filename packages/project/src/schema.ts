@@ -2,6 +2,7 @@ import { z } from "zod";
 import { CATALOG_VERSION, DEVICE_MODEL_IDS } from "./catalog.js";
 import { DHCP_LEASE_MAX, DHCP_LEASE_MIN } from "./dhcp.js";
 import { DNS_MAX_RECORDS, normalizeDnsName } from "./dns.js";
+import { BGP_AS_MAX, BGP_AS_MIN, BGP_MAX_NEIGHBORS, BGP_MAX_NETWORKS } from "./bgp.js";
 import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_MODES, OSPF_PRIORITY_MAX, parseOspfArea } from "./ospf.js";
 import { RIP_MODES } from "./rip.js";
 import { isIpv4Address } from "./ipv4.js";
@@ -10,17 +11,17 @@ import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
 import { VRID_MAX, VRID_MIN, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN } from "./vrrp.js";
 
 /**
- * Format d'échange .nfg.json, version 11 (v2 : routes statiques ; v3 : annotations ;
+ * Format d'échange .nfg.json, version 12 (v2 : routes statiques ; v3 : annotations ;
  * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces —,
  * STP par switch ; v6 : DHCP — plages des routeurs, adressage automatique des postes ;
- * v7 : DNS ; v8 : RIP ; v9 : OSPF en zone unique ; v10 : VRRP ; v11 : zones OSPF).
+ * v7 : DNS ; v8 : RIP ; v9 : OSPF en zone unique ; v10 : VRRP ; v11 : zones OSPF ; v12 : BGP).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 12;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -160,6 +161,14 @@ const deviceConfigSchema = z.strictObject({
       preempt: z.boolean(),
     }),
   ),
+  /** BGP-4 (routeurs uniquement, v12) : AS, voisins externes et réseaux annoncés ; null sans BGP. */
+  bgp: z
+    .strictObject({
+      as: z.int().min(BGP_AS_MIN).max(BGP_AS_MAX),
+      neighbors: z.array(z.strictObject({ address: ipv4AddressSchema, remoteAs: z.int().min(BGP_AS_MIN).max(BGP_AS_MAX) })).max(BGP_MAX_NEIGHBORS),
+      networks: z.array(z.strictObject({ address: ipv4AddressSchema, prefixLength: z.int().min(0).max(32) })).max(BGP_MAX_NETWORKS),
+    })
+    .nullable(),
 });
 
 const deviceSchema = z.strictObject({

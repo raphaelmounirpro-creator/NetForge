@@ -77,6 +77,18 @@ export const ISSUE_CODES = [
   "ospf.invalid-area",
   "ospf.abr-without-backbone",
   "ospf.area-mismatch",
+  // BGP
+  "bgp.not-supported",
+  "bgp.not-enabled",
+  "bgp.invalid-as",
+  "bgp.internal-neighbor",
+  "bgp.duplicate-neighbor",
+  "bgp.neighbor-not-found",
+  "bgp.neighbor-not-connected",
+  "bgp.not-network-address",
+  "bgp.duplicate-network",
+  "bgp.network-not-found",
+  "bgp.too-many",
   // VRRP
   "vrrp.not-supported",
   "vrrp.interface-not-addressed",

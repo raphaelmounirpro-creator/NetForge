@@ -1,5 +1,6 @@
 import {
   COMMAND_ERROR_CODES,
+  bgpScenario,
   TRACE_CODES,
   createSimulation,
   dhcpScenario,
@@ -565,6 +566,75 @@ describe("observation VRRP sur des échanges réels", () => {
       ["Intervalle maximal", "100 cs (1,00 s)"],
       ["Adresses virtuelles", "192.168.1.1"],
     ]);
+  });
+});
+
+describe("observation BGP sur des échanges réels", () => {
+  const silent = new ScenarioBuilder("bgp-hold", "Voisin derrière un switch")
+    .device("r1", "R-200", 0, 0).device("sw1", "S-24", 200, 0).device("r2", "R-200", 400, 0)
+    .link("r1", "ge0", "sw1", "ge1").link("sw1", "ge2", "r2", "ge0").ip("r1", "ge0", "10.0.0.1/24").ip("r2", "ge0", "10.0.0.2/24")
+    .bgp("r1", 65001, [["10.0.0.2", 65002]], []).bgp("r2", 65002, [["10.0.0.1", 65001]], [])
+    .build();
+  const lonely = new ScenarioBuilder("bgp-rst", "Voisin non configuré")
+    .device("r1", "R-200", 0, 0).device("r2", "R-200", 200, 0)
+    .link("r1", "ge0", "r2", "ge0").ip("r1", "ge0", "10.0.0.1/30").ip("r2", "ge0", "10.0.0.2/30")
+    .bgp("r2", 65002, [["10.0.0.1", 65001]], [])
+    .build();
+  const wrongAs = new ScenarioBuilder("bgp-as", "AS inattendu")
+    .device("r1", "R-200", 0, 0).device("r2", "R-200", 200, 0)
+    .link("r1", "ge0", "r2", "ge0").ip("r1", "ge0", "10.0.0.1/30").ip("r2", "ge0", "10.0.0.2/30")
+    .bgp("r1", 65001, [["10.0.0.2", 65099]], []).bgp("r2", 65002, [["10.0.0.1", 65001]], [])
+    .build();
+  const converge: SimCommand = { type: "clear-table", deviceId: "r1", table: "arp" };
+  // Triangle : lien R1–R3 (l6) coupé ; voisin muet derrière un switch (l2) ; voisin non configuré ; AS inattendu.
+  const runs = [
+    run(bgpScenario(), [converge, { type: "set-link", linkId: "l6", up: false }]),
+    run(silent, [converge, { type: "set-link", linkId: "l2", up: false }]),
+    run(lonely, []),
+    run(wrongAs, []),
+    // Réseau de PC1 (l1) hors service : R1 cesse de l'annoncer, les autres le retirent.
+    run(bgpScenario(), [converge, { type: "set-link", linkId: "l1", up: false }]),
+  ];
+
+  it("explique chaque décision BGP et TCP aux deux niveaux, sans paramètre manquant", () => {
+    const seen = new Set<string>();
+    for (const { trace, snapshot } of runs) {
+      const names = buildNameIndex(snapshot.devices);
+      for (const entry of trace) {
+        if (!entry.code.startsWith("bgp.") && !entry.code.startsWith("tcp.")) continue;
+        seen.add(entry.code);
+        for (const level of ["beginner", "technical"] as const) {
+          expect(formatTrace(entry, names, level), entry.code + " " + level).not.toMatch(/\{\w+\}|undefined|null|NaN/);
+        }
+      }
+    }
+    for (const code of TRACE_CODES.filter((item) => item.startsWith("bgp.") || item.startsWith("tcp."))) expect(seen, code).toContain(code);
+  });
+
+  it("formule les explications attendues, classe BGP dans le routage dynamique et inspecte un UPDATE", () => {
+    const { trace, snapshot } = runs[0] ?? { trace: [], snapshot: undefined };
+    if (!snapshot) throw new Error("scénario attendu");
+    const names = buildNameIndex(snapshot.devices);
+    const text = (predicate: (entry: TraceEntry) => boolean) => {
+      const entry = trace.find(predicate);
+      if (!entry) throw new Error("décision attendue");
+      return formatTrace(entry, names);
+    };
+    expect(text((entry) => entry.code === "bgp.loop-rejected" && entry.deviceId === "r3" && entry.params["network"] === "10.3.0.0/24" && entry.params["peer"] === "10.13.0.1")).toBe(
+      "R3 rejette 10.3.0.0/24 reçu de 10.13.0.1 : le chemin 65001 65003 contient déjà son AS 65003 (boucle).",
+    );
+    expect(text((entry) => entry.code === "bgp.best-path" && entry.deviceId === "r1" && entry.params["network"] === "10.3.0.0/24" && entry.params["asPath"] === "65002 65003")).toBe(
+      "R1 retient pour 10.3.0.0/24 le chemin 65002 65003 par 10.12.0.2 (0 autre(s) chemin(s) connu(s)).",
+    );
+    expect(traceCategory("bgp.best-path")).toBe("routing");
+    const reset = runs[2]?.trace.find((entry) => entry.code === "tcp.reset" && entry.deviceId === "r1");
+    expect(reset && isLossOrError(reset)).toBe(true);
+    const update = trace.find((entry) => entry.code === "eth.transmit" && entry.pdu?.kind === "ethernet" && entry.pdu.payload.kind === "ipv4" && entry.pdu.payload.payload.kind === "tcp" && entry.pdu.payload.payload.payload?.type === "update");
+    if (!update?.pdu) throw new Error("UPDATE attendu");
+    const layers = pduLayers(update.pdu, names);
+    expect(layers.map((layer) => layer.id)).toEqual(["ethernet", "ipv4", "tcp", "bgp"]);
+    expect(layers[1]?.fields).toContainEqual(["Protocole transporté", "6 (TCP)"]);
+    expect(layers[3]?.fields.map(([labelText]) => labelText)).toEqual(["Type", "Réseaux retirés", "ORIGIN", "AS_PATH", "NEXT_HOP", "Réseaux annoncés"]);
   });
 });
 

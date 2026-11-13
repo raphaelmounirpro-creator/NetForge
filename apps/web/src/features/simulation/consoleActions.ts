@@ -1,6 +1,6 @@
 import { cliPrompt, configurationCommands, interpret, type CliRequest } from "@netforge/project";
 import { fill, formatIssue, messages } from "../../i18n";
-import { formatCliError, helpLines, ipconfig, showArp, showDhcp, showDns, showInterfaces, showMac, showOspf, showOspfDatabase, showRip, showVrrp, showRoutes, showStp, showVlans } from "../../i18n/console";
+import { formatCliError, helpLines, ipconfig, showArp, showDhcp, showDns, showInterfaces, showMac, showOspf, showOspfDatabase, showRip, showVrrp, showBgp, showRoutes, showStp, showVlans } from "../../i18n/console";
 import { formatCommandError } from "../../i18n/simulation";
 import { useLabStore } from "../lab/store";
 import { consoleKey, EMPTY_CONSOLE, useConsoleStore } from "./consoleStore";
@@ -111,6 +111,9 @@ async function handleRequest(projectId: string, deviceId: string, key: string, r
       return;
     case "show-ospf-database":
       runtime(() => (view ? showOspfDatabase(view) : []));
+      return;
+    case "show-bgp":
+      runtime(() => (view ? showBgp(view) : []));
       return;
     case "show-vrrp":
       runtime(() => (view ? showVrrp(view) : []));

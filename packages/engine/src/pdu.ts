@@ -340,7 +340,85 @@ export function vrrpBytes(packet: VrrpAdvertisement): number {
   return 8 + 4 * packet.addresses.length;
 }
 
-export type Ipv4Payload = IcmpMessage | UdpDatagram | OspfPacket | VrrpAdvertisement;
+/** Réseau annoncé ou retiré par BGP (préfixe IPv4). */
+export interface BgpPrefix {
+  readonly address: string;
+  readonly prefixLength: number;
+}
+
+/** Attributs de chemin modélisés (RFC 4271 §4.3, §5) : ORIGIN (IGP), AS_PATH (séquence d'AS) et NEXT_HOP. */
+export interface BgpPathAttributes {
+  readonly origin: "igp";
+  readonly asPath: readonly number[];
+  readonly nextHop: string;
+}
+
+/**
+ * Messages BGP-4 (RFC 4271 §4) : OPEN (version 4, AS, Hold Time,
+ * identifiant), UPDATE (réseaux retirés, attributs, réseaux annoncés),
+ * KEEPALIVE (en-tête seul), NOTIFICATION (code d'erreur).
+ */
+export type BgpMessage =
+  | { readonly kind: "bgp"; readonly type: "open"; readonly version: 4; readonly myAs: number; readonly holdTime: number; readonly bgpId: string }
+  | { readonly kind: "bgp"; readonly type: "keepalive" }
+  | {
+      readonly kind: "bgp";
+      readonly type: "update";
+      readonly withdrawn: readonly BgpPrefix[];
+      readonly attributes: BgpPathAttributes | null;
+      readonly nlri: readonly BgpPrefix[];
+    }
+  | { readonly kind: "bgp"; readonly type: "notification"; readonly error: "hold-timer-expired" | "bad-peer-as" | "cease" };
+
+/**
+ * Segment TCP réduit (RFC 9293 §3.1) : ports, numéros de séquence et
+ * d'acquittement, bits SYN, ACK et RST ; transporte un message BGP. Fenêtre,
+ * options et somme de contrôle ne sont pas modélisées.
+ */
+export interface TcpSegment {
+  readonly kind: "tcp";
+  readonly sourcePort: number;
+  readonly destinationPort: number;
+  readonly sequence: number;
+  readonly acknowledgment: number;
+  readonly flags: { readonly syn: boolean; readonly ack: boolean; readonly rst: boolean };
+  readonly payload: BgpMessage | null;
+}
+
+/** BGP écoute sur le port TCP 179 (RFC 4271 §3). */
+export const BGP_PORT = 179;
+export const TCP_PROTOCOL = 6;
+const TCP_HEADER_BYTES = 20;
+const BGP_HEADER_BYTES = 19;
+
+const prefixBytes = (prefix: BgpPrefix) => 1 + Math.ceil(prefix.prefixLength / 8);
+
+/**
+ * Taille d'un message BGP : en-tête de 19 octets (marqueur, longueur, type),
+ * puis OPEN (10 octets sans paramètre optionnel), UPDATE (longueurs,
+ * préfixes codés sur 1 + ⌈longueur/8⌉ octets, attributs ORIGIN 4, AS_PATH
+ * 3 + 2 + 2 par AS, NEXT_HOP 7) ou NOTIFICATION (code et sous-code).
+ */
+export function bgpBytes(message: BgpMessage): number {
+  switch (message.type) {
+    case "open":
+      return BGP_HEADER_BYTES + 10;
+    case "keepalive":
+      return BGP_HEADER_BYTES;
+    case "notification":
+      return BGP_HEADER_BYTES + 2;
+    case "update": {
+      const attributes = message.attributes ? 4 + (message.attributes.asPath.length > 0 ? 5 + 2 * message.attributes.asPath.length : 3) + 7 : 0;
+      return BGP_HEADER_BYTES + 2 + message.withdrawn.reduce((sum, item) => sum + prefixBytes(item), 0) + 2 + attributes + message.nlri.reduce((sum, item) => sum + prefixBytes(item), 0);
+    }
+  }
+}
+
+export function tcpBytes(segment: TcpSegment): number {
+  return TCP_HEADER_BYTES + (segment.payload ? bgpBytes(segment.payload) : 0);
+}
+
+export type Ipv4Payload = IcmpMessage | UdpDatagram | OspfPacket | VrrpAdvertisement | TcpSegment;
 
 export interface Ipv4Packet {
   readonly kind: "ipv4";
@@ -364,7 +442,7 @@ export interface EthernetFrame {
   readonly payload: ArpPacket | Ipv4Packet;
 }
 
-export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage | DnsMessage | RipMessage | OspfPacket | VrrpAdvertisement;
+export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage | DnsMessage | RipMessage | OspfPacket | VrrpAdvertisement | TcpSegment | BgpMessage;
 
 export const ZERO_MAC: MacAddress = "00:00:00:00:00:00";
 
@@ -433,13 +511,14 @@ export function icmpBytes(message: IcmpMessage): number {
 export function ipv4Bytes(packet: Ipv4Packet): number {
   const payload = packet.payload;
   if (payload.kind === "vrrp") return IPV4_HEADER_BYTES + vrrpBytes(payload);
+  if (payload.kind === "tcp") return IPV4_HEADER_BYTES + tcpBytes(payload);
   return IPV4_HEADER_BYTES + (payload.kind === "udp" ? udpBytes(payload) : payload.kind === "ospf" ? ospfBytes(payload) : icmpBytes(payload));
 }
 
-/** Numéro de protocole IPv4 (IANA) : 1 ICMP, 17 UDP, 89 OSPF, 112 VRRP. */
+/** Numéro de protocole IPv4 (IANA) : 1 ICMP, 6 TCP, 17 UDP, 89 OSPF, 112 VRRP. */
 export function ipProtocol(packet: Ipv4Packet): number {
   const kind = packet.payload.kind;
-  return kind === "udp" ? 17 : kind === "ospf" ? OSPF_PROTOCOL : kind === "vrrp" ? VRRP_PROTOCOL : 1;
+  return kind === "udp" ? 17 : kind === "tcp" ? TCP_PROTOCOL : kind === "ospf" ? OSPF_PROTOCOL : kind === "vrrp" ? VRRP_PROTOCOL : 1;
 }
 
 /** Taille de la trame, en-tête et FCS compris, complétée au minimum Ethernet de 64 octets. */
