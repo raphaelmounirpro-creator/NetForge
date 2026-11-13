@@ -5,6 +5,8 @@ import {
   dhcpScenario,
   dnsScenario,
   lanScenario,
+  ospfLanScenario,
+  ospfScenario,
   ripScenario,
   ScenarioBuilder,
   routedScenario,
@@ -371,6 +373,105 @@ describe("observation RIP sur des échanges réels", () => {
     const response = trace.find((entry) => entry.code === "rip.response-sent" && entry.pdu?.kind === "rip");
     if (!response?.pdu) throw new Error("réponse attendue");
     expect(pduLayers(response.pdu, buildNameIndex(snapshot.devices))[0]?.fields.slice(2).every(([label, value]) => label === "Entrée" && / · métrique \d+ · prochain saut 0\.0\.0\.0$/.test(value))).toBe(true);
+  });
+});
+
+describe("observation OSPF sur des échanges réels", () => {
+  const mask = new ScenarioBuilder("ospf-mask", "Masques différents")
+    .device("r1", "R-200", 0, 0).device("r2", "R-200", 200, 0)
+    .link("r1", "ge0", "r2", "ge0").ip("r1", "ge0", "10.0.0.1/24").ip("r2", "ge0", "10.0.0.2/25")
+    .ospf("r1", "ge0").ospf("r2", "ge0")
+    .build();
+  /** Exécution longue : rafraîchissement des LSA (30 min) ou âge maximal d'un routeur perdu (1 h). */
+  const long = (doc: NfgDocument, commands: SimCommand[], until: number) => {
+    const created = createSimulation(doc);
+    if (!created.ok) throw new Error("document refusé");
+    const sim = created.simulation;
+    const trace: TraceEntry[] = [];
+    for (const command of commands) {
+      sim.enqueue(command);
+      trace.push(...sim.run({ stopWhenIdle: true, maxEvents: 500_000 }).trace);
+    }
+    trace.push(...sim.run({ until, maxEvents: 500_000 }).trace);
+    return { trace, snapshot: sim.snapshot() };
+  };
+  const converge: SimCommand = { type: "clear-table", deviceId: "r1", table: "arp" };
+  // Triangle : liaison R1–R2 (l4) coupée puis rétablie ; réseau local : R2 (DR) perdu derrière le switch (l2).
+  const runs = [
+    run(ospfScenario(), [converge, { type: "set-link", linkId: "l4", up: false }, { type: "set-link", linkId: "l4", up: true }]),
+    long(ospfLanScenario(), [converge, { type: "set-link", linkId: "l2", up: false }], 3_700_000_000_000),
+    long(ospfScenario(), [converge], 1_850_000_000_000),
+    run(mask, []),
+  ];
+
+  it("explique chaque décision OSPF aux deux niveaux, sans paramètre manquant", () => {
+    const seen = new Set<string>();
+    for (const { trace, snapshot } of runs) {
+      const names = buildNameIndex(snapshot.devices);
+      for (const entry of trace) {
+        if (!entry.code.startsWith("ospf.")) continue;
+        seen.add(entry.code);
+        for (const level of ["beginner", "technical"] as const) {
+          expect(formatTrace(entry, names, level), entry.code + " " + level).not.toMatch(/\{\w+\}|undefined|null|NaN/);
+        }
+      }
+    }
+    for (const code of TRACE_CODES.filter((item) => item.startsWith("ospf."))) expect(seen, code).toContain(code);
+  });
+
+  it("formule les explications attendues, nomme les routeurs et classe OSPF dans le routage dynamique", () => {
+    const { trace, snapshot } = runs[0] ?? { trace: [], snapshot: undefined };
+    if (!snapshot) throw new Error("scénario attendu");
+    const names = buildNameIndex(snapshot.devices);
+    const text = (predicate: (entry: TraceEntry) => boolean) => {
+      const entry = trace.find(predicate);
+      if (!entry) throw new Error("décision attendue");
+      return formatTrace(entry, names);
+    };
+    expect(text((entry) => entry.code === "ospf.neighbor-state" && entry.deviceId === "r1" && entry.params["to"] === "down")).toBe(
+      "R1 : le voisin 10.23.0.1 (R2) passe de l'état Full à Down (interface hors service).",
+    );
+    expect(text((entry) => entry.code === "ospf.interface-state" && entry.deviceId === "r1" && entry.portId === "ge1" && entry.params["to"] === "backup")).toBe(
+      "R1 ge1 passe en BDR (changement chez un voisin) : DR 10.23.0.1 (R2), BDR 10.13.0.1 (R1).",
+    );
+    expect(text((entry) => entry.code === "ospf.lsa-originated" && entry.deviceId === "r2" && entry.params["lsaType"] === "network")).toBe(
+      "R2, DR du réseau 10.12.0.2, décrit ce réseau dans un LSA réseau (séquence 0x80000001, 2 routeur(s) rattaché(s)).",
+    );
+    expect(text((entry) => entry.code === "ospf.route-changed" && entry.deviceId === "r1" && entry.params["route"] === "10.3.0.0/24" && entry.params["cost"] === 40)).toBe(
+      "R1 change la route OSPF 10.3.0.0/24 : par 10.13.0.2, coût 40 (avant : coût 30 par 10.12.0.2).",
+    );
+    expect(traceCategory("ospf.spf")).toBe("routing");
+    const mismatch = runs[3]?.trace.find((entry) => entry.code === "ospf.hello-mismatch");
+    expect(mismatch && formatTrace(mismatch, names)).toBe(
+      "R2 ignore le Hello de 10.0.0.1 : masque de réseau différent (255.255.255.0 au lieu de 255.255.255.128), pas de voisinage possible.",
+    );
+    expect(mismatch && isLossOrError(mismatch)).toBe(true);
+    expect(isLossOrError(trace.find((entry) => entry.code === "ospf.spf") ?? ({} as TraceEntry))).toBe(false);
+  });
+
+  it("inspecte un Hello et une mise à jour d'états des liens avec leurs seuls champs modélisés", () => {
+    const { trace, snapshot } = runs[0] ?? { trace: [], snapshot: undefined };
+    if (!snapshot) throw new Error("scénario attendu");
+    const names = buildNameIndex(snapshot.devices);
+    const hello = trace.find((entry) => entry.code === "eth.transmit" && entry.deviceId === "r1" && entry.pdu?.kind === "ethernet" && entry.pdu.destination === "01:00:5e:00:00:05");
+    if (!hello?.pdu) throw new Error("Hello attendu");
+    const layers = pduLayers(hello.pdu, names);
+    expect(layers.map((layer) => layer.id)).toEqual(["ethernet", "ipv4", "ospf"]);
+    expect(layers[1]?.fields).toContainEqual(["TTL", "1"]);
+    expect(layers[1]?.fields).toContainEqual(["Protocole transporté", "89 (OSPF)"]);
+    expect(layers[2]?.fields.slice(0, 6)).toEqual([
+      ["Version", "2"],
+      ["Type", "1 (Hello)"],
+      ["Identifiant du routeur", "10.13.0.1 (R1)"],
+      ["Zone", "0.0.0.0"],
+      ["Masque du réseau", "255.255.255.252"],
+      ["Intervalles", "Hello 10 s, mort 40 s"],
+    ]);
+    const update = trace.find((entry) => entry.code === "ospf.lsu-sent" && entry.pdu?.kind === "ospf" && entry.pdu.type === "lsu" && entry.pdu.lsas[0]?.lsaType === "network");
+    if (!update?.pdu) throw new Error("mise à jour attendue");
+    const fields = pduLayers(update.pdu, names)[0]?.fields ?? [];
+    expect(fields.find(([labelText]) => labelText === "LSA")?.[1]).toMatch(/^réseau \(2\) 10\.\d+\.0\.2, annonceur 10\.23\.0\.[12] \(R[23]\), séquence 0x8000000\d, âge \d+ s$/);
+    expect(fields.find(([labelText]) => labelText === "Routeurs rattachés")?.[1]).toMatch(/\(R\d\), .*\(R\d\)/);
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectDevices, setDhcpPool, setDnsRecord, setInterfaceDhcp, setInterfaceIpv4 } from "./commands.js";
+import { connectDevices, setDhcpPool, setDnsRecord, setInterfaceDhcp, setInterfaceIpv4, setRipInterface } from "./commands.js";
 import { parseNfgText, parseNfgValue, serializeNfg } from "./io.js";
 import { expectOk, projectWith } from "./test-helpers.js";
 
@@ -34,16 +34,17 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 8", () => {
+describe("migration du format version 1 → 9", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(8);
+    expect(result.document.schemaVersion).toBe(9);
     expect(result.document.models).toEqual({ catalog: 2 });
     expect(result.document.faults).toEqual([]);
-    // Routes (v2), ports de switch, STP (v5), DHCP (v6), DNS (v7) et RIP (v8) : tous les ports en accès dans le VLAN 1,
-    // aucun STP hors switch, adressage manuel conservé, aucun serveur DHCP, ni résolveur ni service DNS, aucune interface RIP.
+    // Routes (v2), ports de switch, STP (v5), DHCP (v6), DNS (v7), RIP (v8) et OSPF (v9) : tous les ports en accès dans
+    // le VLAN 1, aucun STP hors switch, adressage manuel conservé, aucun serveur DHCP, ni résolveur ni service DNS,
+    // aucune interface RIP ni OSPF.
     expect(result.document.configurations["pc1"]).toEqual({
       ...versionOne.configurations.pc1,
       interfaces: { eth0: { ipv4: { address: "192.168.1.10", prefixLength: 24 }, dhcp: false } },
@@ -54,6 +55,7 @@ describe("migration du format version 1 → 8", () => {
       dnsServer: null,
       dnsRecords: null,
       ripInterfaces: {},
+      ospfInterfaces: {},
     });
     expect(result.document.configurations["r1"]).toEqual({
       ...versionOne.configurations.r1,
@@ -65,6 +67,7 @@ describe("migration du format version 1 → 8", () => {
       dnsServer: null,
       dnsRecords: null,
       ripInterfaces: {},
+      ospfInterfaces: {},
     });
     // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre.
     expect(result.document.topology).toEqual({
@@ -124,7 +127,7 @@ describe("migration du format version 1 → 8", () => {
     const result = parseNfgValue(versionThree);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(8);
+    expect(result.document.schemaVersion).toBe(9);
     expect(result.document.models.catalog).toBe(2);
     expect(result.document.topology.links[0]?.fiber).toBeNull();
     expect(result.document.faults).toEqual([]);
@@ -184,11 +187,24 @@ describe("migration du format version 1 → 8", () => {
   it("migre les anciens fichiers v7 en conservant DNS sans faire participer de routeur à RIP", () => {
     let current = expectOk(setInterfaceIpv4(projectWith(["pc1", "PC"], ["r1", "R-200"]), { deviceId: "r1", portId: "ge0", ipv4: { address: "192.168.1.1", prefixLength: 24 } }));
     current = expectOk(setDnsRecord(current, { deviceId: "r1", name: "srv.lab", address: "192.168.1.10" }));
-    const old = { ...current, schemaVersion: 7, configurations: Object.fromEntries(Object.entries(current.configurations).map(([id, { ripInterfaces: _rip, ...config }]) => [id, config])) };
+    const old = {
+      ...current,
+      schemaVersion: 7,
+      configurations: Object.fromEntries(Object.entries(current.configurations).map(([id, { ripInterfaces: _rip, ospfInterfaces: _ospf, ...config }]) => [id, config])),
+    };
     const result = parseNfgValue(old);
     expect(result.ok && result.document).toEqual(current);
-    // Un fichier v8 doit porter la table RIP de chaque configuration.
-    expect(errorCodes({ ...old, schemaVersion: 8 })).toEqual(["import.schema", "import.schema"]);
+  });
+
+  it("migre les anciens fichiers v8 en conservant RIP sans faire participer de routeur à OSPF", () => {
+    let current = expectOk(setInterfaceIpv4(projectWith(["pc1", "PC"], ["r1", "R-200"]), { deviceId: "r1", portId: "ge0", ipv4: { address: "192.168.1.1", prefixLength: 24 } }));
+    current = expectOk(setRipInterface(current, { deviceId: "r1", interfaceId: "ge0", mode: "active" }));
+    const old = { ...current, schemaVersion: 8, configurations: Object.fromEntries(Object.entries(current.configurations).map(([id, { ospfInterfaces: _ospf, ...config }]) => [id, config])) };
+    const result = parseNfgValue(old);
+    expect(result.ok && result.document).toEqual(current);
+    expect(result.ok && result.document.configurations["r1"]?.ripInterfaces).toEqual({ ge0: "active" });
+    // Un fichier v9 doit porter la table OSPF de chaque configuration.
+    expect(errorCodes({ ...old, schemaVersion: 9 })).toEqual(["import.schema", "import.schema"]);
   });
 
   it("refuse une version courante sans table de ports de switch", () => {

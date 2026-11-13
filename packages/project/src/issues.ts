@@ -68,6 +68,12 @@ export const ISSUE_CODES = [
   // RIP
   "rip.not-supported",
   "rip.interface-not-addressed",
+  // OSPF
+  "ospf.not-supported",
+  "ospf.interface-not-addressed",
+  "ospf.interface-not-enabled",
+  "ospf.invalid-cost",
+  "ospf.invalid-priority",
   // VLAN
   "vlan.invalid-id",
   "vlan.mode-mismatch",

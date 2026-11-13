@@ -53,6 +53,7 @@ function frameLabel(entry: TraceEntry): string {
   if (pdu.payload.kind === "arp") return "ARP";
   const carried = pdu.payload.payload;
   if (carried.kind === "udp") return carried.payload.kind.toUpperCase();
+  if (carried.kind === "ospf") return "OSPF";
   return "ICMP";
 }
 

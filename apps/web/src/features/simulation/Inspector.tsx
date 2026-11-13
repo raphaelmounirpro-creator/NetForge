@@ -132,8 +132,9 @@ export function Inspector({ session }: { session: SimulationSession }) {
                   <span className="text-text-muted">{layer.osi}</span>
                 </p>
                 <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 px-2 py-1 text-xs">
-                  {layer.fields.map(([label, value]) => (
-                    <div key={label} className="contents">
+                  {/* Libellés répétés (entrées RIP, liens et LSA OSPF) : la position identifie le champ, la liste est figée. */}
+                  {layer.fields.map(([label, value], index) => (
+                    <div key={`${String(index)}-${label}`} className="contents">
                       <dt className="text-text-muted">{label}</dt>
                       <dd className="font-mono break-words text-text">{value}</dd>
                     </div>

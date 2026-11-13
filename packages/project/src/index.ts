@@ -7,6 +7,7 @@ export * from "./cli.js";
 export * from "./commands.js";
 export * from "./dhcp.js";
 export * from "./dns.js";
+export * from "./ospf.js";
 export * from "./rip.js";
 export * from "./io.js";
 export * from "./ipv4.js";

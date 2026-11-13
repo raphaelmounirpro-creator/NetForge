@@ -47,6 +47,11 @@ export interface SimulationParameters {
   /** RIP : attente tirée entre 1 et 5 s après une mise à jour déclenchée (RFC 2453 §3.10.1). */
   readonly ripTriggeredHoldMin: SimTime;
   readonly ripTriggeredHoldMax: SimTime;
+  /** OSPF : Hello toutes les 10 s, voisin perdu après 40 s sans Hello (RFC 2328 annexe C.3, valeurs d'un réseau local). */
+  readonly ospfHelloInterval: SimTime;
+  readonly ospfDeadInterval: SimTime;
+  /** OSPF : retransmission d'une description de base sans réponse (RxmtInterval, 5 s). */
+  readonly ospfRxmtInterval: SimTime;
   readonly limits: SimulationLimits;
 }
 
@@ -93,6 +98,9 @@ export const DEFAULT_PARAMETERS: SimulationParameters = {
   ripGarbageCollection: fromSeconds(120),
   ripTriggeredHoldMin: fromSeconds(1),
   ripTriggeredHoldMax: fromSeconds(5),
+  ospfHelloInterval: fromSeconds(10),
+  ospfDeadInterval: fromSeconds(40),
+  ospfRxmtInterval: fromSeconds(5),
   limits: DEFAULT_LIMITS,
 };
 

@@ -16,7 +16,7 @@ Code : [packages/engine/src/routing.ts](../../packages/engine/src/routing.ts) (t
 | Table d'un PC | Réseau connecté de son interface + route par défaut vers la passerelle | — |
 | Table d'un routeur | Réseaux connectés (interfaces adressées et actives) + routes statiques | — |
 | Route active | Connectée : interface câblée et lien en service. Statique ou passerelle : prochain saut dans un réseau connecté actif | (vue « Table de routage ») |
-| Sélection | Plus long préfixe parmi les routes actives ; à longueur égale, la route connectée l'emporte, puis la route statique, puis la route RIP ([rip.md](rip.md)) | `ip.route`, `ip.forward` |
+| Sélection | Plus long préfixe parmi les routes actives ; à longueur égale, la route connectée l'emporte, puis la route statique, puis la route OSPF ([ospf.md](ospf.md)), puis la route RIP ([rip.md](rip.md)) | `ip.route`, `ip.forward` |
 | Livraison locale | Paquet destiné à une adresse de l'équipement | `ip.local` |
 | Bouclage | 127.0.0.0/8 et adresse propre traités en interne, sans trame | `ip.loopback` |
 | PC destinataire d'un paquet d'autrui | Abandon (un PC ne relaie pas) | `ip.not-for-host` |
@@ -29,7 +29,7 @@ Routes statiques (format `.nfg.json` v2) : destination (adresse de réseau oblig
 ## Simplifications et limites
 
 - Le prochain saut d'une route doit être dans un réseau directement connecté : pas de résolution récursive, pas de route vers une interface sans prochain saut.
-- Une seule route par destination et préfixe : pas de partage de charge ni de route flottante (distance administrative fixe : connectée 0, statique 1, RIP 120 — valeurs NetForge).
+- Une seule route par destination et préfixe : pas de partage de charge ni de route flottante (distance administrative fixe : connectée 0, statique 1, OSPF 110, RIP 120 — valeurs NetForge).
 - Pas de fragmentation (aucune MTU dépassée avec les échos modélisés), d'options IP, d'ICMP Redirect ni de routage dynamique (phase 8).
 - Le champ « identification » est un compteur par équipement, au départ tiré du générateur à graine.
 

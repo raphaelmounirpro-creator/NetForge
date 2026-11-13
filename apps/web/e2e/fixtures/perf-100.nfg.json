@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "models": {
     "catalog": 2
   },
@@ -1916,7 +1916,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "sw1": {
       "interfaces": {},
@@ -1930,7 +1931,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc1": {
       "interfaces": {
@@ -1949,7 +1951,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc2": {
       "interfaces": {
@@ -1968,7 +1971,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc3": {
       "interfaces": {
@@ -1987,7 +1991,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc4": {
       "interfaces": {
@@ -2006,7 +2011,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc5": {
       "interfaces": {
@@ -2025,7 +2031,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc6": {
       "interfaces": {
@@ -2044,7 +2051,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc7": {
       "interfaces": {
@@ -2063,7 +2071,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc8": {
       "interfaces": {
@@ -2082,7 +2091,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc9": {
       "interfaces": {
@@ -2101,7 +2111,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc10": {
       "interfaces": {
@@ -2120,7 +2131,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "sw2": {
       "interfaces": {},
@@ -2134,7 +2146,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc11": {
       "interfaces": {
@@ -2153,7 +2166,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc12": {
       "interfaces": {
@@ -2172,7 +2186,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc13": {
       "interfaces": {
@@ -2191,7 +2206,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc14": {
       "interfaces": {
@@ -2210,7 +2226,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc15": {
       "interfaces": {
@@ -2229,7 +2246,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc16": {
       "interfaces": {
@@ -2248,7 +2266,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc17": {
       "interfaces": {
@@ -2267,7 +2286,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc18": {
       "interfaces": {
@@ -2286,7 +2306,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc19": {
       "interfaces": {
@@ -2305,7 +2326,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc20": {
       "interfaces": {
@@ -2324,7 +2346,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "sw3": {
       "interfaces": {},
@@ -2338,7 +2361,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc21": {
       "interfaces": {
@@ -2357,7 +2381,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc22": {
       "interfaces": {
@@ -2376,7 +2401,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc23": {
       "interfaces": {
@@ -2395,7 +2421,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc24": {
       "interfaces": {
@@ -2414,7 +2441,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc25": {
       "interfaces": {
@@ -2433,7 +2461,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc26": {
       "interfaces": {
@@ -2452,7 +2481,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc27": {
       "interfaces": {
@@ -2471,7 +2501,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc28": {
       "interfaces": {
@@ -2490,7 +2521,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc29": {
       "interfaces": {
@@ -2509,7 +2541,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc30": {
       "interfaces": {
@@ -2528,7 +2561,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "sw4": {
       "interfaces": {},
@@ -2542,7 +2576,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc31": {
       "interfaces": {
@@ -2561,7 +2596,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc32": {
       "interfaces": {
@@ -2580,7 +2616,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc33": {
       "interfaces": {
@@ -2599,7 +2636,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc34": {
       "interfaces": {
@@ -2618,7 +2656,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc35": {
       "interfaces": {
@@ -2637,7 +2676,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc36": {
       "interfaces": {
@@ -2656,7 +2696,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc37": {
       "interfaces": {
@@ -2675,7 +2716,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc38": {
       "interfaces": {
@@ -2694,7 +2736,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc39": {
       "interfaces": {
@@ -2713,7 +2756,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc40": {
       "interfaces": {
@@ -2732,7 +2776,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "sw5": {
       "interfaces": {},
@@ -2746,7 +2791,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc41": {
       "interfaces": {
@@ -2765,7 +2811,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc42": {
       "interfaces": {
@@ -2784,7 +2831,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc43": {
       "interfaces": {
@@ -2803,7 +2851,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc44": {
       "interfaces": {
@@ -2822,7 +2871,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc45": {
       "interfaces": {
@@ -2841,7 +2891,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc46": {
       "interfaces": {
@@ -2860,7 +2911,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc47": {
       "interfaces": {
@@ -2879,7 +2931,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc48": {
       "interfaces": {
@@ -2898,7 +2951,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc49": {
       "interfaces": {
@@ -2917,7 +2971,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc50": {
       "interfaces": {
@@ -2936,7 +2991,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "sw6": {
       "interfaces": {},
@@ -2950,7 +3006,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc51": {
       "interfaces": {
@@ -2969,7 +3026,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc52": {
       "interfaces": {
@@ -2988,7 +3046,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc53": {
       "interfaces": {
@@ -3007,7 +3066,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc54": {
       "interfaces": {
@@ -3026,7 +3086,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc55": {
       "interfaces": {
@@ -3045,7 +3106,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc56": {
       "interfaces": {
@@ -3064,7 +3126,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc57": {
       "interfaces": {
@@ -3083,7 +3146,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc58": {
       "interfaces": {
@@ -3102,7 +3166,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc59": {
       "interfaces": {
@@ -3121,7 +3186,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc60": {
       "interfaces": {
@@ -3140,7 +3206,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "sw7": {
       "interfaces": {},
@@ -3154,7 +3221,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc61": {
       "interfaces": {
@@ -3173,7 +3241,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc62": {
       "interfaces": {
@@ -3192,7 +3261,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc63": {
       "interfaces": {
@@ -3211,7 +3281,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc64": {
       "interfaces": {
@@ -3230,7 +3301,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc65": {
       "interfaces": {
@@ -3249,7 +3321,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc66": {
       "interfaces": {
@@ -3268,7 +3341,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc67": {
       "interfaces": {
@@ -3287,7 +3361,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc68": {
       "interfaces": {
@@ -3306,7 +3381,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc69": {
       "interfaces": {
@@ -3325,7 +3401,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc70": {
       "interfaces": {
@@ -3344,7 +3421,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "sw8": {
       "interfaces": {},
@@ -3358,7 +3436,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc71": {
       "interfaces": {
@@ -3377,7 +3456,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc72": {
       "interfaces": {
@@ -3396,7 +3476,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc73": {
       "interfaces": {
@@ -3415,7 +3496,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc74": {
       "interfaces": {
@@ -3434,7 +3516,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc75": {
       "interfaces": {
@@ -3453,7 +3536,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc76": {
       "interfaces": {
@@ -3472,7 +3556,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc77": {
       "interfaces": {
@@ -3491,7 +3576,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc78": {
       "interfaces": {
@@ -3510,7 +3596,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc79": {
       "interfaces": {
@@ -3529,7 +3616,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc80": {
       "interfaces": {
@@ -3548,7 +3636,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "sw9": {
       "interfaces": {},
@@ -3562,7 +3651,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc81": {
       "interfaces": {
@@ -3581,7 +3671,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc82": {
       "interfaces": {
@@ -3600,7 +3691,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc83": {
       "interfaces": {
@@ -3619,7 +3711,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc84": {
       "interfaces": {
@@ -3638,7 +3731,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc85": {
       "interfaces": {
@@ -3657,7 +3751,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc86": {
       "interfaces": {
@@ -3676,7 +3771,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc87": {
       "interfaces": {
@@ -3695,7 +3791,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc88": {
       "interfaces": {
@@ -3714,7 +3811,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc89": {
       "interfaces": {
@@ -3733,7 +3831,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "pc90": {
       "interfaces": {
@@ -3752,7 +3851,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     }
   },
   "faults": [],

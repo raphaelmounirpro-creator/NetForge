@@ -173,7 +173,138 @@ export const DHCP_CLIENT_PORT = 68;
 export const LIMITED_BROADCAST = "255.255.255.255";
 export const UNSPECIFIED_ADDRESS = "0.0.0.0";
 
-export type Ipv4Payload = IcmpMessage | UdpDatagram;
+/** Type de LSA modélisé (RFC 2328 §12.1.3) : 1 routeur, 2 réseau. */
+export type OspfLsaType = "router" | "network";
+
+/** En-tête de LSA (RFC 2328 §12.1, A.4.1 : 20 octets) ; options, somme de contrôle et longueur non modélisées. */
+export interface OspfLsaHeader {
+  readonly lsaType: OspfLsaType;
+  /** Âge en secondes (0 à l'origine, MaxAge = 3600 : instance à retirer). */
+  readonly age: number;
+  /** Identifiant d'état de lien : identifiant du routeur (type 1) ou adresse d'interface du DR (type 2). */
+  readonly lsId: string;
+  readonly advertisingRouter: string;
+  /** Numéro de séquence signé sur 32 bits (0x80000001 = InitialSequenceNumber). */
+  readonly sequence: number;
+}
+
+/**
+ * Lien d'un LSA routeur (RFC 2328 §12.4.1, A.4.2) : « transit » (type 2,
+ * identifiant = adresse du DR, donnée = adresse de l'interface du routeur) ou
+ * « stub » (type 3, identifiant = réseau, donnée = masque).
+ */
+export interface OspfRouterLink {
+  readonly type: "transit" | "stub";
+  readonly linkId: string;
+  readonly linkData: string;
+  readonly metric: number;
+}
+
+export interface OspfRouterLsa extends OspfLsaHeader {
+  readonly lsaType: "router";
+  readonly links: readonly OspfRouterLink[];
+}
+
+/** LSA réseau (RFC 2328 §12.4.2, A.4.3) : émis par le DR, masque et routeurs pleinement adjacents (DR compris). */
+export interface OspfNetworkLsa extends OspfLsaHeader {
+  readonly lsaType: "network";
+  readonly mask: string;
+  readonly attachedRouters: readonly string[];
+}
+
+export type OspfLsa = OspfRouterLsa | OspfNetworkLsa;
+
+/** En-tête commun des paquets OSPF version 2 (RFC 2328 A.3.1) : identifiant du routeur émetteur et zone. */
+interface OspfHeader {
+  readonly kind: "ospf";
+  readonly version: 2;
+  readonly routerId: string;
+  /** Zone : toujours la dorsale 0.0.0.0 (zone unique). */
+  readonly area: string;
+}
+
+/** Hello (type 1, RFC 2328 A.3.2) : paramètres du réseau, priorité, DR et BDR annoncés, voisins entendus. */
+export interface OspfHello extends OspfHeader {
+  readonly type: "hello";
+  readonly networkMask: string;
+  readonly helloInterval: number;
+  readonly deadInterval: number;
+  readonly priority: number;
+  /** Adresses d'interface du DR et du BDR (0.0.0.0 : aucun). */
+  readonly designatedRouter: string;
+  readonly backupRouter: string;
+  /** Identifiants des routeurs dont un Hello a été reçu récemment sur ce réseau. */
+  readonly neighbors: readonly string[];
+}
+
+/** Description de base (type 2, RFC 2328 A.3.3) : bits I, M et MS, numéro de séquence, en-têtes de LSA. */
+export interface OspfDatabaseDescription extends OspfHeader {
+  readonly type: "dd";
+  readonly interfaceMtu: number;
+  readonly init: boolean;
+  readonly more: boolean;
+  readonly master: boolean;
+  readonly sequence: number;
+  readonly headers: readonly OspfLsaHeader[];
+}
+
+/** LSA demandé (RFC 2328 A.3.4) : type, identifiant et routeur annonceur. */
+export interface OspfLsaRequest {
+  readonly lsaType: OspfLsaType;
+  readonly lsId: string;
+  readonly advertisingRouter: string;
+}
+
+/** Demande d'états des liens (type 3). */
+export interface OspfLinkStateRequest extends OspfHeader {
+  readonly type: "lsr";
+  readonly requests: readonly OspfLsaRequest[];
+}
+
+/** Mise à jour d'états des liens (type 4, RFC 2328 A.3.5) : LSA complets. */
+export interface OspfLinkStateUpdate extends OspfHeader {
+  readonly type: "lsu";
+  readonly lsas: readonly OspfLsa[];
+}
+
+export type OspfPacket = OspfHello | OspfDatabaseDescription | OspfLinkStateRequest | OspfLinkStateUpdate;
+
+/** OSPF sur IPv4 (RFC 2328 §4.3, A.1) : protocole 89, groupes AllSPFRouters et AllDRouters, TTL 1. */
+export const OSPF_PROTOCOL = 89;
+export const OSPF_ALL_ROUTERS = "224.0.0.5";
+export const OSPF_ALL_DROUTERS = "224.0.0.6";
+export const OSPF_BACKBONE = "0.0.0.0";
+/** Constantes de RFC 2328 annexe B : InitialSequenceNumber (0x80000001 signé), MaxAge, LSRefreshTime, MaxAgeDiff (s). */
+export const OSPF_INITIAL_SEQUENCE = 0x80000001 | 0;
+export const OSPF_MAX_AGE = 3600;
+export const OSPF_LS_REFRESH_TIME = 1800;
+export const OSPF_MAX_AGE_DIFF = 900;
+/** MTU annoncée dans la description de base : Ethernet, 1500 octets. */
+export const OSPF_INTERFACE_MTU = 1500;
+
+const OSPF_HEADER_BYTES = 24;
+const LSA_HEADER_BYTES = 20;
+
+/** Taille d'un LSA : en-tête (20), puis 4 octets fixes et 12 par lien (routeur) ou masque et 4 octets par routeur (réseau). */
+export function ospfLsaBytes(lsa: OspfLsa): number {
+  return LSA_HEADER_BYTES + (lsa.lsaType === "router" ? 4 + 12 * lsa.links.length : 4 + 4 * lsa.attachedRouters.length);
+}
+
+/** Taille d'un paquet OSPF : en-tête de 24 octets et corps (RFC 2328 A.3). */
+export function ospfBytes(packet: OspfPacket): number {
+  switch (packet.type) {
+    case "hello":
+      return OSPF_HEADER_BYTES + 20 + 4 * packet.neighbors.length;
+    case "dd":
+      return OSPF_HEADER_BYTES + 8 + LSA_HEADER_BYTES * packet.headers.length;
+    case "lsr":
+      return OSPF_HEADER_BYTES + 12 * packet.requests.length;
+    case "lsu":
+      return OSPF_HEADER_BYTES + 4 + packet.lsas.reduce((sum, lsa) => sum + ospfLsaBytes(lsa), 0);
+  }
+}
+
+export type Ipv4Payload = IcmpMessage | UdpDatagram | OspfPacket;
 
 export interface Ipv4Packet {
   readonly kind: "ipv4";
@@ -197,7 +328,7 @@ export interface EthernetFrame {
   readonly payload: ArpPacket | Ipv4Packet;
 }
 
-export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage | DnsMessage | RipMessage;
+export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage | DnsMessage | RipMessage | OspfPacket;
 
 export const ZERO_MAC: MacAddress = "00:00:00:00:00:00";
 
@@ -264,12 +395,13 @@ export function icmpBytes(message: IcmpMessage): number {
 }
 
 export function ipv4Bytes(packet: Ipv4Packet): number {
-  return IPV4_HEADER_BYTES + (packet.payload.kind === "udp" ? udpBytes(packet.payload) : icmpBytes(packet.payload));
+  const payload = packet.payload;
+  return IPV4_HEADER_BYTES + (payload.kind === "udp" ? udpBytes(payload) : payload.kind === "ospf" ? ospfBytes(payload) : icmpBytes(payload));
 }
 
-/** Numéro de protocole IPv4 (IANA) : 1 ICMP, 17 UDP. */
+/** Numéro de protocole IPv4 (IANA) : 1 ICMP, 17 UDP, 89 OSPF. */
 export function ipProtocol(packet: Ipv4Packet): number {
-  return packet.payload.kind === "udp" ? 17 : 1;
+  return packet.payload.kind === "udp" ? 17 : packet.payload.kind === "ospf" ? OSPF_PROTOCOL : 1;
 }
 
 /** Taille de la trame, en-tête et FCS compris, complétée au minimum Ethernet de 64 octets. */

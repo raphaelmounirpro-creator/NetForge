@@ -1,6 +1,7 @@
 import { CATALOG_VERSION, findPort, getModel, type DeviceModelId } from "./catalog.js";
 import { DHCP_LEASE_MAX, DHCP_LEASE_MIN, isDhcpLease, type DhcpPool } from "./dhcp.js";
 import { DNS_MAX_RECORDS, isDnsAddress, normalizeDnsName } from "./dns.js";
+import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, type OspfInterface } from "./ospf.js";
 import type { RipMode } from "./rip.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, parseIpv4, parsePrefixOrMask, type Ipv4Interface } from "./ipv4.js";
@@ -53,7 +54,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {} };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {} };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -689,4 +690,30 @@ export function setRipInterface(doc: NfgDocument, params: { deviceId: string; in
   const { [params.interfaceId]: _previous, ...others } = config.ripInterfaces;
   const ripInterfaces = params.mode === null ? others : { ...others, [params.interfaceId]: params.mode };
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ripInterfaces } } });
+}
+
+/**
+ * Participation d'une interface de routeur (port ou sous-interface) à OSPF,
+ * zone 0 : mode, coût et priorité, ou null pour l'en retirer. L'interface
+ * doit être adressée : OSPF décrit son réseau.
+ */
+export function setOspfInterface(doc: NfgDocument, params: { deviceId: string; interfaceId: string; ospf: OspfInterface | null }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "router") return fail(error("ospf.not-supported", { deviceId: device.id, deviceName: device.name }));
+  const sub = parseSubinterface(params.interfaceId);
+  const portId = sub ? sub.parent : params.interfaceId;
+  if ((params.interfaceId.includes(".") && !sub) || !findPort(device.model, portId)) {
+    return fail(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: params.interfaceId }));
+  }
+  const ospf = params.ospf;
+  if (ospf && !isOspfCost(ospf.cost)) return fail(error("ospf.invalid-cost", { value: String(ospf.cost), min: OSPF_COST_MIN, max: OSPF_COST_MAX }));
+  if (ospf && !isOspfPriority(ospf.priority)) return fail(error("ospf.invalid-priority", { value: String(ospf.priority), max: OSPF_PRIORITY_MAX }));
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  if (ospf !== null && !config.interfaces[params.interfaceId]?.ipv4) {
+    return fail(error("ospf.interface-not-addressed", { deviceId: device.id, deviceName: device.name, portId: params.interfaceId }));
+  }
+  const { [params.interfaceId]: _previous, ...others } = config.ospfInterfaces;
+  const ospfInterfaces = ospf === null ? others : { ...others, [params.interfaceId]: { mode: ospf.mode, cost: ospf.cost, priority: ospf.priority } };
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ospfInterfaces } } });
 }

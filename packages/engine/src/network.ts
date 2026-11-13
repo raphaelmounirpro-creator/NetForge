@@ -8,6 +8,7 @@ import {
   switchportOf,
   type DeviceKind,
   type NfgDocument,
+  type OspfInterface,
   type RipMode,
   type Switchport,
 } from "@netforge/project";
@@ -88,6 +89,8 @@ export interface RuntimeDevice {
   readonly dnsRecords: ReadonlyMap<string, string> | null;
   /** RIP (routeur) : mode des interfaces participantes ; vide sans RIP. */
   readonly ripInterfaces: ReadonlyMap<string, RipMode>;
+  /** OSPF (routeur) : mode, coût et priorité des interfaces participantes ; vide sans OSPF. */
+  readonly ospfInterfaces: ReadonlyMap<string, OspfInterface>;
 }
 
 export interface RuntimeDhcpPool {
@@ -200,6 +203,7 @@ export function buildNetwork(doc: NfgDocument): RuntimeNetwork {
       dnsServer: model.kind === "pc" ? (config?.dnsServer ?? null) : null,
       dnsRecords: model.kind === "router" && config?.dnsRecords ? new Map(Object.entries(config.dnsRecords)) : null,
       ripInterfaces: new Map(model.kind === "router" ? Object.entries(config?.ripInterfaces ?? {}).sort(([a], [b]) => a.localeCompare(b)) : []),
+      ospfInterfaces: new Map(model.kind === "router" ? Object.entries(config?.ospfInterfaces ?? {}).sort(([a], [b]) => a.localeCompare(b)) : []),
     });
   }
   return { devices, links };

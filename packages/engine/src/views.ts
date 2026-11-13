@@ -47,7 +47,7 @@ export interface PendingArpView {
 
 export interface RouteView {
   readonly kind: RouteKind;
-  /** Métrique RIP (null : route connectée ou configurée). */
+  /** Métrique RIP ou coût OSPF (null : route connectée ou configurée). */
   readonly metric: number | null;
   readonly destination: string;
   readonly prefixLength: number;
@@ -182,6 +182,58 @@ export interface RipView {
   readonly nextUpdateAt: SimTime;
 }
 
+/** États d'une interface OSPF (RFC 2328 §9.1) ; « passive » : réseau décrit, sans paquet OSPF. */
+export type OspfInterfaceStateView = "down" | "passive" | "waiting" | "dr-other" | "backup" | "dr";
+/** États d'un voisin OSPF (RFC 2328 §10.1), état Down exclu (voisin retiré). */
+export type OspfNeighborStateView = "init" | "2-way" | "exstart" | "exchange" | "loading" | "full";
+
+export interface OspfNeighborView {
+  readonly routerId: string;
+  readonly address: string;
+  readonly priority: number;
+  readonly state: OspfNeighborStateView;
+  /** Rôle déclaré sur ce réseau d'après l'élection du routeur. */
+  readonly role: "dr" | "bdr" | "other";
+  /** Voisin perdu sans nouveau Hello avant cet instant. */
+  readonly deadAt: SimTime;
+  /** LSA encore demandés (état Loading). */
+  readonly requests: number;
+}
+
+export interface OspfInterfaceView {
+  readonly portId: string;
+  readonly mode: "active" | "passive";
+  readonly cost: number;
+  readonly priority: number;
+  readonly state: OspfInterfaceStateView;
+  /** DR et BDR élus : identifiant de routeur (null : aucun). */
+  readonly dr: string | null;
+  readonly bdr: string | null;
+  readonly neighbors: readonly OspfNeighborView[];
+}
+
+export interface OspfLsaView {
+  readonly lsaType: "router" | "network";
+  readonly lsId: string;
+  readonly advertisingRouter: string;
+  /** Numéro de séquence non signé (0x80000001 pour la première instance). */
+  readonly sequence: number;
+  readonly age: number;
+  /** LSA routeur : liens décrits ; vide pour un LSA réseau. */
+  readonly links: ReadonlyArray<{ readonly type: "transit" | "stub"; readonly linkId: string; readonly linkData: string; readonly metric: number }>;
+  /** LSA réseau : masque et routeurs rattachés ; null et vide pour un LSA routeur. */
+  readonly mask: string | null;
+  readonly attachedRouters: readonly string[];
+}
+
+/** OSPF d'un routeur : identifiant, interfaces et voisins, base d'états des liens (triée par type, identifiant, annonceur). */
+export interface OspfView {
+  readonly routerId: string;
+  readonly interfaces: readonly OspfInterfaceView[];
+  readonly lsdb: readonly OspfLsaView[];
+  readonly nextHelloAt: SimTime;
+}
+
 export interface DeviceView {
   readonly deviceId: string;
   readonly name: string;
@@ -204,6 +256,8 @@ export interface DeviceView {
   readonly dnsServer: DnsServerView | null;
   /** RIP (routeur ayant au moins une interface RIP). */
   readonly rip: RipView | null;
+  /** OSPF (routeur ayant au moins une interface OSPF adressée). */
+  readonly ospf: OspfView | null;
 }
 
 export type PingFailure = "no-address" | "no-route" | "host-unreachable" | "queue-full";

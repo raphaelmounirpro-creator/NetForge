@@ -24,6 +24,13 @@ import {
   EPHEMERAL_PORT_MIN,
   ETHERNET_WIRE_OVERHEAD_BYTES,
   LIMITED_BROADCAST,
+  OSPF_ALL_DROUTERS,
+  OSPF_ALL_ROUTERS,
+  OSPF_BACKBONE,
+  OSPF_INITIAL_SEQUENCE,
+  OSPF_INTERFACE_MTU,
+  OSPF_LS_REFRESH_TIME,
+  OSPF_MAX_AGE,
   RIP_INFINITY,
   RIP_MAX_ENTRIES,
   RIP_MULTICAST,
@@ -41,11 +48,20 @@ import {
   type IcmpError,
   type Ipv4Packet,
   type Ipv4Payload,
+  type OspfDatabaseDescription,
+  type OspfHello,
+  type OspfLinkStateRequest,
+  type OspfLinkStateUpdate,
+  type OspfLsa,
+  type OspfLsaHeader,
+  type OspfPacket,
+  type OspfRouterLink,
   type Pdu,
   type RipEntry,
   type RipMessage,
   type UdpDatagram,
 } from "./pdu.js";
+import { compareLsa, compareLsaKeys, compareRouterIds, computeOspfRoutes, electDesignatedRouter, lsaHeader, lsaKey, sameLsaContent, type SpfRoute } from "./ospf.js";
 import { Prng } from "./prng.js";
 import { EventQueue } from "./queue.js";
 import { lookup, routeCidr, routingTable, type Route } from "./routing.js";
@@ -58,6 +74,9 @@ import type {
   DnsLookupStatus,
   DnsLookupView,
   LinkView,
+  OspfInterfaceStateView,
+  OspfNeighborStateView,
+  OspfView,
   PingAttemptView,
   PingFailure,
   PingStatus,
@@ -100,7 +119,15 @@ type EventValue =
   | { readonly type: "rip-start"; readonly deviceId: string }
   | { readonly type: "rip-periodic"; readonly deviceId: string }
   | { readonly type: "rip-triggered"; readonly deviceId: string }
-  | { readonly type: "rip-timer"; readonly deviceId: string; readonly key: string; readonly stage: "timeout" | "garbage"; readonly generation: number };
+  | { readonly type: "rip-timer"; readonly deviceId: string; readonly key: string; readonly stage: "timeout" | "garbage"; readonly generation: number }
+  | { readonly type: "ospf-start"; readonly deviceId: string }
+  | { readonly type: "ospf-periodic"; readonly deviceId: string }
+  | { readonly type: "ospf-hello"; readonly deviceId: string; readonly portId: string }
+  | { readonly type: "ospf-wait"; readonly deviceId: string; readonly portId: string; readonly generation: number }
+  | { readonly type: "ospf-dead"; readonly deviceId: string; readonly portId: string; readonly routerId: string; readonly generation: number }
+  | { readonly type: "ospf-rxmt"; readonly deviceId: string; readonly portId: string; readonly routerId: string; readonly generation: number }
+  | { readonly type: "ospf-spf"; readonly deviceId: string }
+  | { readonly type: "ospf-lsa-timer"; readonly deviceId: string; readonly key: string; readonly stage: "refresh" | "max-age"; readonly generation: number };
 
 interface QueuedEvent {
   readonly value: EventValue;
@@ -261,6 +288,67 @@ interface RipState {
   nextPeriodicAt: SimTime;
 }
 
+/** Voisin OSPF sur une interface (RFC 2328 §10) ; état Down : voisin retiré. */
+interface OspfNeighbor {
+  readonly routerId: string;
+  address: string;
+  priority: number;
+  /** DR et BDR déclarés dans son dernier Hello. */
+  dr: string;
+  bdr: string;
+  state: OspfNeighborStateView;
+  deadAt: SimTime;
+  deadGeneration: number;
+  /** Échange de base : vrai si ce routeur est le maître ; numéro de séquence courant. */
+  master: boolean;
+  ddSequence: number;
+  /** Dernière description envoyée (renvoyée en cas de doublon ou de retransmission). */
+  lastDd: OspfDatabaseDescription | null;
+  /** Le maître attend la réponse de l'esclave à lastDd. */
+  awaiting: boolean;
+  rxmtCount: number;
+  rxmtSeq: number;
+  /** Invalide les temporisations d'une adjacence abandonnée. */
+  adjacency: number;
+  /** LSA plus récents que les nôtres, à demander (liste de demandes, RFC 2328 §10). */
+  readonly requests: Map<string, OspfLsaHeader>;
+}
+
+interface OspfInterfaceState {
+  readonly portId: string;
+  readonly mode: "active" | "passive";
+  readonly cost: number;
+  readonly priority: number;
+  state: OspfInterfaceStateView;
+  /** Adresses d'interface du DR et du BDR élus (0.0.0.0 : aucun). */
+  dr: string;
+  bdr: string;
+  waitGeneration: number;
+  helloPending: boolean;
+  readonly neighbors: Map<string, OspfNeighbor>;
+}
+
+interface StoredLsa {
+  readonly lsa: OspfLsa;
+  readonly installedAt: SimTime;
+  readonly generation: number;
+}
+
+interface OspfState {
+  readonly routerId: string;
+  readonly interfaces: Map<string, OspfInterfaceState>;
+  readonly lsdb: Map<string, StoredLsa>;
+  routes: SpfRoute[];
+  spfPending: boolean;
+  nextHelloAt: SimTime;
+}
+
+const NO_ROUTER = "0.0.0.0";
+/** Voisins avec qui la base est échangée ou synchronisée (RFC 2328 §13 : état Exchange au moins). */
+const OSPF_SYNCING: ReadonlySet<OspfNeighborStateView> = new Set(["exchange", "loading", "full"]);
+/** Retransmissions d'une description comptées comme échanges en cours ; les suivantes sont des temporisations de fond. */
+const OSPF_ACTIVE_RETRANSMISSIONS = 3;
+
 const ripKey = (destination: number, prefixLength: number) => `${formatIpv4(destination)}/${String(prefixLength)}`;
 
 interface PingAttempt {
@@ -384,6 +472,9 @@ export class Simulation {
   /** RIP : état des routeurs ayant au moins une interface RIP. */
   private readonly rip = new Map<string, RipState>();
   private nextRipExchange = 1;
+  /** OSPF : état des routeurs ayant au moins une interface OSPF. */
+  private readonly ospf = new Map<string, OspfState>();
+  private nextOspfExchange = 1;
 
   constructor(doc: NfgDocument, options: SimulationOptions = {}) {
     this.seed = options.seed ?? DEFAULT_SEED;
@@ -432,6 +523,19 @@ export class Simulation {
       this.syncRipNetworks(device, false);
       this.schedule(0, { type: "rip-start", deviceId: device.id });
       this.schedule(this.parameters.ripUpdateInterval, { type: "rip-periodic", deviceId: device.id }, true);
+    }
+    // OSPF : identifiant = plus grande adresse IPv4 du routeur (choix NetForge) ; démarrage à 0, Hello toutes les 10 s.
+    for (const device of this.network.devices.values()) {
+      if (device.kind !== "router" || device.ospfInterfaces.size === 0) continue;
+      const addresses = device.ports.flatMap((port) => (port.ipv4 ? [port.ipv4.value] : []));
+      if (addresses.length === 0) continue;
+      const interfaces = new Map<string, OspfInterfaceState>();
+      for (const [portId, config] of device.ospfInterfaces) {
+        interfaces.set(portId, { portId, ...config, state: "down", dr: NO_ROUTER, bdr: NO_ROUTER, waitGeneration: 0, helloPending: false, neighbors: new Map() });
+      }
+      this.ospf.set(device.id, { routerId: formatIpv4(Math.max(...addresses)), interfaces, lsdb: new Map(), routes: [], spfPending: false, nextHelloAt: this.parameters.ospfHelloInterval });
+      this.schedule(0, { type: "ospf-start", deviceId: device.id });
+      this.schedule(this.parameters.ospfHelloInterval, { type: "ospf-periodic", deviceId: device.id }, true);
     }
   }
 
@@ -782,6 +886,30 @@ export class Simulation {
       case "rip-timer":
         this.onRipTimer(value.deviceId, value.key, value.stage, value.generation);
         return;
+      case "ospf-start":
+        this.onOspfStart(value.deviceId);
+        return;
+      case "ospf-periodic":
+        this.onOspfPeriodic(value.deviceId);
+        return;
+      case "ospf-hello":
+        this.onOspfHelloTimer(value.deviceId, value.portId);
+        return;
+      case "ospf-wait":
+        this.onOspfWait(value.deviceId, value.portId, value.generation);
+        return;
+      case "ospf-dead":
+        this.onOspfDead(value.deviceId, value.portId, value.routerId, value.generation);
+        return;
+      case "ospf-rxmt":
+        this.onOspfRxmt(value.deviceId, value.portId, value.routerId, value.generation);
+        return;
+      case "ospf-spf":
+        this.onOspfSpf(value.deviceId);
+        return;
+      case "ospf-lsa-timer":
+        this.onOspfLsaTimer(value.deviceId, value.key, value.stage, value.generation);
+        return;
     }
   }
 
@@ -802,7 +930,7 @@ export class Simulation {
   private isUp = (port: RuntimePort): boolean => isPortUp(this.network, port);
 
   private routes(device: RuntimeDevice): Route[] {
-    return routingTable(device, this.isUp, this.ripRoutes(device));
+    return routingTable(device, this.isUp, [...this.ospfRoutes(device), ...this.ripRoutes(device)]);
   }
 
   /** Routes RIP apprises et utilisables (métrique inférieure à 16) ; un réseau local reste une route connectée. */
@@ -947,6 +1075,19 @@ export class Simulation {
       }
     }
     this.recomputeStp();
+    // OSPF : interface tombée (voisins perdus aussitôt) ou rétablie (attente, Hello).
+    for (const end of link.ends) {
+      const device = this.device(end.deviceId);
+      const state = this.ospf.get(device.id);
+      if (!state) continue;
+      for (const iface of state.interfaces.values()) {
+        const port = device.portById.get(iface.portId);
+        if (!port || (port.portId !== end.portId && port.parent !== end.portId)) continue;
+        if (!up) this.ospfInterfaceDown(device, state, iface, port);
+        else if (iface.state === "down") this.ospfInterfaceUp(device, iface, port);
+      }
+      this.updateOwnLsas(device, state);
+    }
     // RIP : réseaux et routes des interfaces concernées ; une interface rétablie redemande la table de ses voisins.
     for (const end of link.ends) {
       const device = this.device(end.deviceId);
@@ -1439,8 +1580,9 @@ export class Simulation {
       return;
     }
     // Groupe 224.0.0.9 (routeurs RIP) : remis localement, jamais relayé (bloc de contrôle du réseau local, RFC 5771 §4).
-    if (packet.destination === RIP_MULTICAST) {
+    if (packet.destination === RIP_MULTICAST || packet.destination === OSPF_ALL_ROUTERS || packet.destination === OSPF_ALL_DROUTERS) {
       if (packet.payload.kind === "udp") this.onUdp(device, port, packet, packet.payload, exchange);
+      else if (packet.payload.kind === "ospf") this.onOspf(device, port, packet, packet.payload, exchange);
       else this.emit("ip.broadcast-dropped", { destination: packet.destination }, where);
       return;
     }
@@ -1541,6 +1683,10 @@ export class Simulation {
       this.onUdp(device, port, packet, message, exchange);
       return;
     }
+    if (message.kind === "ospf") {
+      if (port) this.onOspf(device, port, packet, message, exchange);
+      return;
+    }
     if (message.type === "echo-request") {
       this.emit("icmp.echo-request", { source: packet.source, identifier: message.identifier, sequence: message.sequence }, where);
       const reply: PacketDraft = {
@@ -1569,7 +1715,7 @@ export class Simulation {
   ): void {
     const message = offending.payload;
     // Datagramme UDP : DHCP seulement, jamais relayé (serveur sur le réseau du client) ; rien à signaler.
-    if (message.kind === "udp") return;
+    if (message.kind === "udp" || message.kind === "ospf") return;
     // RFC 1122 §3.2.2 : jamais d'erreur ICMP en réponse à une erreur ICMP.
     if (isIcmpError(message)) {
       this.emit("icmp.error-suppressed", { type, code }, { device, exchange, pdu: offending });
@@ -2304,7 +2450,13 @@ export class Simulation {
 
   /** L'interface accepte les trames de son groupe : 01:00:5e:00:00:09 sur une interface RIP active. */
   private joinsGroup(device: RuntimeDevice, port: RuntimePort, mac: MacAddress): boolean {
-    return device.kind === "router" && mac === multicastMac(parseIpv4(RIP_MULTICAST) ?? 0) && device.ripInterfaces.get(port.portId) === "active";
+    if (device.kind !== "router") return false;
+    if (mac === multicastMac(parseIpv4(RIP_MULTICAST) ?? 0) && device.ripInterfaces.get(port.portId) === "active") return true;
+    // OSPF : AllSPFRouters sur une interface active ; AllDRouters seulement pour le DR et le BDR (RFC 2328 A.1).
+    const iface = this.ospf.get(device.id)?.interfaces.get(port.portId);
+    if (iface?.mode !== "active" || iface.state === "down") return false;
+    if (mac === multicastMac(parseIpv4(OSPF_ALL_ROUTERS) ?? 0)) return true;
+    return mac === multicastMac(parseIpv4(OSPF_ALL_DROUTERS) ?? 0) && (iface.state === "dr" || iface.state === "backup");
   }
 
   /** Interface qui émet et traite RIP : mode actif, adressée et reliée. */
@@ -2599,6 +2751,797 @@ export class Simulation {
     };
   }
 
+  // ---------------------------------------------------------------- OSPF version 2 (zone unique)
+
+  private newOspfExchange(): string {
+    const exchange = `ospf-${String(this.nextOspfExchange)}`;
+    this.nextOspfExchange += 1;
+    return exchange;
+  }
+
+  private ospfPacket<T extends OspfPacket>(state: OspfState, body: Omit<T, "kind" | "version" | "routerId" | "area">): T {
+    return { kind: "ospf", version: 2, routerId: state.routerId, area: OSPF_BACKBONE, ...body } as T;
+  }
+
+  /** Paquet OSPF vers un groupe (224.0.0.5 ou 224.0.0.6) : TTL 1, MAC de groupe, sans résolution ARP. */
+  private multicastOspf(device: RuntimeDevice, port: RuntimePort, group: string, packet: OspfPacket, exchange: string): void {
+    if (!port.ipv4) return;
+    const state = this.state(device.id);
+    const identification = state.nextIdentification;
+    state.nextIdentification = (state.nextIdentification + 1) & 0xffff;
+    const ip: Ipv4Packet = { kind: "ipv4", source: port.ipv4.address, destination: group, ttl: 1, identification, payload: packet };
+    this.transmit(device, port, { kind: "ethernet", source: port.mac, destination: multicastMac(parseIpv4(group) ?? 0), payload: ip }, exchange);
+  }
+
+  /** Paquet OSPF vers l'adresse d'un voisin (échange de base) : TTL 1, résolution ARP habituelle. */
+  private unicastOspf(device: RuntimeDevice, port: RuntimePort, destination: string, packet: OspfPacket, exchange: string): void {
+    if (!port.ipv4) return;
+    this.sendLocal(device, { source: port.ipv4.address, destination, ttl: 1, payload: packet }, { kind: "local" }, exchange);
+  }
+
+  /** Interface utilisable : adressée et reliée. */
+  private ospfUsable(device: RuntimeDevice, iface: OspfInterfaceState): RuntimePort | null {
+    const port = device.portById.get(iface.portId);
+    return port?.ipv4 && this.isUp(port) ? port : null;
+  }
+
+  /** Identifiant de routeur correspondant à une adresse d'interface du réseau (DR ou BDR annoncé). */
+  private ospfRouterOf(state: OspfState, iface: OspfInterfaceState, port: RuntimePort, address: string): string | null {
+    if (address === NO_ROUTER) return null;
+    if (address === port.ipv4?.address) return state.routerId;
+    for (const neighbor of iface.neighbors.values()) if (neighbor.address === address) return neighbor.routerId;
+    return address;
+  }
+
+  private setOspfInterfaceState(device: RuntimeDevice, state: OspfState, iface: OspfInterfaceState, port: RuntimePort, to: OspfInterfaceStateView, cause: string): void {
+    const from = iface.state;
+    iface.state = to;
+    this.dirtyDevices.add(device.id);
+    if (from === to) return;
+    this.emit(
+      "ospf.interface-state",
+      { from, to, cause, dr: this.ospfRouterOf(state, iface, port, iface.dr), bdr: this.ospfRouterOf(state, iface, port, iface.bdr) },
+      { device, port },
+    );
+  }
+
+  private setNeighborState(device: RuntimeDevice, port: RuntimePort, neighbor: OspfNeighbor, to: OspfNeighborStateView | "down", event: string): void {
+    const from = neighbor.state;
+    if (from === to) return;
+    if (to !== "down") neighbor.state = to;
+    this.dirtyDevices.add(device.id);
+    this.emit("ospf.neighbor-state", { neighbor: neighbor.routerId, address: neighbor.address, from, to, event }, { device, port });
+  }
+
+  /**
+   * Interface rétablie (RFC 2328 §9.3, InterfaceUp) : attente de 40 s avant
+   * l'élection, ou DR Other directement si la priorité est 0 ; Hello aussitôt.
+   */
+  private ospfInterfaceUp(device: RuntimeDevice, iface: OspfInterfaceState, port: RuntimePort): void {
+    const state = this.ospf.get(device.id);
+    if (!state || !port.ipv4 || !this.isUp(port)) return;
+    if (iface.mode === "passive") {
+      this.setOspfInterfaceState(device, state, iface, port, "passive", "interface-up");
+      return;
+    }
+    iface.dr = NO_ROUTER;
+    iface.bdr = NO_ROUTER;
+    iface.waitGeneration += 1;
+    if (iface.priority === 0) {
+      this.setOspfInterfaceState(device, state, iface, port, "dr-other", "interface-up");
+    } else {
+      this.setOspfInterfaceState(device, state, iface, port, "waiting", "interface-up");
+      this.schedule(this.clock + this.parameters.ospfDeadInterval, { type: "ospf-wait", deviceId: device.id, portId: iface.portId, generation: iface.waitGeneration });
+    }
+    this.triggerHello(device, iface);
+  }
+
+  /** Interface tombée (InterfaceDown) : tous ses voisins sont perdus, DR et BDR oubliés. */
+  private ospfInterfaceDown(device: RuntimeDevice, state: OspfState, iface: OspfInterfaceState, port: RuntimePort): void {
+    if (iface.state === "down") return;
+    for (const neighbor of [...iface.neighbors.values()]) this.killNeighbor(device, iface, port, neighbor, "interface-down");
+    iface.waitGeneration += 1;
+    iface.dr = NO_ROUTER;
+    iface.bdr = NO_ROUTER;
+    this.setOspfInterfaceState(device, state, iface, port, "down", "interface-down");
+  }
+
+  private onOspfStart(deviceId: string): void {
+    const device = this.device(deviceId);
+    const state = this.ospf.get(deviceId);
+    if (!state) return;
+    for (const iface of state.interfaces.values()) {
+      const port = this.ospfUsable(device, iface);
+      if (port) this.ospfInterfaceUp(device, iface, port);
+    }
+    this.updateOwnLsas(device, state);
+  }
+
+  /**
+   * Hello déclenché : quand ce qu'annonce le routeur change (nouveau voisin,
+   * voisin perdu, DR ou BDR élu), il émet un Hello sans attendre l'intervalle
+   * de 10 s (choix NetForge : la découverte et l'élection ne dépendent pas des
+   * annonces périodiques, ce qui permet de calculer la convergence).
+   */
+  private triggerHello(device: RuntimeDevice, iface: OspfInterfaceState): void {
+    if (iface.mode !== "active" || iface.helloPending) return;
+    iface.helloPending = true;
+    this.schedule(this.clock, { type: "ospf-hello", deviceId: device.id, portId: iface.portId });
+  }
+
+  private onOspfHelloTimer(deviceId: string, portId: string): void {
+    const device = this.device(deviceId);
+    const iface = this.ospf.get(deviceId)?.interfaces.get(portId);
+    if (!iface) return;
+    iface.helloPending = false;
+    this.sendHello(device, iface, "triggered");
+  }
+
+  private onOspfPeriodic(deviceId: string): void {
+    const device = this.device(deviceId);
+    const state = this.ospf.get(deviceId);
+    if (!state) return;
+    for (const iface of state.interfaces.values()) this.sendHello(device, iface, "periodic");
+    state.nextHelloAt = this.clock + this.parameters.ospfHelloInterval;
+    this.dirtyDevices.add(deviceId);
+    this.schedule(state.nextHelloAt, { type: "ospf-periodic", deviceId }, true);
+  }
+
+  private sendHello(device: RuntimeDevice, iface: OspfInterfaceState, reason: "periodic" | "triggered"): void {
+    const state = this.ospf.get(device.id);
+    const port = this.ospfUsable(device, iface);
+    if (!state || !port?.ipv4 || iface.mode !== "active" || iface.state === "down") return;
+    const hello = this.ospfPacket<OspfHello>(state, {
+      type: "hello",
+      networkMask: prefixToMask(port.ipv4.prefixLength),
+      helloInterval: this.parameters.ospfHelloInterval / 1e9,
+      deadInterval: this.parameters.ospfDeadInterval / 1e9,
+      priority: iface.priority,
+      designatedRouter: iface.dr,
+      backupRouter: iface.bdr,
+      neighbors: [...iface.neighbors.keys()].sort(compareRouterIds),
+    });
+    const exchange = this.newOspfExchange();
+    this.emit(
+      "ospf.hello-sent",
+      { reason, neighbors: hello.neighbors.length, dr: this.ospfRouterOf(state, iface, port, iface.dr), bdr: this.ospfRouterOf(state, iface, port, iface.bdr), destination: OSPF_ALL_ROUTERS },
+      { device, port, exchange, pdu: hello },
+    );
+    this.multicastOspf(device, port, OSPF_ALL_ROUTERS, hello, exchange);
+  }
+
+  /** Réception d'un paquet OSPF : interface active, émetteur du même réseau, zone 0 (RFC 2328 §8.2). */
+  private onOspf(device: RuntimeDevice, port: RuntimePort, packet: Ipv4Packet, message: OspfPacket, exchange: string | null): void {
+    const where = { device, port, exchange, pdu: message };
+    const state = this.ospf.get(device.id);
+    const iface = state?.interfaces.get(port.portId);
+    if (!state || !iface || !port.ipv4) {
+      this.emit("ospf.ignored", { reason: "not-enabled", from: packet.source }, where);
+      return;
+    }
+    if (iface.mode === "passive") {
+      this.emit("ospf.ignored", { reason: "passive", from: packet.source }, where);
+      return;
+    }
+    if (iface.state === "down" || message.routerId === state.routerId) return;
+    const source = parseIpv4(packet.source);
+    if (source === null || networkAddress(source, port.ipv4.prefixLength) !== port.ipv4.network) {
+      this.emit("ospf.ignored", { reason: "other-network", from: packet.source }, where);
+      return;
+    }
+    if (message.area !== OSPF_BACKBONE) {
+      this.emit("ospf.ignored", { reason: "area", from: packet.source, area: message.area }, where);
+      return;
+    }
+    if (message.type === "hello") {
+      this.onOspfHello(device, state, iface, port, packet.source, message, where);
+      return;
+    }
+    const neighbor = iface.neighbors.get(message.routerId);
+    if (!neighbor) {
+      this.emit("ospf.ignored", { reason: "unknown-neighbor", from: packet.source }, where);
+      return;
+    }
+    if (message.type === "dd") this.onOspfDd(device, state, port, neighbor, message, where);
+    else if (message.type === "lsr") this.onOspfLsr(device, state, port, neighbor, message, where);
+    else this.onOspfLsu(device, state, iface, port, neighbor, message, where);
+  }
+
+  /** Hello reçu (RFC 2328 §10.5) : paramètres du réseau, voisin, communication bidirectionnelle, BackupSeen. */
+  private onOspfHello(device: RuntimeDevice, state: OspfState, iface: OspfInterfaceState, port: RuntimePort, source: string, hello: OspfHello, where: Where): void {
+    if (!port.ipv4) return;
+    const expected: ReadonlyArray<readonly [string, string | number, string | number]> = [
+      ["mask", prefixToMask(port.ipv4.prefixLength), hello.networkMask],
+      ["hello-interval", this.parameters.ospfHelloInterval / 1e9, hello.helloInterval],
+      ["dead-interval", this.parameters.ospfDeadInterval / 1e9, hello.deadInterval],
+    ];
+    const mismatch = expected.find(([, own, received]) => own !== received);
+    if (mismatch) {
+      this.emit("ospf.hello-mismatch", { field: mismatch[0], expected: mismatch[1], received: mismatch[2], from: source }, where);
+      return;
+    }
+    const listed = hello.neighbors.includes(state.routerId);
+    this.emit(
+      "ospf.hello-received",
+      { routerId: hello.routerId, priority: hello.priority, dr: hello.designatedRouter === NO_ROUTER ? null : hello.designatedRouter, bdr: hello.backupRouter === NO_ROUTER ? null : hello.backupRouter, listed },
+      where,
+    );
+    let neighbor = iface.neighbors.get(hello.routerId);
+    let changed = false;
+    if (!neighbor) {
+      neighbor = {
+        routerId: hello.routerId,
+        address: source,
+        priority: hello.priority,
+        dr: hello.designatedRouter,
+        bdr: hello.backupRouter,
+        state: "init",
+        deadAt: 0,
+        deadGeneration: 0,
+        master: false,
+        ddSequence: 0,
+        lastDd: null,
+        awaiting: false,
+        rxmtCount: 0,
+        rxmtSeq: -1,
+        adjacency: 0,
+        requests: new Map(),
+      };
+      iface.neighbors.set(hello.routerId, neighbor);
+      this.emit("ospf.neighbor-state", { neighbor: hello.routerId, address: source, from: "down", to: "init", event: "hello-received" }, { device, port });
+      this.triggerHello(device, iface);
+    } else {
+      // Changement de priorité ou de DR/BDR déclaré : NeighborChange (RFC 2328 §10.5).
+      const declared = (dr: string, bdr: string, address: string) => `${String(dr === address)}|${String(bdr === address)}`;
+      if (neighbor.priority !== hello.priority || declared(neighbor.dr, neighbor.bdr, neighbor.address) !== declared(hello.designatedRouter, hello.backupRouter, source)) changed = true;
+      neighbor.address = source;
+      neighbor.priority = hello.priority;
+      neighbor.dr = hello.designatedRouter;
+      neighbor.bdr = hello.backupRouter;
+    }
+    neighbor.deadGeneration += 1;
+    neighbor.deadAt = this.clock + this.parameters.ospfDeadInterval;
+    this.schedule(neighbor.deadAt, { type: "ospf-dead", deviceId: device.id, portId: iface.portId, routerId: neighbor.routerId, generation: neighbor.deadGeneration }, true);
+    this.dirtyDevices.add(device.id);
+    if (listed && neighbor.state === "init") {
+      this.setNeighborState(device, port, neighbor, "2-way", "2-way-received");
+      changed = true;
+    } else if (!listed && neighbor.state !== "init") {
+      // 1-WayReceived : le voisin ne nous entend plus ; l'adjacence est abandonnée.
+      const wasFull = neighbor.state === "full";
+      this.resetAdjacency(neighbor);
+      this.setNeighborState(device, port, neighbor, "init", "1-way-received");
+      if (wasFull) this.updateOwnLsas(device, state);
+      changed = true;
+    }
+    const backupSeen =
+      iface.state === "waiting" &&
+      neighbor.state !== "init" &&
+      (hello.backupRouter === source || (hello.designatedRouter === source && hello.backupRouter === NO_ROUTER));
+    if (backupSeen) this.runElection(device, state, iface, port, "backup-seen");
+    else if (changed && iface.state !== "waiting" && iface.state !== "down") this.runElection(device, state, iface, port, "neighbor-change");
+  }
+
+  /** Élection (RFC 2328 §9.4), nouvel état de l'interface, adjacences réévaluées et LSA mis à jour. */
+  private runElection(device: RuntimeDevice, state: OspfState, iface: OspfInterfaceState, port: RuntimePort, cause: string): void {
+    if (!port.ipv4) return;
+    const own = port.ipv4.address;
+    const self = { routerId: state.routerId, address: own, priority: iface.priority, dr: iface.dr, bdr: iface.bdr };
+    const candidates = [...iface.neighbors.values()]
+      .filter((neighbor) => neighbor.state !== "init")
+      .map((neighbor) => ({ routerId: neighbor.routerId, address: neighbor.address, priority: neighbor.priority, dr: neighbor.dr, bdr: neighbor.bdr }));
+    const { dr, bdr } = electDesignatedRouter(self, candidates);
+    const changed = dr !== iface.dr || bdr !== iface.bdr;
+    iface.dr = dr;
+    iface.bdr = bdr;
+    const next: OspfInterfaceStateView = dr === own ? "dr" : bdr === own ? "backup" : "dr-other";
+    if (changed && next === iface.state) {
+      this.emit("ospf.interface-state", { from: iface.state, to: next, cause, dr: this.ospfRouterOf(state, iface, port, dr), bdr: this.ospfRouterOf(state, iface, port, bdr) }, { device, port });
+    }
+    this.setOspfInterfaceState(device, state, iface, port, next, cause);
+    if (changed) this.triggerHello(device, iface);
+    for (const neighbor of iface.neighbors.values()) this.evaluateAdjacency(device, state, iface, port, neighbor);
+    this.updateOwnLsas(device, state);
+  }
+
+  /** Adjacence voulue sur un réseau à diffusion : avec le DR et le BDR, ou avec tous si l'on est DR ou BDR (RFC 2328 §10.4). */
+  private evaluateAdjacency(device: RuntimeDevice, state: OspfState, iface: OspfInterfaceState, port: RuntimePort, neighbor: OspfNeighbor): void {
+    if (neighbor.state === "init" || !port.ipv4) return;
+    const own = port.ipv4.address;
+    const wanted =
+      iface.state !== "waiting" && iface.state !== "down" && (iface.dr === own || iface.bdr === own || neighbor.address === iface.dr || neighbor.address === iface.bdr);
+    if (wanted && neighbor.state === "2-way") {
+      this.startExchange(device, state, port, neighbor);
+    } else if (!wanted && neighbor.state !== "2-way") {
+      const wasFull = neighbor.state === "full";
+      this.resetAdjacency(neighbor);
+      this.setNeighborState(device, port, neighbor, "2-way", "adjacency-not-needed");
+      if (wasFull) this.updateOwnLsas(device, state);
+    }
+  }
+
+  private resetAdjacency(neighbor: OspfNeighbor): void {
+    this.cancel(neighbor.rxmtSeq);
+    neighbor.adjacency += 1;
+    neighbor.requests.clear();
+    neighbor.lastDd = null;
+    neighbor.awaiting = false;
+    neighbor.rxmtCount = 0;
+  }
+
+  /** ExStart (RFC 2328 §10.8) : chaque routeur se déclare maître avec une description vide (bits I, M et MS). */
+  private startExchange(device: RuntimeDevice, state: OspfState, port: RuntimePort, neighbor: OspfNeighbor): void {
+    this.resetAdjacency(neighbor);
+    this.setNeighborState(device, port, neighbor, "exstart", "adjacency-ok");
+    neighbor.master = true;
+    neighbor.ddSequence = this.prng.nextInt(0x7fffffff) + 1;
+    const dd = this.ospfPacket<OspfDatabaseDescription>(state, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: true, more: true, master: true, sequence: neighbor.ddSequence, headers: [] });
+    this.sendDd(device, port, neighbor, dd, true);
+  }
+
+  private sendDd(device: RuntimeDevice, port: RuntimePort, neighbor: OspfNeighbor, dd: OspfDatabaseDescription, awaitReply: boolean): void {
+    neighbor.lastDd = dd;
+    const exchange = this.newOspfExchange();
+    this.emit(
+      "ospf.dd-sent",
+      { neighbor: neighbor.routerId, sequence: dd.sequence >>> 0, init: dd.init, more: dd.more, master: dd.master, count: dd.headers.length },
+      { device, port, exchange, pdu: dd },
+    );
+    this.unicastOspf(device, port, neighbor.address, dd, exchange);
+    if (!awaitReply) return;
+    neighbor.awaiting = true;
+    neighbor.rxmtCount = 0;
+    this.scheduleRxmt(device, port, neighbor);
+  }
+
+  private scheduleRxmt(device: RuntimeDevice, port: RuntimePort, neighbor: OspfNeighbor): void {
+    neighbor.rxmtSeq = this.schedule(
+      this.clock + this.parameters.ospfRxmtInterval,
+      { type: "ospf-rxmt", deviceId: device.id, portId: port.portId, routerId: neighbor.routerId, generation: neighbor.adjacency },
+      neighbor.rxmtCount >= OSPF_ACTIVE_RETRANSMISSIONS,
+    );
+  }
+
+  /** Retransmission (RxmtInterval) d'une description restée sans réponse. */
+  private onOspfRxmt(deviceId: string, portId: string, routerId: string, generation: number): void {
+    const device = this.device(deviceId);
+    const port = device.portById.get(portId);
+    const neighbor = this.ospf.get(deviceId)?.interfaces.get(portId)?.neighbors.get(routerId);
+    if (!port || neighbor?.adjacency !== generation || !neighbor.awaiting || !neighbor.lastDd) return;
+    neighbor.rxmtCount += 1;
+    const exchange = this.newOspfExchange();
+    const dd = neighbor.lastDd;
+    this.emit(
+      "ospf.dd-sent",
+      { neighbor: neighbor.routerId, sequence: dd.sequence >>> 0, init: dd.init, more: dd.more, master: dd.master, count: dd.headers.length, retransmission: neighbor.rxmtCount },
+      { device, port, exchange, pdu: dd },
+    );
+    this.unicastOspf(device, port, neighbor.address, dd, exchange);
+    this.scheduleRxmt(device, port, neighbor);
+  }
+
+  /** En-têtes de la base (hors MaxAge), âge courant. */
+  private ospfSummary(state: OspfState): OspfLsaHeader[] {
+    return [...state.lsdb.values()]
+      .map((stored) => this.currentLsa(stored))
+      .filter((lsa) => lsa.age < OSPF_MAX_AGE)
+      .map((lsa) => lsaHeader(lsa))
+      .sort(compareLsaKeys);
+  }
+
+  private collectRequests(state: OspfState, neighbor: OspfNeighbor, headers: readonly OspfLsaHeader[]): void {
+    for (const header of headers) {
+      const stored = state.lsdb.get(lsaKey(header));
+      if (!stored || compareLsa(header, this.currentLsa(stored)) > 0) neighbor.requests.set(lsaKey(header), header);
+    }
+  }
+
+  /**
+   * Description reçue (RFC 2328 §10.6, sous-ensemble) : négociation maître/esclave
+   * (plus grand identifiant maître), puis une description complète de chaque
+   * côté (toute la base tient dans un paquet : MTU non modélisée).
+   */
+  private onOspfDd(device: RuntimeDevice, state: OspfState, port: RuntimePort, neighbor: OspfNeighbor, dd: OspfDatabaseDescription, where: Where): void {
+    if (neighbor.state === "init" || neighbor.state === "2-way") {
+      this.emit("ospf.ignored", { reason: "neighbor-state", from: neighbor.address, state: neighbor.state }, where);
+      return;
+    }
+    const neighborIsMaster = compareRouterIds(neighbor.routerId, state.routerId) > 0;
+    const received = { neighbor: neighbor.routerId, sequence: dd.sequence >>> 0, init: dd.init, more: dd.more, master: dd.master, count: dd.headers.length };
+    if (neighbor.state === "exstart") {
+      if (dd.init && dd.more && dd.master && dd.headers.length === 0 && neighborIsMaster) {
+        this.emit("ospf.dd-received", { ...received, role: "slave" }, where);
+        neighbor.master = false;
+        neighbor.awaiting = false;
+        this.cancel(neighbor.rxmtSeq);
+        neighbor.ddSequence = dd.sequence;
+        this.setNeighborState(device, port, neighbor, "exchange", "negotiation-done");
+        this.sendDd(device, port, neighbor, this.ospfPacket<OspfDatabaseDescription>(state, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: false, more: false, master: false, sequence: dd.sequence, headers: this.ospfSummary(state) }), false);
+        return;
+      }
+      if (!dd.init && !dd.master && dd.sequence === neighbor.ddSequence && !neighborIsMaster) {
+        this.emit("ospf.dd-received", { ...received, role: "master" }, where);
+        neighbor.master = true;
+        neighbor.awaiting = false;
+        this.cancel(neighbor.rxmtSeq);
+        this.setNeighborState(device, port, neighbor, "exchange", "negotiation-done");
+        this.collectRequests(state, neighbor, dd.headers);
+        neighbor.ddSequence = (neighbor.ddSequence + 1) | 0;
+        this.sendDd(device, port, neighbor, this.ospfPacket<OspfDatabaseDescription>(state, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: false, more: false, master: true, sequence: neighbor.ddSequence, headers: this.ospfSummary(state) }), true);
+        return;
+      }
+      // Description d'un voisin d'identifiant plus petit qui se croit maître : la nôtre l'emportera.
+      this.emit("ospf.ignored", { reason: "negotiation", from: neighbor.address }, where);
+      return;
+    }
+    if (neighbor.state === "exchange" && !neighbor.master && dd.master && dd.sequence === ((neighbor.ddSequence + 1) | 0)) {
+      this.emit("ospf.dd-received", { ...received, role: "slave" }, where);
+      neighbor.ddSequence = dd.sequence;
+      this.collectRequests(state, neighbor, dd.headers);
+      this.sendDd(device, port, neighbor, this.ospfPacket<OspfDatabaseDescription>(state, { type: "dd", interfaceMtu: OSPF_INTERFACE_MTU, init: false, more: false, master: false, sequence: dd.sequence, headers: [] }), false);
+      if (!dd.more) this.exchangeDone(device, state, port, neighbor);
+      return;
+    }
+    if (neighbor.state === "exchange" && neighbor.master && !dd.master && dd.sequence === neighbor.ddSequence) {
+      this.emit("ospf.dd-received", { ...received, role: "master" }, where);
+      neighbor.awaiting = false;
+      this.cancel(neighbor.rxmtSeq);
+      this.collectRequests(state, neighbor, dd.headers);
+      if (!dd.more) this.exchangeDone(device, state, port, neighbor);
+      return;
+    }
+    // Doublon du maître : l'esclave renvoie sa dernière réponse (RFC 2328 §10.8).
+    if (!neighbor.master && dd.master && dd.sequence === neighbor.ddSequence && neighbor.lastDd) {
+      this.emit("ospf.dd-received", { ...received, role: "slave", duplicate: true }, where);
+      this.sendDd(device, port, neighbor, neighbor.lastDd, false);
+      return;
+    }
+    this.emit("ospf.ignored", { reason: "sequence", from: neighbor.address }, where);
+  }
+
+  /** ExchangeDone : base à jour (Full) ou demande des LSA manquants (Loading). */
+  private exchangeDone(device: RuntimeDevice, state: OspfState, port: RuntimePort, neighbor: OspfNeighbor): void {
+    if (neighbor.requests.size === 0) {
+      this.setNeighborState(device, port, neighbor, "full", "exchange-done");
+      this.updateOwnLsas(device, state);
+      return;
+    }
+    this.setNeighborState(device, port, neighbor, "loading", "exchange-done");
+    const lsr = this.ospfPacket<OspfLinkStateRequest>(state, {
+      type: "lsr",
+      requests: [...neighbor.requests.values()].map((header) => ({ lsaType: header.lsaType, lsId: header.lsId, advertisingRouter: header.advertisingRouter })),
+    });
+    const exchange = this.newOspfExchange();
+    this.emit("ospf.lsr-sent", { neighbor: neighbor.routerId, count: lsr.requests.length }, { device, port, exchange, pdu: lsr });
+    this.unicastOspf(device, port, neighbor.address, lsr, exchange);
+  }
+
+  private onOspfLsr(device: RuntimeDevice, state: OspfState, port: RuntimePort, neighbor: OspfNeighbor, lsr: OspfLinkStateRequest, where: Where): void {
+    if (!OSPF_SYNCING.has(neighbor.state)) {
+      this.emit("ospf.ignored", { reason: "neighbor-state", from: neighbor.address, state: neighbor.state }, where);
+      return;
+    }
+    this.emit("ospf.lsr-received", { neighbor: neighbor.routerId, count: lsr.requests.length }, where);
+    const lsas = lsr.requests.flatMap((request) => {
+      const stored = state.lsdb.get(lsaKey(request));
+      return stored ? [this.currentLsa(stored)] : [];
+    });
+    if (lsas.length === 0) return;
+    const lsu = this.ospfPacket<OspfLinkStateUpdate>(state, { type: "lsu", lsas });
+    const exchange = this.newOspfExchange();
+    this.emit("ospf.lsu-sent", { count: lsas.length, destination: neighbor.address, reason: "request" }, { device, port, exchange, pdu: lsu });
+    this.unicastOspf(device, port, neighbor.address, lsu, exchange);
+  }
+
+  /** Mise à jour reçue (RFC 2328 §13) : instance plus récente installée et inondée ; doublon ou plus ancienne ignorée. */
+  private onOspfLsu(device: RuntimeDevice, state: OspfState, iface: OspfInterfaceState, port: RuntimePort, neighbor: OspfNeighbor, lsu: OspfLinkStateUpdate, where: Where): void {
+    if (!OSPF_SYNCING.has(neighbor.state)) {
+      this.emit("ospf.ignored", { reason: "neighbor-state", from: neighbor.address, state: neighbor.state }, where);
+      return;
+    }
+    let installed = 0;
+    let duplicates = 0;
+    let older = 0;
+    const accepted: OspfLsa[] = [];
+    for (const lsa of lsu.lsas) {
+      const key = lsaKey(lsa);
+      const stored = state.lsdb.get(key);
+      const current = stored ? this.currentLsa(stored) : null;
+      const comparison = current ? compareLsa(lsa, current) : lsa.age >= OSPF_MAX_AGE ? 0 : 1;
+      // Une instance de nos propres LSA ne peut venir que de notre inondation : elle n'est jamais plus récente.
+      if (comparison > 0 && lsa.advertisingRouter !== state.routerId) {
+        installed += 1;
+        accepted.push(lsa);
+      } else if (comparison === 0) duplicates += 1;
+      else older += 1;
+      if (comparison >= 0) neighbor.requests.delete(key);
+    }
+    this.emit("ospf.lsu-received", { neighbor: neighbor.routerId, count: lsu.lsas.length, installed, duplicates, older }, where);
+    for (const lsa of accepted) this.installLsa(device, state, lsa, { iface, neighbor });
+    if (neighbor.state === "loading" && neighbor.requests.size === 0) {
+      this.setNeighborState(device, port, neighbor, "full", "loading-done");
+      this.updateOwnLsas(device, state);
+    }
+  }
+
+  /** Âge courant d'un LSA de la base (s), plafonné à MaxAge. */
+  private currentLsa(stored: StoredLsa): OspfLsa {
+    const age = Math.min(OSPF_MAX_AGE, stored.lsa.age + Math.floor((this.clock - stored.installedAt) / 1e9));
+    return age === stored.lsa.age ? stored.lsa : { ...stored.lsa, age };
+  }
+
+  /** Nouvelle instance reçue : inondée, installée (ou retirée si MaxAge), calcul SPF programmé. */
+  private installLsa(device: RuntimeDevice, state: OspfState, lsa: OspfLsa, from: { readonly iface: OspfInterfaceState; readonly neighbor: OspfNeighbor }): void {
+    const key = lsaKey(lsa);
+    const generation = (state.lsdb.get(key)?.generation ?? 0) + 1;
+    const params = { lsaType: lsa.lsaType, lsId: lsa.lsId, advertisingRouter: lsa.advertisingRouter, sequence: lsa.sequence >>> 0, neighbor: from.neighbor.routerId };
+    this.floodLsa(device, state, lsa, from);
+    if (lsa.age >= OSPF_MAX_AGE) {
+      state.lsdb.delete(key);
+      this.emit("ospf.lsa-flushed", params, { device });
+    } else {
+      state.lsdb.set(key, { lsa, installedAt: this.clock, generation });
+      this.emit("ospf.lsa-installed", { ...params, age: lsa.age }, { device });
+      this.schedule(this.clock + fromSeconds(OSPF_MAX_AGE - lsa.age), { type: "ospf-lsa-timer", deviceId: device.id, key, stage: "max-age", generation }, true);
+    }
+    this.scheduleSpf(device, state);
+  }
+
+  /**
+   * Inondation (RFC 2328 §13.3) : vers les voisins en état Exchange au moins
+   * (sauf celui qui l'a envoyé), jamais en retour vers le DR ou le BDR qui
+   * l'a transmis, ni par le BDR sur l'interface de réception ; vers
+   * AllSPFRouters depuis le DR ou le BDR, AllDRouters sinon. Sans accusé de
+   * réception ni retransmission (le simulateur ne perd pas de paquet).
+   */
+  private floodLsa(device: RuntimeDevice, state: OspfState, lsa: OspfLsa, from: { readonly iface: OspfInterfaceState; readonly neighbor: OspfNeighbor } | null): void {
+    const key = lsaKey(lsa);
+    for (const iface of state.interfaces.values()) {
+      const port = this.ospfUsable(device, iface);
+      if (!port || iface.mode !== "active") continue;
+      let eligible = 0;
+      for (const neighbor of iface.neighbors.values()) {
+        if (!OSPF_SYNCING.has(neighbor.state)) continue;
+        const requested = neighbor.requests.get(key);
+        if (requested && neighbor.state !== "full") {
+          const comparison = compareLsa(lsa, requested);
+          if (comparison < 0) continue;
+          neighbor.requests.delete(key);
+          if (comparison === 0) continue;
+        }
+        if (from && neighbor === from.neighbor) continue;
+        eligible += 1;
+      }
+      if (eligible === 0) continue;
+      if (from && iface === from.iface && (from.neighbor.address === iface.dr || from.neighbor.address === iface.bdr || iface.state === "backup")) continue;
+      const destination = iface.state === "dr" || iface.state === "backup" ? OSPF_ALL_ROUTERS : OSPF_ALL_DROUTERS;
+      const lsu = this.ospfPacket<OspfLinkStateUpdate>(state, { type: "lsu", lsas: [lsa] });
+      const exchange = this.newOspfExchange();
+      this.emit("ospf.lsu-sent", { count: 1, destination, reason: "flood" }, { device, port, exchange, pdu: lsu });
+      this.multicastOspf(device, port, destination, lsu, exchange);
+    }
+  }
+
+  /**
+   * LSA du routeur (RFC 2328 §12.4.1.2 et §12.4.2) : un lien de transit vers
+   * chaque réseau où il est pleinement adjacent au DR (ou DR avec un voisin
+   * plein), un lien terminal sinon (attente, interface passive) ; LSA réseau
+   * de chaque réseau dont il est DR avec au moins un voisin plein, retiré dès
+   * que ce n'est plus le cas.
+   */
+  private updateOwnLsas(device: RuntimeDevice, state: OspfState): void {
+    const links: OspfRouterLink[] = [];
+    for (const iface of [...state.interfaces.values()].sort((a, b) => a.portId.localeCompare(b.portId))) {
+      const port = this.ospfUsable(device, iface);
+      if (!port?.ipv4) continue;
+      const stub: OspfRouterLink = { type: "stub", linkId: formatIpv4(port.ipv4.network), linkData: prefixToMask(port.ipv4.prefixLength), metric: iface.cost };
+      const full = [...iface.neighbors.values()].filter((neighbor) => neighbor.state === "full");
+      const transit = iface.mode === "active" && ((iface.state === "dr" && full.length > 0) || full.some((neighbor) => neighbor.address === iface.dr));
+      links.push(transit ? { type: "transit", linkId: iface.dr, linkData: port.ipv4.address, metric: iface.cost } : stub);
+    }
+    this.originate(device, state, { lsaType: "router", age: 0, lsId: state.routerId, advertisingRouter: state.routerId, sequence: 0, links });
+    for (const iface of state.interfaces.values()) {
+      const port = device.portById.get(iface.portId);
+      if (!port?.ipv4) continue;
+      const key = lsaKey({ lsaType: "network", lsId: port.ipv4.address, advertisingRouter: state.routerId });
+      const full = [...iface.neighbors.values()].filter((neighbor) => neighbor.state === "full").map((neighbor) => neighbor.routerId);
+      if (iface.mode === "active" && iface.state === "dr" && full.length > 0 && this.isUp(port)) {
+        this.originate(device, state, {
+          lsaType: "network",
+          age: 0,
+          lsId: port.ipv4.address,
+          advertisingRouter: state.routerId,
+          sequence: 0,
+          mask: prefixToMask(port.ipv4.prefixLength),
+          attachedRouters: [state.routerId, ...full].sort(compareRouterIds),
+        });
+      } else if (state.lsdb.has(key)) {
+        this.flushOwnLsa(device, state, key);
+      }
+    }
+  }
+
+  /** Nouvelle instance d'un LSA du routeur, seulement si son contenu change (ou rafraîchissement à LSRefreshTime). */
+  private originate(device: RuntimeDevice, state: OspfState, draft: OspfLsa, refresh = false): void {
+    const key = lsaKey(draft);
+    const stored = state.lsdb.get(key);
+    if (stored && !refresh && sameLsaContent(stored.lsa, draft)) return;
+    const lsa: OspfLsa = { ...draft, age: 0, sequence: stored ? (stored.lsa.sequence + 1) | 0 : OSPF_INITIAL_SEQUENCE };
+    const generation = (stored?.generation ?? 0) + 1;
+    state.lsdb.set(key, { lsa, installedAt: this.clock, generation });
+    this.emit(
+      "ospf.lsa-originated",
+      { lsaType: lsa.lsaType, lsId: lsa.lsId, sequence: lsa.sequence >>> 0, count: lsa.lsaType === "router" ? lsa.links.length : lsa.attachedRouters.length, refresh },
+      { device },
+    );
+    this.schedule(this.clock + fromSeconds(OSPF_LS_REFRESH_TIME), { type: "ospf-lsa-timer", deviceId: device.id, key, stage: "refresh", generation }, true);
+    this.floodLsa(device, state, lsa, null);
+    this.scheduleSpf(device, state);
+  }
+
+  /** Retrait d'un LSA du routeur (vieillissement prématuré, RFC 2328 §14.1) : inondé avec l'âge MaxAge. */
+  private flushOwnLsa(device: RuntimeDevice, state: OspfState, key: string): void {
+    const stored = state.lsdb.get(key);
+    if (!stored) return;
+    const lsa: OspfLsa = { ...stored.lsa, age: OSPF_MAX_AGE };
+    state.lsdb.delete(key);
+    this.emit("ospf.lsa-flushed", { lsaType: lsa.lsaType, lsId: lsa.lsId, advertisingRouter: lsa.advertisingRouter, sequence: lsa.sequence >>> 0, neighbor: null }, { device });
+    this.floodLsa(device, state, lsa, null);
+    this.scheduleSpf(device, state);
+  }
+
+  private onOspfLsaTimer(deviceId: string, key: string, stage: "refresh" | "max-age", generation: number): void {
+    const device = this.device(deviceId);
+    const state = this.ospf.get(deviceId);
+    const stored = state?.lsdb.get(key);
+    if (!state || stored?.generation !== generation) return;
+    if (stage === "refresh") {
+      this.originate(device, state, stored.lsa, true);
+      return;
+    }
+    // Instance d'un autre routeur jamais rafraîchie : retirée à MaxAge et exclue du calcul.
+    state.lsdb.delete(key);
+    this.emit("ospf.lsa-expired", { lsaType: stored.lsa.lsaType, lsId: stored.lsa.lsId, advertisingRouter: stored.lsa.advertisingRouter }, { device });
+    this.scheduleSpf(device, state);
+  }
+
+  private killNeighbor(device: RuntimeDevice, iface: OspfInterfaceState, port: RuntimePort, neighbor: OspfNeighbor, event: "inactivity" | "interface-down"): void {
+    this.resetAdjacency(neighbor);
+    neighbor.deadGeneration += 1;
+    this.setNeighborState(device, port, neighbor, "down", event);
+    iface.neighbors.delete(neighbor.routerId);
+    if (event === "inactivity") this.triggerHello(device, iface);
+  }
+
+  /** Aucun Hello depuis 40 s (InactivityTimer) : voisin perdu, nouvelle élection. */
+  private onOspfDead(deviceId: string, portId: string, routerId: string, generation: number): void {
+    const device = this.device(deviceId);
+    const state = this.ospf.get(deviceId);
+    const iface = state?.interfaces.get(portId);
+    const port = device.portById.get(portId);
+    const neighbor = iface?.neighbors.get(routerId);
+    if (!state || !iface || !port || neighbor?.deadGeneration !== generation) return;
+    this.killNeighbor(device, iface, port, neighbor, "inactivity");
+    if (iface.state !== "waiting" && iface.state !== "down") this.runElection(device, state, iface, port, "neighbor-change");
+    else this.updateOwnLsas(device, state);
+  }
+
+  /** WaitTimer : fin de l'attente, élection. */
+  private onOspfWait(deviceId: string, portId: string, generation: number): void {
+    const device = this.device(deviceId);
+    const state = this.ospf.get(deviceId);
+    const iface = state?.interfaces.get(portId);
+    const port = device.portById.get(portId);
+    if (!state || !iface || !port || iface.waitGeneration !== generation || iface.state !== "waiting") return;
+    this.runElection(device, state, iface, port, "wait-timer");
+  }
+
+  /** Calcul SPF regroupé : une fois par instant, après les changements de la base. */
+  private scheduleSpf(device: RuntimeDevice, state: OspfState): void {
+    this.dirtyDevices.add(device.id);
+    if (state.spfPending) return;
+    state.spfPending = true;
+    this.schedule(this.clock, { type: "ospf-spf", deviceId: device.id });
+  }
+
+  private onOspfSpf(deviceId: string): void {
+    const device = this.device(deviceId);
+    const state = this.ospf.get(deviceId);
+    if (!state) return;
+    state.spfPending = false;
+    const lsas = [...state.lsdb.values()].map((stored) => this.currentLsa(stored));
+    const routes = computeOspfRoutes(state.routerId, lsas);
+    const key = (route: SpfRoute) => `${formatIpv4(route.destination)}/${String(route.prefixLength)}`;
+    const previous = new Map(state.routes.map((route) => [key(route), route]));
+    const portOf = (route: SpfRoute) => device.ports.find((port) => port.ipv4?.address === route.via)?.portId ?? null;
+    let changes = 0;
+    for (const route of routes) {
+      const before = previous.get(key(route));
+      previous.delete(key(route));
+      const params = { route: key(route), cost: route.cost, nextHop: route.nextHop === null ? null : formatIpv4(route.nextHop), outPort: portOf(route) };
+      if (!before) {
+        changes += 1;
+        this.emit("ospf.route-added", params, { device });
+      } else if (before.cost !== route.cost || before.nextHop !== route.nextHop || before.via !== route.via) {
+        changes += 1;
+        this.emit("ospf.route-changed", { ...params, previousCost: before.cost, previousNextHop: before.nextHop === null ? null : formatIpv4(before.nextHop) }, { device });
+      }
+    }
+    for (const [route, before] of previous) {
+      changes += 1;
+      this.emit("ospf.route-removed", { route, cost: before.cost }, { device });
+    }
+    state.routes = routes;
+    this.dirtyDevices.add(deviceId);
+    this.emit("ospf.spf", { lsas: lsas.length, routes: routes.length, changes }, { device });
+  }
+
+  /** Routes OSPF calculées, dans la table de routage (préférence entre statique et RIP). */
+  private ospfRoutes(device: RuntimeDevice): Route[] {
+    const state = this.ospf.get(device.id);
+    if (!state) return [];
+    return state.routes.map((route) => {
+      const port = device.ports.find((item) => item.ipv4?.address === route.via) ?? null;
+      const up = port !== null && this.isUp(port);
+      return {
+        kind: "ospf",
+        destination: route.destination,
+        prefixLength: route.prefixLength,
+        nextHop: route.nextHop,
+        port,
+        active: up,
+        reason: up ? null : "interface-down",
+        metric: route.cost,
+      };
+    });
+  }
+
+  private ospfView(device: RuntimeDevice): OspfView | null {
+    const state = this.ospf.get(device.id);
+    if (!state) return null;
+    return {
+      routerId: state.routerId,
+      nextHelloAt: state.nextHelloAt,
+      interfaces: [...state.interfaces.values()].map((iface) => {
+        const port = device.portById.get(iface.portId);
+        const routerOf = (address: string) => (port ? this.ospfRouterOf(state, iface, port, address) : null);
+        return {
+          portId: iface.portId,
+          mode: iface.mode,
+          cost: iface.cost,
+          priority: iface.priority,
+          state: iface.state,
+          dr: routerOf(iface.dr),
+          bdr: routerOf(iface.bdr),
+          neighbors: [...iface.neighbors.values()]
+            .sort((a, b) => compareRouterIds(a.routerId, b.routerId))
+            .map((neighbor) => ({
+              routerId: neighbor.routerId,
+              address: neighbor.address,
+              priority: neighbor.priority,
+              state: neighbor.state,
+              role: neighbor.address === iface.dr ? ("dr" as const) : neighbor.address === iface.bdr ? ("bdr" as const) : ("other" as const),
+              deadAt: neighbor.deadAt,
+              requests: neighbor.requests.size,
+            })),
+        };
+      }),
+      lsdb: [...state.lsdb.values()]
+        .map((stored) => this.currentLsa(stored))
+        .sort(compareLsaKeys)
+        .map((lsa) => ({
+          lsaType: lsa.lsaType,
+          lsId: lsa.lsId,
+          advertisingRouter: lsa.advertisingRouter,
+          sequence: lsa.sequence >>> 0,
+          age: lsa.age,
+          links: lsa.lsaType === "router" ? lsa.links : [],
+          mask: lsa.lsaType === "network" ? lsa.mask : null,
+          attachedRouters: lsa.lsaType === "network" ? lsa.attachedRouters : [],
+        })),
+    };
+  }
+
   // ---------------------------------------------------------------- Application ping
 
   private findSession(deviceId: string, identifier: number): PingSession | undefined {
@@ -2811,6 +3754,7 @@ export class Simulation {
           }
         : null,
       rip: this.ripView(device),
+      ospf: this.ospfView(device),
       routes:
         device.kind === "switch"
           ? []

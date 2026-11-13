@@ -21,9 +21,10 @@ import { createSimulation } from "./simulation.js";
  * DNS (format v7), résolveur des postes et service des routeurs protégés par
  * « addressing » ; moteur capable de pings par nom. Version 5 : RIP (format v8),
  * participation des interfaces protégée par « routes » ; contrôles après la
- * convergence initiale.
+ * convergence initiale. Version 6 : OSPF (format v9), mode, coût et priorité
+ * des interfaces protégés par « routes » ; routes OSPF préférées à RIP.
  */
-export const EVALUATOR_VERSION = 5;
+export const EVALUATOR_VERSION = 6;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */
@@ -218,8 +219,11 @@ function switchingOf(doc: NfgDocument): string {
 function routesOf(doc: NfgDocument): string {
   return stable(
     sortedEntries(doc.configurations)
-      .filter(([, config]) => config.defaultGateway !== null || config.staticRoutes.length > 0 || Object.keys(config.ripInterfaces).length > 0)
-      .map(([id, config]) => [id, config.defaultGateway, config.staticRoutes, sortedEntries(config.ripInterfaces)]),
+      .filter(
+        ([, config]) =>
+          config.defaultGateway !== null || config.staticRoutes.length > 0 || Object.keys(config.ripInterfaces).length > 0 || Object.keys(config.ospfInterfaces).length > 0,
+      )
+      .map(([id, config]) => [id, config.defaultGateway, config.staticRoutes, sortedEntries(config.ripInterfaces), sortedEntries(config.ospfInterfaces)]),
   );
 }
 

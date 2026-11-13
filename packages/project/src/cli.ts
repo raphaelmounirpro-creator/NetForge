@@ -12,6 +12,7 @@ import {
   setDnsServer,
   setInterfaceDhcp,
   setInterfaceIpv4,
+  setOspfInterface,
   setRipInterface,
   setStp,
   setSwitchport,
@@ -20,6 +21,7 @@ import {
 import { DHCP_LEASE_DEFAULT, formatLeaseDuration, parseDhcpPoolInput } from "./dhcp.js";
 import { isDnsAddress, normalizeDnsName, parseDnsRecordInput, sortedDnsRecords } from "./dns.js";
 import { error, type Issue } from "./issues.js";
+import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_DEFAULT_COST, OSPF_DEFAULT_PRIORITY, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, type OspfInterface, type OspfMode } from "./ospf.js";
 import { isIpv4Address, prefixToMask } from "./ipv4.js";
 import type { Device, NfgDocument } from "./schema.js";
 import { STP_DEFAULT_PRIORITY, STP_PRIORITY_MAX, STP_PRIORITY_STEP, isStpPriority } from "./stp.js";
@@ -52,6 +54,8 @@ export type CliRequest =
   | { readonly kind: "show-dhcp" }
   | { readonly kind: "show-dns" }
   | { readonly kind: "show-rip" }
+  | { readonly kind: "show-ospf" }
+  | { readonly kind: "show-ospf-database" }
   | { readonly kind: "ipconfig" }
   /** Client DHCP d'un PC : renouveler ou libérer le bail (demande d'exécution). */
   | { readonly kind: "dhcp"; readonly action: "renew" | "release" }
@@ -168,6 +172,12 @@ function vlanNumber(text: string): number | null {
 /** Configuration STP d'un switch (défaut : activé, priorité 32768). */
 function stpOf(doc: NfgDocument, device: Device): { enabled: boolean; priority: number } {
   return doc.configurations[device.id]?.stp ?? { enabled: true, priority: STP_DEFAULT_PRIORITY };
+}
+
+/** Configuration OSPF d'une interface avec un nouveau mode ; coût et priorité conservés, sinon valeurs par défaut. */
+function ospfWith(doc: NfgDocument, device: Device, interfaceId: string, change: { mode: OspfMode }): OspfInterface {
+  const current = doc.configurations[device.id]?.ospfInterfaces[interfaceId];
+  return { mode: change.mode, cost: current?.cost ?? OSPF_DEFAULT_COST, priority: current?.priority ?? OSPF_DEFAULT_PRIORITY };
 }
 
 function pcPort(device: Device): string {
@@ -478,6 +488,26 @@ const COMMANDS: readonly CommandSpec[] = [
     run: ({ mode }) => ok(mode, { request: { kind: "show-dns" } }),
   },
   {
+    id: "show-ospf",
+    words: ["show", "ospf"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-ospf" } }),
+  },
+  {
+    id: "show-ospf-database",
+    words: ["show", "ospf", "database"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-ospf-database" } }),
+  },
+  {
     id: "show-rip",
     words: ["show", "rip"],
     syntax: "",
@@ -768,6 +798,79 @@ const COMMANDS: readonly CommandSpec[] = [
     },
   },
   {
+    id: "ospf-enable",
+    words: ["ospf", "enable"],
+    syntax: "",
+    modes: ["interface"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ doc, device, mode }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "ospf enable" });
+      return ok(mode, { edit: (current) => setOspfInterface(current, { deviceId: device.id, interfaceId: mode.portId, ospf: ospfWith(doc, device, mode.portId, { mode: "active" }) }) });
+    },
+  },
+  {
+    id: "ospf-passive",
+    words: ["ospf", "passive"],
+    syntax: "",
+    modes: ["interface"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ doc, device, mode }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "ospf passive" });
+      return ok(mode, { edit: (current) => setOspfInterface(current, { deviceId: device.id, interfaceId: mode.portId, ospf: ospfWith(doc, device, mode.portId, { mode: "passive" }) }) });
+    },
+  },
+  {
+    id: "ospf-disable",
+    words: ["ospf", "disable"],
+    syntax: "",
+    modes: ["interface"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "ospf disable" });
+      return ok(mode, { edit: (current) => setOspfInterface(current, { deviceId: device.id, interfaceId: mode.portId, ospf: null }) });
+    },
+  },
+  {
+    id: "ospf-cost",
+    words: ["ospf", "cost"],
+    syntax: "<coût>",
+    modes: ["interface"],
+    devices: ["router"],
+    required: ["coût"],
+    maxArgs: 1,
+    run: ({ doc, device, mode, args }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "ospf cost" });
+      const cost = /^\d{1,5}$/.test(args[0] ?? "") ? Number(args[0]) : Number.NaN;
+      if (!isOspfCost(cost)) return invalid(mode, [error("ospf.invalid-cost", { value: args[0] ?? "", min: OSPF_COST_MIN, max: OSPF_COST_MAX })]);
+      const current = doc.configurations[device.id]?.ospfInterfaces[mode.portId];
+      if (!current) return invalid(mode, [error("ospf.interface-not-enabled", { deviceId: device.id, deviceName: device.name, portId: mode.portId })]);
+      return ok(mode, { edit: (next) => setOspfInterface(next, { deviceId: device.id, interfaceId: mode.portId, ospf: { ...current, cost } }) });
+    },
+  },
+  {
+    id: "ospf-priority",
+    words: ["ospf", "priority"],
+    syntax: "<priorité>",
+    modes: ["interface"],
+    devices: ["router"],
+    required: ["priorité"],
+    maxArgs: 1,
+    run: ({ doc, device, mode, args }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "ospf priority" });
+      const priority = /^\d{1,3}$/.test(args[0] ?? "") ? Number(args[0]) : Number.NaN;
+      if (!isOspfPriority(priority)) return invalid(mode, [error("ospf.invalid-priority", { value: args[0] ?? "", max: OSPF_PRIORITY_MAX })]);
+      const current = doc.configurations[device.id]?.ospfInterfaces[mode.portId];
+      if (!current) return invalid(mode, [error("ospf.interface-not-enabled", { deviceId: device.id, deviceName: device.name, portId: mode.portId })]);
+      return ok(mode, { edit: (next) => setOspfInterface(next, { deviceId: device.id, interfaceId: mode.portId, ospf: { ...current, priority } }) });
+    },
+  },
+  {
     id: "route-add",
     words: ["route", "add"],
     syntax: "<réseau>/<préfixe> via <prochain-saut>",
@@ -986,12 +1089,20 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
       })
       .sort((a, b) => a.vlan - b.vlan);
     for (const sub of subinterfaces) lines.push(`interface ${sub.id}`, `address ${sub.ipv4.address}/${String(sub.ipv4.prefixLength)}`, "exit");
-    // Plages DHCP et RIP du port puis de ses sous-interfaces (après leurs adresses).
+    // Plages DHCP, RIP et OSPF du port puis de ses sous-interfaces (après leurs adresses).
     for (const id of [port.id, ...subinterfaces.map((sub) => sub.id)]) {
       const pool = config?.dhcpPools[id];
       if (pool) lines.push(`interface ${id}`, `dhcp pool ${pool.start} ${pool.end} gateway ${pool.gateway} lease ${formatLeaseDuration(pool.leaseSeconds)}`, "exit");
       const rip = config?.ripInterfaces[id];
       if (rip) lines.push(`interface ${id}`, rip === "active" ? "rip enable" : "rip passive", "exit");
+      const ospf = config?.ospfInterfaces[id];
+      if (ospf) {
+        lines.push(`interface ${id}`, ospf.mode === "active" ? "ospf enable" : "ospf passive");
+        // Coût et priorité : seulement s'ils diffèrent des valeurs par défaut.
+        if (ospf.cost !== OSPF_DEFAULT_COST) lines.push(`ospf cost ${String(ospf.cost)}`);
+        if (ospf.priority !== OSPF_DEFAULT_PRIORITY) lines.push(`ospf priority ${String(ospf.priority)}`);
+        lines.push("exit");
+      }
     }
     const switchport = config?.switchports[port.id];
     if (switchport?.mode === "access") lines.push(`interface ${port.id}`, `access vlan ${String(switchport.vlan)}`, "exit");

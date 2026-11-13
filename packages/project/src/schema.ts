@@ -2,22 +2,24 @@ import { z } from "zod";
 import { CATALOG_VERSION, DEVICE_MODEL_IDS } from "./catalog.js";
 import { DHCP_LEASE_MAX, DHCP_LEASE_MIN } from "./dhcp.js";
 import { DNS_MAX_RECORDS, normalizeDnsName } from "./dns.js";
+import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_MODES, OSPF_PRIORITY_MAX } from "./ospf.js";
 import { RIP_MODES } from "./rip.js";
 import { isIpv4Address } from "./ipv4.js";
 import { STP_PRIORITY_MAX, STP_PRIORITY_STEP } from "./stp.js";
 import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
 
 /**
- * Format d'échange .nfg.json, version 6 (v2 : routes statiques ; v3 : annotations ;
+ * Format d'échange .nfg.json, version 9 (v2 : routes statiques ; v3 : annotations ;
  * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces —,
- * STP par switch ; v6 : DHCP — plages des routeurs, adressage automatique des postes).
+ * STP par switch ; v6 : DHCP — plages des routeurs, adressage automatique des postes ;
+ * v7 : DNS ; v8 : RIP ; v9 : OSPF en zone unique).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -136,6 +138,15 @@ const deviceConfigSchema = z.strictObject({
     .nullable(),
   /** RIP version 2 (routeurs uniquement) : mode de chaque interface participante ; vide sans RIP. */
   ripInterfaces: z.record(interfaceIdSchema, z.enum(RIP_MODES)),
+  /** OSPF version 2, zone 0 (routeurs uniquement) : mode, coût et priorité de chaque interface participante ; vide sans OSPF. */
+  ospfInterfaces: z.record(
+    interfaceIdSchema,
+    z.strictObject({
+      mode: z.enum(OSPF_MODES),
+      cost: z.int().min(OSPF_COST_MIN).max(OSPF_COST_MAX),
+      priority: z.int().min(0).max(OSPF_PRIORITY_MAX),
+    }),
+  ),
 });
 
 const deviceSchema = z.strictObject({

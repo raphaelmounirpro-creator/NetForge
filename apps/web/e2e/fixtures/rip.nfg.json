@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "models": {
     "catalog": 2
   },
@@ -149,7 +149,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "r1": {
       "interfaces": {
@@ -186,7 +187,8 @@
         "ge0": "passive",
         "ge1": "active",
         "ge2": "active"
-      }
+      },
+      "ospfInterfaces": {}
     },
     "r2": {
       "interfaces": {
@@ -223,7 +225,8 @@
         "ge0": "passive",
         "ge1": "active",
         "ge2": "active"
-      }
+      },
+      "ospfInterfaces": {}
     },
     "pc2": {
       "interfaces": {
@@ -242,7 +245,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     },
     "r3": {
       "interfaces": {
@@ -279,7 +283,8 @@
         "ge0": "passive",
         "ge2": "active",
         "ge1": "active"
-      }
+      },
+      "ospfInterfaces": {}
     },
     "pc3": {
       "interfaces": {
@@ -298,7 +303,8 @@
       "dhcpPools": {},
       "dnsServer": null,
       "dnsRecords": null,
-      "ripInterfaces": {}
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
     }
   },
   "faults": [],

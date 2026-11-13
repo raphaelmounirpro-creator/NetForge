@@ -253,6 +253,14 @@ function checkIntegrity(doc: NfgDocument): Issue[] {
         else if ((portId.includes(".") && !sub) || !findPort(device.model, sub ? sub.parent : portId)) issues.push(error("config.unknown-port", base));
         else if (!config.interfaces[portId]?.ipv4) issues.push(warning("rip.interface-not-addressed", base));
       }
+      // OSPF (v9) : mêmes règles que RIP.
+      for (const portId of Object.keys(config.ospfInterfaces)) {
+        const base = { deviceId: device.id, deviceName: device.name, portId };
+        const sub = parseSubinterface(portId);
+        if (model.kind !== "router") issues.push(error("ospf.not-supported", base));
+        else if ((portId.includes(".") && !sub) || !findPort(device.model, sub ? sub.parent : portId)) issues.push(error("config.unknown-port", base));
+        else if (!config.interfaces[portId]?.ipv4) issues.push(warning("ospf.interface-not-addressed", base));
+      }
       // DNS (v7) : résolveur sur un PC, service sur un routeur, adresses d'hôte attribuables.
       if (config.dnsServer !== null) {
         if (model.kind !== "pc") issues.push(error("dns.client-not-supported", { deviceId: device.id, deviceName: device.name }));

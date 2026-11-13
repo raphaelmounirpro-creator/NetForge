@@ -11,6 +11,7 @@ import {
   setInterfaceDhcp,
   setFiber,
   setInterfaceIpv4,
+  setOspfInterface,
   setRipInterface,
   setStp,
   setSwitchport,
@@ -20,6 +21,7 @@ import {
   type FaultTarget,
   type Fiber,
   type NfgDocument,
+  type OspfMode,
   type RipMode,
 } from "@netforge/project";
 
@@ -100,6 +102,62 @@ export function ripScenario(options: { redundant?: boolean; rip?: boolean } = {}
   return builder.build();
 }
 
+/**
+ * OSPF, triangle à coûts inégaux : R1–R2 et R2–R3 coûtent 10, le lien direct
+ * R1–R3 coûte 30. Le chemin de R1 vers le réseau de PC3 passe par R2 (coût
+ * 30) plutôt que par le lien direct (coût 40), à l'inverse de RIP. Réseaux
+ * de postes en interfaces passives. Identifiants : R1 10.13.0.1, R2 10.23.0.1,
+ * R3 10.23.0.2 (plus grande adresse).
+ */
+export function ospfScenario(options: { ospf?: boolean } = {}): NfgDocument {
+  const builder = new ScenarioBuilder("ospf", "OSPF : routage à état de liens")
+    .device("pc1", "PC", 80, 320).device("r1", "R-200", 300, 320)
+    .device("r2", "R-200", 460, 130).device("pc2", "PC", 460, -100)
+    .device("r3", "R-200", 620, 320).device("pc3", "PC", 840, 320)
+    .link("pc1", "eth0", "r1", "ge0").link("r2", "ge0", "pc2", "eth0").link("r3", "ge0", "pc3", "eth0")
+    .link("r1", "ge1", "r2", "ge1").link("r2", "ge2", "r3", "ge2").link("r1", "ge2", "r3", "ge1")
+    .ip("r1", "ge0", "10.1.0.1/24").ip("r2", "ge0", "10.2.0.1/24").ip("r3", "ge0", "10.3.0.1/24")
+    .ip("r1", "ge1", "10.12.0.1/30").ip("r2", "ge1", "10.12.0.2/30")
+    .ip("r2", "ge2", "10.23.0.1/30").ip("r3", "ge2", "10.23.0.2/30")
+    .ip("r1", "ge2", "10.13.0.1/30").ip("r3", "ge1", "10.13.0.2/30")
+    .ip("pc1", "eth0", "10.1.0.10/24").gateway("pc1", "10.1.0.1")
+    .ip("pc2", "eth0", "10.2.0.10/24").gateway("pc2", "10.2.0.1")
+    .ip("pc3", "eth0", "10.3.0.10/24").gateway("pc3", "10.3.0.1");
+  if (options.ospf ?? true) {
+    for (const router of ["r1", "r2", "r3"]) builder.ospf(router, "ge0", { mode: "passive" });
+    builder.ospf("r1", "ge1").ospf("r2", "ge1").ospf("r2", "ge2").ospf("r3", "ge2");
+    builder.ospf("r1", "ge2", { cost: 30 }).ospf("r3", "ge1", { cost: 30 });
+  }
+  return builder.build();
+}
+
+/**
+ * OSPF sur un réseau à diffusion : quatre routeurs reliés par un switch
+ * (10.0.0.0/24), chacun avec un réseau de postes passif (PC1 derrière R1, PC3
+ * derrière R3). Priorités : R2 100
+ * (DR), R3 0 (inéligible), R1 et R4 1 ; à priorité égale, R4 (10.4.0.1)
+ * l'emporte sur R1 (10.1.0.1) pour le rôle de BDR.
+ */
+export function ospfLanScenario(): NfgDocument {
+  const builder = new ScenarioBuilder("ospf-lan", "OSPF : élection du DR")
+    .device("sw1", "S-24", 460, 260)
+    .device("r1", "R-200", 220, 120).device("r2", "R-200", 700, 120)
+    .device("r3", "R-200", 220, 400).device("r4", "R-200", 700, 400);
+  ["r1", "r2", "r3", "r4"].forEach((router, index) => {
+    const n = String(index + 1);
+    builder.link("sw1", `ge${n}`, router, "ge0").ip(router, "ge0", `10.0.0.${n}/24`).ip(router, "ge1", `10.${n}.0.1/24`);
+  });
+  builder
+    .device("pc1", "PC", 0, 120).device("pc3", "PC", 0, 400)
+    .link("r1", "ge1", "pc1", "eth0").link("r3", "ge1", "pc3", "eth0")
+    .ip("pc1", "eth0", "10.1.0.10/24").gateway("pc1", "10.1.0.1")
+    .ip("pc3", "eth0", "10.3.0.10/24").gateway("pc3", "10.3.0.1");
+  return builder
+    .ospf("r1", "ge0").ospf("r2", "ge0", { priority: 100 }).ospf("r3", "ge0", { priority: 0 }).ospf("r4", "ge0")
+    .ospf("r1", "ge1", { mode: "passive" }).ospf("r2", "ge1", { mode: "passive" }).ospf("r3", "ge1", { mode: "passive" }).ospf("r4", "ge1", { mode: "passive" })
+    .build();
+}
+
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(`scénario invalide : ${result.errors.map((issue) => issue.code).join(", ")}`);
   return result.document;
@@ -171,6 +229,12 @@ export class ScenarioBuilder {
   /** Participation d'une interface de routeur à RIP (active par défaut). */
   rip(deviceId: string, interfaceId: string, mode: RipMode = "active"): this {
     this.doc = ok(setRipInterface(this.doc, { deviceId, interfaceId, mode }));
+    return this;
+  }
+
+  /** Participation d'une interface de routeur à OSPF (active, coût 10 et priorité 1 par défaut). */
+  ospf(deviceId: string, interfaceId: string, options: { mode?: OspfMode; cost?: number; priority?: number } = {}): this {
+    this.doc = ok(setOspfInterface(this.doc, { deviceId, interfaceId, ospf: { mode: options.mode ?? "active", cost: options.cost ?? 10, priority: options.priority ?? 1 } }));
     return this;
   }
 

@@ -1,7 +1,7 @@
 import type { DeviceView } from "@netforge/engine";
 import { formatVlanList, getModel, prefixToMask, switchportOf, type CliError, type CliHelpEntry, type NfgDocument } from "@netforge/project";
 import { fill, messages } from "./index";
-import { formatSimTime, type NameIndex } from "./simulation";
+import { formatSimTime, ospfSequence, type NameIndex } from "./simulation";
 
 /**
  * Sorties de la console mises en forme à partir des codes de l'interpréteur
@@ -162,6 +162,59 @@ export function showRip(view: DeviceView): string[] {
       ]),
     ),
   ];
+}
+
+/** « show ospf » : identifiant du routeur, état des interfaces (DR, BDR) et voisins, calculés par le moteur. */
+export function showOspf(view: DeviceView): string[] {
+  const ospf = view.ospf;
+  if (!ospf) return [t.ospfNone];
+  const s = messages.simulation;
+  const c = t.columns;
+  return [
+    fill(s.runtime.ospfRouter, { routerId: ospf.routerId, time: formatSimTime(ospf.nextHelloAt) }),
+    "",
+    ...table(
+      [c.port, c.state, c.cost, c.priority, c.dr, c.bdr],
+      ospf.interfaces.map((item) => [item.portId, s.ospfInterfaceStates[item.state], String(item.cost), String(item.priority), item.dr ?? s.ospfNone, item.bdr ?? s.ospfNone]),
+    ),
+    "",
+    ...table(
+      [c.neighbor, c.address, c.port, c.priority, c.state, c.role, c.deadAt],
+      ospf.interfaces.flatMap((item) =>
+        item.neighbors.map((neighbor) => [
+          neighbor.routerId,
+          neighbor.address,
+          item.portId,
+          String(neighbor.priority),
+          s.ospfNeighborStates[neighbor.state],
+          s.ospfRoles[neighbor.role],
+          formatSimTime(neighbor.deadAt),
+        ]),
+      ),
+    ),
+  ];
+}
+
+/** « show ospf database » : LSA de la base d'états des liens, avec leur contenu. */
+export function showOspfDatabase(view: DeviceView): string[] {
+  const ospf = view.ospf;
+  if (!ospf) return [t.ospfNone];
+  if (ospf.lsdb.length === 0) return [t.ospfLsdbEmpty];
+  const v = messages.simulation.values;
+  const c = t.columns;
+  return table(
+    [c.lsaType, c.lsId, c.advertisingRouter, c.sequence, c.age, c.content],
+    ospf.lsdb.map((lsa) => [
+      messages.simulation.ospfLsaTypes[lsa.lsaType],
+      lsa.lsId,
+      lsa.advertisingRouter,
+      ospfSequence(lsa.sequence),
+      String(lsa.age),
+      lsa.lsaType === "router"
+        ? lsa.links.map((link) => fill(v.ospfLink, { type: v.ospfLinkTypes[link.type], linkId: link.linkId, linkData: link.linkData, metric: link.metric })).join(" ; ")
+        : `${fill(v.ospfNetwork, { mask: lsa.mask ?? "" })} ; ${lsa.attachedRouters.join(", ")}`,
+    ]),
+  );
 }
 
 /** « ipconfig » : configuration du projet et adresse MAC calculée par le moteur. */

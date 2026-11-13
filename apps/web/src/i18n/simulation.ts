@@ -56,14 +56,18 @@ export interface NameIndex {
   mac(mac: string): string;
   /** Câble désigné par ses extrémités, ex. « PC1 eth0 ↔ SW1 ge1 ». */
   link(id: string): string;
+  /** Identifiant de routeur OSPF suivi du nom de l'équipement, ex. « 10.13.0.1 (R1) ». */
+  router(id: string): string;
 }
 
 export function buildNameIndex(devices: readonly DeviceView[]): NameIndex {
   const names = new Map<string, string>();
   const owners = new Map<string, string>();
   const ends = new Map<string, string[]>();
+  const routers = new Map<string, string>();
   for (const device of devices) {
     names.set(device.deviceId, device.name);
+    if (device.ospf) routers.set(device.ospf.routerId, device.name);
     for (const item of device.interfaces) {
       const label = `${device.name} ${item.portId}`;
       owners.set(item.mac, label);
@@ -78,6 +82,10 @@ export function buildNameIndex(devices: readonly DeviceView[]): NameIndex {
       return owner ? `${mac} (${owner})` : mac;
     },
     link: (id) => ends.get(id)?.join(" ↔ ") ?? id,
+    router: (id) => {
+      const name = routers.get(id);
+      return name ? `${id} (${name})` : id;
+    },
   };
 }
 
@@ -102,6 +110,7 @@ export function traceCategory(code: TraceCode): TraceCategory {
     case "dns":
       return "dns";
     case "rip":
+    case "ospf":
       return "routing";
     case "ip":
       return "ip";
@@ -155,6 +164,7 @@ const LOSS_OR_ERROR_CODES: ReadonlySet<TraceCode> = new Set<TraceCode>([
   "ping.unresolved",
   "rip.route-unreachable",
   "rip.ignored",
+  "ospf.hello-mismatch",
 ]);
 
 export function isLossOrError(entry: TraceEntry): boolean {
@@ -212,6 +222,14 @@ function templateKey(entry: TraceEntry): keyof typeof messages.trace {
       return params["server"] === null ? "command.nslookup.no-server" : entry.code;
     case "rip.route-unreachable":
       return params["nextHop"] === null ? "rip.route-unreachable.local" : entry.code;
+    case "ospf.hello-received":
+      return params["listed"] === true ? "ospf.hello-received.listed" : entry.code;
+    case "ospf.dd-sent":
+      return typeof params["retransmission"] === "number" ? "ospf.dd-sent.retransmission" : entry.code;
+    case "ospf.lsa-originated":
+      return params["refresh"] === true ? "ospf.lsa-originated.refresh" : params["lsaType"] === "network" ? "ospf.lsa-originated.network" : entry.code;
+    case "ospf.lsa-flushed":
+      return params["neighbor"] === null ? "ospf.lsa-flushed.own" : entry.code;
     case "ip.no-route": {
       const key = `ip.no-route.${String(params["reason"])}`;
       return key in messages.trace ? (key as keyof typeof messages.trace) : "ip.no-route.no-match";
@@ -258,6 +276,7 @@ export function formatTrace(entry: TraceEntry, names: NameIndex, level: Explanat
   if (ripReasons && typeof params["reason"] === "string" && params["reason"] in ripReasons) {
     values["reasonText"] = ripReasons[params["reason"] as keyof typeof ripReasons];
   }
+  if (entry.code.startsWith("ospf.")) Object.assign(values, ospfValues(params, names, entry.code));
   if (typeof params["routeKind"] === "string" && params["routeKind"] in messages.traceLabels.routeKinds) {
     values["routeKind"] = messages.traceLabels.routeKinds[params["routeKind"] as keyof typeof messages.traceLabels.routeKinds];
   }
@@ -269,6 +288,41 @@ export function formatTrace(entry: TraceEntry, names: NameIndex, level: Explanat
   return fill(template, values);
 }
 
+/** Valeur d'une table de libellés, ou la valeur brute si elle n'y figure pas. */
+function label(table: Readonly<Record<string, string>>, value: unknown): string {
+  return typeof value === "string" ? (table[value] ?? value) : "";
+}
+
+/** Numéro de séquence OSPF (non signé) en hexadécimal : « 0x80000001 ». */
+export function ospfSequence(value: number): string {
+  return `0x${(value >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+/** Valeurs lisibles des paramètres OSPF : états, causes, identifiants de routeur nommés, séquences. */
+function ospfValues(params: TraceParams, names: NameIndex, code: TraceCode): Record<string, string | number> {
+  const values: Record<string, string | number> = {};
+  const routerOf = (value: unknown) => (typeof value === "string" ? names.router(value) : t.ospfNone);
+  for (const key of ["neighbor", "routerId", "advertisingRouter"] as const) {
+    if (typeof params[key] === "string") values[key] = names.router(params[key]);
+  }
+  values["drText"] = routerOf(params["dr"]);
+  values["bdrText"] = routerOf(params["bdr"]);
+  if (typeof params["sequence"] === "number") values["sequence"] = ospfSequence(params["sequence"]);
+  const states: Readonly<Record<string, string>> = code === "ospf.interface-state" ? t.ospfInterfaceStates : t.ospfNeighborStates;
+  values["fromText"] = label(states, params["from"]);
+  values["toText"] = label(states, params["to"]);
+  values["eventText"] = label(t.ospfEvents, params["event"]);
+  values["causeText"] = label(t.ospfCauses, params["cause"]);
+  values["fieldText"] = label(t.ospfMismatch, params["field"]);
+  values["lsaTypeText"] = label(t.ospfLsaTypes, params["lsaType"]);
+  values["roleText"] = label(t.ospfDdRoles, params["role"]);
+  const reasons: Readonly<Record<string, string>> = code === "ospf.hello-sent" ? t.ospfHelloReasons : code === "ospf.lsu-sent" ? t.ospfLsuReasons : t.ospfIgnored;
+  values["reasonText"] = label(reasons, params["reason"]);
+  const bit = (key: string) => (params[key] === true ? 1 : 0);
+  values["flagsText"] = fill(t.values.ospfFlags, { init: bit("init"), more: bit("more"), master: bit("master") });
+  return values;
+}
+
 /** Libellé d'un échange : « écho n° 2 du ping 1 » ou « ping 1 ». */
 export function formatExchange(exchange: string): string {
   const dhcp = /^dhcp-(\d+)$/.exec(exchange);
@@ -277,6 +331,8 @@ export function formatExchange(exchange: string): string {
   if (dns) return fill(t.exchangeDns, { session: dns[1] ?? "" });
   const rip = /^rip-(\d+)$/.exec(exchange);
   if (rip) return fill(t.exchangeRip, { session: rip[1] ?? "" });
+  const ospf = /^ospf-(\d+)$/.exec(exchange);
+  if (ospf) return fill(t.exchangeOspf, { session: ospf[1] ?? "" });
   const echo = /^ping-(\d+)#(\d+)$/.exec(exchange);
   if (echo) return fill(t.exchangeEcho, { session: echo[1] ?? "", sequence: echo[2] ?? "" });
   const session = /^ping-(\d+)$/.exec(exchange);
@@ -284,7 +340,7 @@ export function formatExchange(exchange: string): string {
 }
 
 export interface PduLayer {
-  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp" | "dns" | "rip";
+  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp" | "dns" | "rip" | "ospf";
   readonly title: string;
   readonly osi: string;
   readonly fields: ReadonlyArray<readonly [label: string, value: string]>;
@@ -328,7 +384,7 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
           [f.ipDestination, pdu.destination],
           [f.ttl, String(pdu.ttl)],
           [f.identification, String(pdu.identification)],
-          [f.protocol, pdu.payload.kind === "udp" ? v.protocolUdp : v.protocolIcmp],
+          [f.protocol, pdu.payload.kind === "udp" ? v.protocolUdp : pdu.payload.kind === "ospf" ? v.protocolOspf : v.protocolIcmp],
         ]),
         ...pduLayers(pdu.payload, names),
       ];
@@ -344,6 +400,8 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
           .flatMap(([label, value]) => value === null ? [] : [[label, String(value)] as const]),
       ])];
     }
+    case "ospf":
+      return [layer("ospf", ospfFields(pdu, names))];
     case "rip":
       return [
         layer("rip", [
@@ -407,6 +465,59 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
         ]),
       ];
     }
+  }
+}
+
+/** Champs d'un paquet OSPF : en-tête commun, puis corps selon le type (RFC 2328 A.3). */
+function ospfFields(pdu: Extract<Pdu, { kind: "ospf" }>, names: NameIndex): Array<readonly [string, string]> {
+  const f = t.fields;
+  const v = t.values;
+  const header = (lsa: { lsaType: "router" | "network"; lsId: string; advertisingRouter: string; sequence: number; age: number }) =>
+    fill(v.ospfLsaHeader, { type: v.ospfLsaTypes[lsa.lsaType], lsId: lsa.lsId, advertisingRouter: names.router(lsa.advertisingRouter), sequence: ospfSequence(lsa.sequence), age: lsa.age });
+  const common: Array<readonly [string, string]> = [
+    [f.ospfVersion, String(pdu.version)],
+    [f.ospfType, v.ospfTypes[pdu.type]],
+    [f.ospfRouterId, names.router(pdu.routerId)],
+    [f.ospfArea, pdu.area],
+  ];
+  const none = (value: string) => (value === "0.0.0.0" ? v.ospfNone : value);
+  switch (pdu.type) {
+    case "hello":
+      return [
+        ...common,
+        [f.ospfMask, pdu.networkMask],
+        [f.ospfTimers, fill(v.ospfTimers, { hello: pdu.helloInterval, dead: pdu.deadInterval })],
+        [f.ospfPriority, String(pdu.priority)],
+        [f.ospfDr, none(pdu.designatedRouter)],
+        [f.ospfBdr, none(pdu.backupRouter)],
+        [f.ospfNeighbors, pdu.neighbors.length === 0 ? v.ospfNone : pdu.neighbors.map((id) => names.router(id)).join(", ")],
+      ];
+    case "dd":
+      return [
+        ...common,
+        [f.ospfMtu, String(pdu.interfaceMtu)],
+        [f.ospfFlags, fill(v.ospfFlags, { init: pdu.init ? 1 : 0, more: pdu.more ? 1 : 0, master: pdu.master ? 1 : 0 })],
+        [f.ospfSequence, ospfSequence(pdu.sequence)],
+        ...pdu.headers.map((item) => [f.ospfHeader, header(item)] as const),
+      ];
+    case "lsr":
+      return [
+        ...common,
+        ...pdu.requests.map((item) => [f.ospfRequest, fill(v.ospfRequest, { type: v.ospfLsaTypes[item.lsaType], lsId: item.lsId, advertisingRouter: names.router(item.advertisingRouter) })] as const),
+      ];
+    case "lsu":
+      return [
+        ...common,
+        ...pdu.lsas.flatMap((lsa) => [
+          [f.ospfLsa, header(lsa)] as const,
+          ...(lsa.lsaType === "router"
+            ? lsa.links.map((link) => [f.ospfLink, fill(v.ospfLink, { type: v.ospfLinkTypes[link.type], linkId: link.linkId, linkData: link.linkData, metric: link.metric })] as const)
+            : [
+                [f.ospfMask, fill(v.ospfNetwork, { mask: lsa.mask })] as const,
+                [f.ospfAttached, lsa.attachedRouters.map((id) => names.router(id)).join(", ")] as const,
+              ]),
+        ]),
+      ];
   }
 }
 

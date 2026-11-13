@@ -131,6 +131,18 @@ function migrateV7toV8(doc: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
+/** Version 8 → 9 : aucun routeur ne participe à OSPF. */
+function migrateV8toV9(doc: Record<string, unknown>): Record<string, unknown> {
+  const configs = doc["configurations"];
+  return {
+    ...doc,
+    schemaVersion: 9,
+    configurations: isRecord(configs)
+      ? Object.fromEntries(Object.entries(configs).map(([id, config]) => [id, isRecord(config) ? { ...config, ospfInterfaces: {} } : config]))
+      : configs,
+  };
+}
+
 /**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
@@ -143,6 +155,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   5: migrateV5toV6,
   6: migrateV6toV7,
   7: migrateV7toV8,
+  8: migrateV8toV9,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

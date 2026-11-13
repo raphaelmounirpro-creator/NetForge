@@ -1,0 +1,382 @@
+{
+  "format": "netforge-project",
+  "schemaVersion": 9,
+  "models": {
+    "catalog": 2
+  },
+  "metadata": {
+    "id": "ospf-lan",
+    "name": "OSPF : élection du DR",
+    "description": "",
+    "createdAt": "2026-11-11T08:00:00.000Z",
+    "updatedAt": "2026-11-11T08:00:00.000Z"
+  },
+  "topology": {
+    "devices": [
+      {
+        "id": "sw1",
+        "model": "S-24",
+        "name": "SW1"
+      },
+      {
+        "id": "r1",
+        "model": "R-200",
+        "name": "R1"
+      },
+      {
+        "id": "r2",
+        "model": "R-200",
+        "name": "R2"
+      },
+      {
+        "id": "r3",
+        "model": "R-200",
+        "name": "R3"
+      },
+      {
+        "id": "r4",
+        "model": "R-200",
+        "name": "R4"
+      },
+      {
+        "id": "pc1",
+        "model": "PC",
+        "name": "PC1"
+      },
+      {
+        "id": "pc3",
+        "model": "PC",
+        "name": "PC3"
+      }
+    ],
+    "links": [
+      {
+        "id": "l1",
+        "endpoints": [
+          {
+            "deviceId": "sw1",
+            "portId": "ge1"
+          },
+          {
+            "deviceId": "r1",
+            "portId": "ge0"
+          }
+        ],
+        "fiber": null
+      },
+      {
+        "id": "l2",
+        "endpoints": [
+          {
+            "deviceId": "sw1",
+            "portId": "ge2"
+          },
+          {
+            "deviceId": "r2",
+            "portId": "ge0"
+          }
+        ],
+        "fiber": null
+      },
+      {
+        "id": "l3",
+        "endpoints": [
+          {
+            "deviceId": "sw1",
+            "portId": "ge3"
+          },
+          {
+            "deviceId": "r3",
+            "portId": "ge0"
+          }
+        ],
+        "fiber": null
+      },
+      {
+        "id": "l4",
+        "endpoints": [
+          {
+            "deviceId": "sw1",
+            "portId": "ge4"
+          },
+          {
+            "deviceId": "r4",
+            "portId": "ge0"
+          }
+        ],
+        "fiber": null
+      },
+      {
+        "id": "l5",
+        "endpoints": [
+          {
+            "deviceId": "r1",
+            "portId": "ge1"
+          },
+          {
+            "deviceId": "pc1",
+            "portId": "eth0"
+          }
+        ],
+        "fiber": null
+      },
+      {
+        "id": "l6",
+        "endpoints": [
+          {
+            "deviceId": "r3",
+            "portId": "ge1"
+          },
+          {
+            "deviceId": "pc3",
+            "portId": "eth0"
+          }
+        ],
+        "fiber": null
+      }
+    ]
+  },
+  "configurations": {
+    "sw1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": {
+        "enabled": false,
+        "priority": 32768
+      },
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
+    },
+    "r1": {
+      "interfaces": {
+        "ge0": {
+          "ipv4": {
+            "address": "10.0.0.1",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        },
+        "ge1": {
+          "ipv4": {
+            "address": "10.1.0.1",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {
+        "ge0": {
+          "mode": "active",
+          "cost": 10,
+          "priority": 1
+        },
+        "ge1": {
+          "mode": "passive",
+          "cost": 10,
+          "priority": 1
+        }
+      }
+    },
+    "r2": {
+      "interfaces": {
+        "ge0": {
+          "ipv4": {
+            "address": "10.0.0.2",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        },
+        "ge1": {
+          "ipv4": {
+            "address": "10.2.0.1",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {
+        "ge0": {
+          "mode": "active",
+          "cost": 10,
+          "priority": 100
+        },
+        "ge1": {
+          "mode": "passive",
+          "cost": 10,
+          "priority": 1
+        }
+      }
+    },
+    "r3": {
+      "interfaces": {
+        "ge0": {
+          "ipv4": {
+            "address": "10.0.0.3",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        },
+        "ge1": {
+          "ipv4": {
+            "address": "10.3.0.1",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {
+        "ge0": {
+          "mode": "active",
+          "cost": 10,
+          "priority": 0
+        },
+        "ge1": {
+          "mode": "passive",
+          "cost": 10,
+          "priority": 1
+        }
+      }
+    },
+    "r4": {
+      "interfaces": {
+        "ge0": {
+          "ipv4": {
+            "address": "10.0.0.4",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        },
+        "ge1": {
+          "ipv4": {
+            "address": "10.4.0.1",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        }
+      },
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {
+        "ge0": {
+          "mode": "active",
+          "cost": 10,
+          "priority": 1
+        },
+        "ge1": {
+          "mode": "passive",
+          "cost": 10,
+          "priority": 1
+        }
+      }
+    },
+    "pc1": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.1.0.10",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        }
+      },
+      "defaultGateway": "10.1.0.1",
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
+    },
+    "pc3": {
+      "interfaces": {
+        "eth0": {
+          "ipv4": {
+            "address": "10.3.0.10",
+            "prefixLength": 24
+          },
+          "dhcp": false
+        }
+      },
+      "defaultGateway": "10.3.0.1",
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {}
+    }
+  },
+  "faults": [],
+  "layout": {
+    "devices": {
+      "sw1": {
+        "x": 460,
+        "y": 260
+      },
+      "r1": {
+        "x": 220,
+        "y": 120
+      },
+      "r2": {
+        "x": 700,
+        "y": 120
+      },
+      "r3": {
+        "x": 220,
+        "y": 400
+      },
+      "r4": {
+        "x": 700,
+        "y": 400
+      },
+      "pc1": {
+        "x": 0,
+        "y": 120
+      },
+      "pc3": {
+        "x": 0,
+        "y": 400
+      }
+    },
+    "annotations": []
+  }
+}
