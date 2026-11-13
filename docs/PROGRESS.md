@@ -1,5 +1,7 @@
 # Suivi d'avancement
 
+Le 2026-11-13, à la fin de la phase 8, le propriétaire a demandé un push GitHub (« une fois fini push github », puis « push github ») : `main` poussée sans forçage de `735cf16` à `b7cfcb3` sur `raphaelmounirpro-creator/NetForge` ; identité des SHA local et distant vérifiée par `git ls-remote`. CI GitHub non vérifiée.
+
 Le propriétaire a demandé un commit et un push GitHub le 2026-11-12, en cours de phase 7. Le commit de sauvegarde `735cf16` a été poussé sur `raphaelmounirpro-creator/NetForge`, branche `main` ; identité des SHA local et distant vérifiée. Cette exception concerne ce point de sauvegarde ; les travaux suivants restent locaux jusqu'à une nouvelle demande ou la fin du projet. CI GitHub non vérifiée.
 
 ### Point de sauvegarde demandé le 2026-11-12
