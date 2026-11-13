@@ -46,7 +46,7 @@ describe("console : mêmes commandes métier que les formulaires", () => {
     let viaForm = expectOk(setInterfaceIpv4(base(), { deviceId: "pc1", portId: "eth0", ipv4: { address: "192.168.1.10", prefixLength: 24 } }));
     viaForm = expectOk(setDefaultGateway(viaForm, { deviceId: "pc1", gateway: "192.168.1.1" }));
     expect(viaCli).toEqual(viaForm);
-    expect(session(viaCli, "pc1", ["ipconfig clear"]).doc.configurations["pc1"]).toEqual({ interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {} });
+    expect(session(viaCli, "pc1", ["ipconfig clear"]).doc.configurations["pc1"]).toEqual({ interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {}, vrrpGroups: {} });
   });
 
   it("refuse avec les mêmes validations que les formulaires", () => {
@@ -114,7 +114,7 @@ describe("console : modes, abréviations et erreurs pédagogiques", () => {
     });
     expect(errorOf(interpret(base(), "r1", OPERATION_MODE, "show"))).toEqual({
       code: "cli.incomplete",
-      params: { command: "show", options: "arp, config, dhcp, dns, interfaces, ospf, rip, routes" },
+      params: { command: "show", options: "arp, config, dhcp, dns, interfaces, ospf, rip, routes, vrrp" },
     });
     expect(errorOf(interpret(base(), "r1", { kind: "interface", portId: "ge0" }, "address 10.0.0.1"))).toMatchObject({
       params: { argument: "masque" },
@@ -164,6 +164,7 @@ describe("console : ping, aide et complétion", () => {
       "show dns",
       "show ospf",
       "show ospf database",
+      "show vrrp",
       "show rip",
     ]);
   });

@@ -23,8 +23,10 @@ import { createSimulation } from "./simulation.js";
  * participation des interfaces protégée par « routes » ; contrôles après la
  * convergence initiale. Version 6 : OSPF (format v9), mode, coût et priorité
  * des interfaces protégés par « routes » ; routes OSPF préférées à RIP.
+ * Version 7 : VRRP (format v10), groupes des routeurs protégés par « routes »
+ * (passerelle des postes) ; contrôles après l'élection du maître.
  */
-export const EVALUATOR_VERSION = 6;
+export const EVALUATOR_VERSION = 7;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */
@@ -221,9 +223,9 @@ function routesOf(doc: NfgDocument): string {
     sortedEntries(doc.configurations)
       .filter(
         ([, config]) =>
-          config.defaultGateway !== null || config.staticRoutes.length > 0 || Object.keys(config.ripInterfaces).length > 0 || Object.keys(config.ospfInterfaces).length > 0,
+          config.defaultGateway !== null || config.staticRoutes.length > 0 || Object.keys(config.ripInterfaces).length > 0 || Object.keys(config.ospfInterfaces).length > 0 || Object.keys(config.vrrpGroups).length > 0,
       )
-      .map(([id, config]) => [id, config.defaultGateway, config.staticRoutes, sortedEntries(config.ripInterfaces), sortedEntries(config.ospfInterfaces)]),
+      .map(([id, config]) => [id, config.defaultGateway, config.staticRoutes, sortedEntries(config.ripInterfaces), sortedEntries(config.ospfInterfaces), sortedEntries(config.vrrpGroups)]),
   );
 }
 

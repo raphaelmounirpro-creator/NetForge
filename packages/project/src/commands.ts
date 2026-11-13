@@ -3,6 +3,7 @@ import { DHCP_LEASE_MAX, DHCP_LEASE_MIN, isDhcpLease, type DhcpPool } from "./dh
 import { DNS_MAX_RECORDS, isDnsAddress, normalizeDnsName } from "./dns.js";
 import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, type OspfInterface } from "./ospf.js";
 import type { RipMode } from "./rip.js";
+import { VRID_MAX, VRID_MIN, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority, type VrrpGroup } from "./vrrp.js";
 import { error, type Issue } from "./issues.js";
 import { isIpv4Address, parseIpv4, parsePrefixOrMask, type Ipv4Interface } from "./ipv4.js";
 import {
@@ -54,7 +55,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {} };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {}, vrrpGroups: {} };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -716,4 +717,34 @@ export function setOspfInterface(doc: NfgDocument, params: { deviceId: string; i
   const { [params.interfaceId]: _previous, ...others } = config.ospfInterfaces;
   const ospfInterfaces = ospf === null ? others : { ...others, [params.interfaceId]: { mode: ospf.mode, cost: ospf.cost, priority: ospf.priority } };
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ospfInterfaces } } });
+}
+
+/**
+ * Groupe VRRP d'une interface de routeur (port ou sous-interface) : VRID,
+ * adresse virtuelle, priorité et préemption, ou null pour le retirer.
+ * L'interface doit être adressée ; la validation vérifie que l'adresse
+ * virtuelle appartient à son réseau.
+ */
+export function setVrrpGroup(doc: NfgDocument, params: { deviceId: string; interfaceId: string; group: VrrpGroup | null }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "router") return fail(error("vrrp.not-supported", { deviceId: device.id, deviceName: device.name }));
+  const sub = parseSubinterface(params.interfaceId);
+  const portId = sub ? sub.parent : params.interfaceId;
+  if ((params.interfaceId.includes(".") && !sub) || !findPort(device.model, portId)) {
+    return fail(error("config.unknown-port", { deviceId: device.id, deviceName: device.name, portId: params.interfaceId }));
+  }
+  const group = params.group;
+  if (group) {
+    if (!isVrid(group.vrid)) return fail(error("vrrp.invalid-vrid", { value: String(group.vrid), min: VRID_MIN, max: VRID_MAX }));
+    if (!isVrrpPriority(group.priority)) return fail(error("vrrp.invalid-priority", { value: String(group.priority), min: VRRP_PRIORITY_MIN, max: VRRP_PRIORITY_MAX }));
+    if (!isIpv4Address(group.address)) return fail(error("ipv4.invalid-address", { value: group.address }));
+  }
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  if (group !== null && !config.interfaces[params.interfaceId]?.ipv4) {
+    return fail(error("vrrp.interface-not-addressed", { deviceId: device.id, deviceName: device.name, portId: params.interfaceId }));
+  }
+  const { [params.interfaceId]: _previous, ...others } = config.vrrpGroups;
+  const vrrpGroups = group === null ? others : { ...others, [params.interfaceId]: { vrid: group.vrid, address: group.address, priority: group.priority, preempt: group.preempt } };
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, vrrpGroups } } });
 }

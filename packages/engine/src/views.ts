@@ -234,6 +234,27 @@ export interface OspfView {
   readonly nextHelloAt: SimTime;
 }
 
+/** États d'un routeur VRRP (RFC 5798 §6.4) : initialisation (interface hors service), secours, maître. */
+export type VrrpStateView = "initialize" | "backup" | "master";
+
+export interface VrrpGroupView {
+  readonly portId: string;
+  readonly vrid: number;
+  readonly address: string;
+  readonly virtualMac: MacAddress;
+  /** Priorité effective : 255 pour le propriétaire de l'adresse virtuelle. */
+  readonly priority: number;
+  readonly owner: boolean;
+  readonly preempt: boolean;
+  readonly state: VrrpStateView;
+  /** Adresse principale du maître connu (lui-même s'il est maître) ; null avant la première annonce. */
+  readonly master: string | null;
+  /** Secours : bascule si aucune annonce n'arrive avant cet instant. */
+  readonly downAt: SimTime | null;
+  /** Maître : prochaine annonce. */
+  readonly nextAdvertAt: SimTime | null;
+}
+
 export interface DeviceView {
   readonly deviceId: string;
   readonly name: string;
@@ -258,6 +279,8 @@ export interface DeviceView {
   readonly rip: RipView | null;
   /** OSPF (routeur ayant au moins une interface OSPF adressée). */
   readonly ospf: OspfView | null;
+  /** VRRP (routeur ayant au moins un groupe). */
+  readonly vrrp: readonly VrrpGroupView[] | null;
 }
 
 export type PingFailure = "no-address" | "no-route" | "host-unreachable" | "queue-full";

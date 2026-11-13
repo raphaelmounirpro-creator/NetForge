@@ -26,7 +26,34 @@ import { parseSubinterface, switchportOf } from "./vlan.js";
  * passerelle erronée ou une adresse en double.
  */
 export function validateDocument(doc: NfgDocument): Issue[] {
-  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkDhcp(doc), ...checkFaults(doc)];
+  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkDhcp(doc), ...checkVrrp(doc), ...checkFaults(doc)];
+}
+
+/**
+ * Groupes VRRP d'un même VRID sur un même réseau : ils doivent annoncer la
+ * même adresse virtuelle (avertissement, possible dans un exercice de dépannage).
+ */
+function checkVrrp(doc: NfgDocument): Issue[] {
+  const issues: Issue[] = [];
+  const seen = new Map<string, { deviceName: string; portId: string; address: string }>();
+  for (const device of doc.topology.devices) {
+    const config = doc.configurations[device.id];
+    if (!config || getModel(device.model).kind !== "router") continue;
+    for (const [portId, group] of Object.entries(config.vrrpGroups)) {
+      const ipv4 = config.interfaces[portId]?.ipv4;
+      if (!ipv4) continue;
+      const key = `${networkCidr(ipv4)}|${String(group.vrid)}`;
+      const first = seen.get(key);
+      if (!first) {
+        seen.set(key, { deviceName: device.name, portId, address: group.address });
+      } else if (first.address !== group.address) {
+        issues.push(
+          warning("vrrp.address-mismatch", { deviceId: device.id, deviceName: device.name, portId, vrid: group.vrid, address: group.address, otherDeviceName: first.deviceName, otherPortId: first.portId, otherAddress: first.address }),
+        );
+      }
+    }
+  }
+  return issues;
 }
 
 /**
@@ -260,6 +287,22 @@ function checkIntegrity(doc: NfgDocument): Issue[] {
         if (model.kind !== "router") issues.push(error("ospf.not-supported", base));
         else if ((portId.includes(".") && !sub) || !findPort(device.model, sub ? sub.parent : portId)) issues.push(error("config.unknown-port", base));
         else if (!config.interfaces[portId]?.ipv4) issues.push(warning("ospf.interface-not-addressed", base));
+      }
+      // VRRP (v10) : routeurs seulement, interface existante et adressée, adresse virtuelle attribuable dans son réseau.
+      for (const [portId, group] of Object.entries(config.vrrpGroups)) {
+        const base = { deviceId: device.id, deviceName: device.name, portId };
+        const sub = parseSubinterface(portId);
+        const ipv4 = config.interfaces[portId]?.ipv4;
+        if (model.kind !== "router") issues.push(error("vrrp.not-supported", base));
+        else if ((portId.includes(".") && !sub) || !findPort(device.model, sub ? sub.parent : portId)) issues.push(error("config.unknown-port", base));
+        else if (!ipv4) issues.push(warning("vrrp.interface-not-addressed", base));
+        else {
+          const value = parseIpv4(group.address) ?? 0;
+          const own = parseIpv4(ipv4.address) ?? 0;
+          if (!inSameSubnet(value, own, ipv4.prefixLength) || unassignableReason({ address: group.address, prefixLength: ipv4.prefixLength }) !== null) {
+            issues.push(error("vrrp.address-outside-subnet", { ...base, address: group.address, network: networkCidr(ipv4) }));
+          }
+        }
       }
       // DNS (v7) : résolveur sur un PC, service sur un routeur, adresses d'hôte attribuables.
       if (config.dnsServer !== null) {

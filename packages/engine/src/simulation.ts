@@ -13,7 +13,7 @@ import {
   type NfgDocument,
 } from "@netforge/project";
 import type { CommandErrorCode, CommandOutcome, SimCommand } from "./commands.js";
-import { BROADCAST_MAC, isGroupMac, multicastMac, type MacAddress } from "./mac.js";
+import { BROADCAST_MAC, isGroupMac, multicastMac, vrrpMac, type MacAddress } from "./mac.js";
 import { buildNetwork, isPortUp, peerOf, runtimeAddress, type RuntimeDevice, type RuntimeDhcpPool, type RuntimeNetwork, type RuntimePort } from "./network.js";
 import { DEFAULT_PARAMETERS, PING_DEFAULTS, type SimulationLimits, type SimulationParameters } from "./parameters.js";
 import {
@@ -31,6 +31,8 @@ import {
   OSPF_INTERFACE_MTU,
   OSPF_LS_REFRESH_TIME,
   OSPF_MAX_AGE,
+  VRRP_MULTICAST,
+  VRRP_TTL,
   RIP_INFINITY,
   RIP_MAX_ENTRIES,
   RIP_MULTICAST,
@@ -60,6 +62,7 @@ import {
   type RipEntry,
   type RipMessage,
   type UdpDatagram,
+  type VrrpAdvertisement,
 } from "./pdu.js";
 import { compareLsa, compareLsaKeys, compareRouterIds, computeOspfRoutes, electDesignatedRouter, lsaHeader, lsaKey, sameLsaContent, type SpfRoute } from "./ospf.js";
 import { Prng } from "./prng.js";
@@ -78,6 +81,7 @@ import type {
   OspfNeighborStateView,
   OspfView,
   PingAttemptView,
+  VrrpStateView,
   PingFailure,
   PingStatus,
   PingView,
@@ -127,6 +131,9 @@ type EventValue =
   | { readonly type: "ospf-dead"; readonly deviceId: string; readonly portId: string; readonly routerId: string; readonly generation: number }
   | { readonly type: "ospf-rxmt"; readonly deviceId: string; readonly portId: string; readonly routerId: string; readonly generation: number }
   | { readonly type: "ospf-spf"; readonly deviceId: string }
+  | { readonly type: "vrrp-start"; readonly deviceId: string }
+  | { readonly type: "vrrp-advert"; readonly deviceId: string; readonly portId: string; readonly generation: number }
+  | { readonly type: "vrrp-down"; readonly deviceId: string; readonly portId: string; readonly generation: number }
   | { readonly type: "ospf-lsa-timer"; readonly deviceId: string; readonly key: string; readonly stage: "refresh" | "max-age"; readonly generation: number };
 
 interface QueuedEvent {
@@ -349,6 +356,27 @@ const OSPF_SYNCING: ReadonlySet<OspfNeighborStateView> = new Set(["exchange", "l
 /** Retransmissions d'une description comptées comme échanges en cours ; les suivantes sont des temporisations de fond. */
 const OSPF_ACTIVE_RETRANSMISSIONS = 3;
 
+/** Groupe VRRP d'une interface de routeur et son état (RFC 5798 §6.4). */
+interface VrrpRuntime {
+  readonly vrid: number;
+  readonly address: string;
+  readonly value: number;
+  readonly mac: MacAddress;
+  /** Priorité effective : 255 pour le propriétaire de l'adresse virtuelle (RFC 5798 §5.2.4). */
+  readonly priority: number;
+  readonly owner: boolean;
+  readonly preempt: boolean;
+  state: VrrpStateView;
+  /** Intervalle annoncé par le maître (Master_Adver_Interval). */
+  masterAdverInterval: SimTime;
+  master: string | null;
+  downAt: SimTime | null;
+  nextAdvertAt: SimTime | null;
+  generation: number;
+}
+
+const vrrpKey = (deviceId: string, portId: string) => `${deviceId}/${portId}`;
+
 const ripKey = (destination: number, prefixLength: number) => `${formatIpv4(destination)}/${String(prefixLength)}`;
 
 interface PingAttempt {
@@ -475,6 +503,9 @@ export class Simulation {
   /** OSPF : état des routeurs ayant au moins une interface OSPF. */
   private readonly ospf = new Map<string, OspfState>();
   private nextOspfExchange = 1;
+  /** VRRP : groupe de chaque interface de routeur qui en a un. */
+  private readonly vrrp = new Map<string, VrrpRuntime>();
+  private nextVrrpExchange = 1;
 
   constructor(doc: NfgDocument, options: SimulationOptions = {}) {
     this.seed = options.seed ?? DEFAULT_SEED;
@@ -523,6 +554,32 @@ export class Simulation {
       this.syncRipNetworks(device, false);
       this.schedule(0, { type: "rip-start", deviceId: device.id });
       this.schedule(this.parameters.ripUpdateInterval, { type: "rip-periodic", deviceId: device.id }, true);
+    }
+    // VRRP : groupes des routeurs, démarrage à l'instant 0.
+    for (const device of this.network.devices.values()) {
+      if (device.kind !== "router" || device.vrrpGroups.size === 0) continue;
+      for (const [portId, config] of device.vrrpGroups) {
+        const port = device.portById.get(portId);
+        const value = parseIpv4(config.address);
+        if (!port || value === null) continue;
+        const owner = port.ipv4?.value === value;
+        this.vrrp.set(vrrpKey(device.id, portId), {
+          vrid: config.vrid,
+          address: config.address,
+          value,
+          mac: vrrpMac(config.vrid),
+          priority: owner ? 255 : config.priority,
+          owner,
+          preempt: config.preempt,
+          state: "initialize",
+          masterAdverInterval: this.parameters.vrrpAdvertisementInterval,
+          master: null,
+          downAt: null,
+          nextAdvertAt: null,
+          generation: 0,
+        });
+      }
+      this.schedule(0, { type: "vrrp-start", deviceId: device.id });
     }
     // OSPF : identifiant = plus grande adresse IPv4 du routeur (choix NetForge) ; démarrage à 0, Hello toutes les 10 s.
     for (const device of this.network.devices.values()) {
@@ -907,6 +964,15 @@ export class Simulation {
       case "ospf-spf":
         this.onOspfSpf(value.deviceId);
         return;
+      case "vrrp-start":
+        this.onVrrpStart(value.deviceId);
+        return;
+      case "vrrp-advert":
+        this.onVrrpAdvertTimer(value.deviceId, value.portId, value.generation);
+        return;
+      case "vrrp-down":
+        this.onVrrpDown(value.deviceId, value.portId, value.generation);
+        return;
       case "ospf-lsa-timer":
         this.onOspfLsaTimer(value.deviceId, value.key, value.stage, value.generation);
         return;
@@ -1075,6 +1141,13 @@ export class Simulation {
       }
     }
     this.recomputeStp();
+    // VRRP : groupe des interfaces concernées (initialisation, ou nouveau démarrage).
+    for (const end of link.ends) {
+      const device = this.device(end.deviceId);
+      for (const port of device.ports) {
+        if (port.portId === end.portId || port.parent === end.portId) this.vrrpLinkChange(device, port, up);
+      }
+    }
     // OSPF : interface tombée (voisins perdus aussitôt) ou rétablie (attente, Hello).
     for (const end of link.ends) {
       const device = this.device(end.deviceId);
@@ -1264,7 +1337,9 @@ export class Simulation {
       }
       logical = sub;
     }
-    if (frame.destination !== logical.mac && frame.destination !== BROADCAST_MAC && !this.joinsGroup(device, logical, frame.destination)) {
+    // Maître VRRP : la MAC virtuelle est aussi la sienne ; un secours écarte ces trames (RFC 5798 §6.4.2, §6.4.3).
+    const vrrpMaster = this.vrrpOn(device, logical)?.state === "master" && this.vrrpOn(device, logical)?.mac === frame.destination;
+    if (frame.destination !== logical.mac && frame.destination !== BROADCAST_MAC && !vrrpMaster && !this.joinsGroup(device, logical, frame.destination)) {
       this.emit("nic.filtered", { destination: frame.destination, own: logical.mac }, { device, port: logical, exchange, pdu: frame });
       return;
     }
@@ -1401,6 +1476,20 @@ export class Simulation {
         return;
       }
       this.emit("arp.no-address", { targetIp: arp.targetIp }, where);
+      return;
+    }
+    // Adresse virtuelle VRRP : seul le maître répond, avec la MAC virtuelle (RFC 5798 §6.4.3, étape 610).
+    const group = this.vrrpOn(device, port);
+    if (group?.state === "master" && arp.operation === "request" && arp.targetIp === group.address && arp.senderIp !== group.address) {
+      this.learnArp(device, state, port, arp.senderIp, arp.senderMac, exchange);
+      const reply: EthernetFrame = {
+        kind: "ethernet",
+        source: group.mac,
+        destination: arp.senderMac,
+        payload: { kind: "arp", operation: "reply", senderMac: group.mac, senderIp: group.address, targetMac: arp.senderMac, targetIp: arp.senderIp },
+      };
+      this.emit("vrrp.arp-reply", { vrid: group.vrid, address: group.address, mac: group.mac, to: arp.senderIp }, { ...where, pdu: reply.payload });
+      this.transmit(device, port, reply, exchange);
       return;
     }
     if (arp.targetIp !== port.ipv4.address) {
@@ -1580,10 +1669,17 @@ export class Simulation {
       return;
     }
     // Groupe 224.0.0.9 (routeurs RIP) : remis localement, jamais relayé (bloc de contrôle du réseau local, RFC 5771 §4).
-    if (packet.destination === RIP_MULTICAST || packet.destination === OSPF_ALL_ROUTERS || packet.destination === OSPF_ALL_DROUTERS) {
+    if (packet.destination === RIP_MULTICAST || packet.destination === OSPF_ALL_ROUTERS || packet.destination === OSPF_ALL_DROUTERS || packet.destination === VRRP_MULTICAST) {
       if (packet.payload.kind === "udp") this.onUdp(device, port, packet, packet.payload, exchange);
       else if (packet.payload.kind === "ospf") this.onOspf(device, port, packet, packet.payload, exchange);
+      else if (packet.payload.kind === "vrrp") this.onVrrp(device, port, packet, packet.payload, exchange);
       else this.emit("ip.broadcast-dropped", { destination: packet.destination }, where);
+      return;
+    }
+    // Adresse virtuelle d'un routeur qui n'en est pas propriétaire : Accept_Mode faux par défaut, paquet refusé (RFC 5798 §6.4.3, étape 650).
+    const virtual = device.kind === "router" ? device.ports.map((item) => this.vrrpOn(device, item)).find((group) => group && !group.owner && group.value === destination) : undefined;
+    if (virtual) {
+      this.emit("vrrp.not-accepted", { vrid: virtual.vrid, address: virtual.address, state: virtual.state }, where);
       return;
     }
     if (this.ownsAddress(device, destination)) {
@@ -1687,6 +1783,10 @@ export class Simulation {
       if (port) this.onOspf(device, port, packet, message, exchange);
       return;
     }
+    if (message.kind === "vrrp") {
+      if (port) this.onVrrp(device, port, packet, message, exchange);
+      return;
+    }
     if (message.type === "echo-request") {
       this.emit("icmp.echo-request", { source: packet.source, identifier: message.identifier, sequence: message.sequence }, where);
       const reply: PacketDraft = {
@@ -1715,7 +1815,7 @@ export class Simulation {
   ): void {
     const message = offending.payload;
     // Datagramme UDP : DHCP seulement, jamais relayé (serveur sur le réseau du client) ; rien à signaler.
-    if (message.kind === "udp" || message.kind === "ospf") return;
+    if (message.kind === "udp" || message.kind === "ospf" || message.kind === "vrrp") return;
     // RFC 1122 §3.2.2 : jamais d'erreur ICMP en réponse à une erreur ICMP.
     if (isIcmpError(message)) {
       this.emit("icmp.error-suppressed", { type, code }, { device, exchange, pdu: offending });
@@ -2451,6 +2551,9 @@ export class Simulation {
   /** L'interface accepte les trames de son groupe : 01:00:5e:00:00:09 sur une interface RIP active. */
   private joinsGroup(device: RuntimeDevice, port: RuntimePort, mac: MacAddress): boolean {
     if (device.kind !== "router") return false;
+    // VRRP : groupe 224.0.0.18 écouté par les interfaces ayant un groupe VRRP en service.
+    const vrrp = this.vrrpOn(device, port);
+    if (vrrp && vrrp.state !== "initialize" && mac === multicastMac(parseIpv4(VRRP_MULTICAST) ?? 0)) return true;
     if (mac === multicastMac(parseIpv4(RIP_MULTICAST) ?? 0) && device.ripInterfaces.get(port.portId) === "active") return true;
     // OSPF : AllSPFRouters sur une interface active ; AllDRouters seulement pour le DR et le BDR (RFC 2328 A.1).
     const iface = this.ospf.get(device.id)?.interfaces.get(port.portId);
@@ -2749,6 +2852,194 @@ export class Simulation {
         .sort((a, b) => (parseIpv4(a.destination) ?? 0) - (parseIpv4(b.destination) ?? 0) || a.prefixLength - b.prefixLength),
       nextUpdateAt: state.nextPeriodicAt,
     };
+  }
+
+  // ---------------------------------------------------------------- VRRP version 3
+
+  private newVrrpExchange(): string {
+    const exchange = `vrrp-${String(this.nextVrrpExchange)}`;
+    this.nextVrrpExchange += 1;
+    return exchange;
+  }
+
+  /** Groupe VRRP d'une interface, s'il existe. */
+  private vrrpOn(device: RuntimeDevice, port: RuntimePort): VrrpRuntime | undefined {
+    return this.vrrp.get(vrrpKey(device.id, port.portId));
+  }
+
+  /** Master_Down_Interval = 3 × intervalle + Skew_Time, Skew_Time = (256 − priorité) × intervalle / 256 (RFC 5798 §6.1). */
+  private masterDownInterval(group: VrrpRuntime): SimTime {
+    return 3 * group.masterAdverInterval + Math.round(((256 - group.priority) * group.masterAdverInterval) / 256);
+  }
+
+  private setVrrpState(device: RuntimeDevice, port: RuntimePort, group: VrrpRuntime, to: VrrpStateView, cause: string): void {
+    const from = group.state;
+    group.state = to;
+    this.dirtyDevices.add(device.id);
+    if (from !== to) this.emit("vrrp.state", { vrid: group.vrid, from, to, cause, priority: group.priority, address: group.address }, { device, port });
+  }
+
+  /**
+   * Startup (RFC 5798 §6.4.1) : le propriétaire de l'adresse (priorité 255)
+   * devient maître aussitôt ; les autres passent en secours et attendent
+   * Master_Down_Interval avant de se proclamer maître. Cette première attente
+   * compte comme un échange en cours (convergence calculée).
+   */
+  private vrrpStartup(device: RuntimeDevice, port: RuntimePort, group: VrrpRuntime): void {
+    if (!port.ipv4 || !this.isUp(port)) return;
+    group.generation += 1;
+    group.masterAdverInterval = this.parameters.vrrpAdvertisementInterval;
+    if (group.owner) {
+      this.becomeMaster(device, port, group, "owner");
+      return;
+    }
+    group.master = null;
+    group.downAt = this.clock + this.masterDownInterval(group);
+    group.nextAdvertAt = null;
+    this.setVrrpState(device, port, group, "backup", "startup");
+    this.schedule(group.downAt, { type: "vrrp-down", deviceId: device.id, portId: port.portId, generation: group.generation });
+  }
+
+  /** Passage en maître : annonce, ARP gratuit avec la MAC virtuelle, annonces périodiques (RFC 5798 §6.4.2, étapes 370 à 410). */
+  private becomeMaster(device: RuntimeDevice, port: RuntimePort, group: VrrpRuntime, cause: string): void {
+    group.generation += 1;
+    group.master = port.ipv4?.address ?? null;
+    group.downAt = null;
+    this.setVrrpState(device, port, group, "master", cause);
+    this.sendVrrpAdvertisement(device, port, group);
+    this.sendGratuitousArp(device, port, group);
+    group.nextAdvertAt = this.clock + group.masterAdverInterval;
+    this.schedule(group.nextAdvertAt, { type: "vrrp-advert", deviceId: device.id, portId: port.portId, generation: group.generation }, true);
+  }
+
+  private sendVrrpAdvertisement(device: RuntimeDevice, port: RuntimePort, group: VrrpRuntime): void {
+    if (!port.ipv4) return;
+    const advert: VrrpAdvertisement = {
+      kind: "vrrp",
+      version: 3,
+      type: "advertisement",
+      vrid: group.vrid,
+      priority: group.priority,
+      maxAdverInterval: Math.round(group.masterAdverInterval / 10_000_000),
+      addresses: [group.address],
+    };
+    const state = this.state(device.id);
+    const identification = state.nextIdentification;
+    state.nextIdentification = (state.nextIdentification + 1) & 0xffff;
+    // Source : adresse principale de l'interface, MAC virtuelle (RFC 5798 §5.1.1.1, §7.2).
+    const packet: Ipv4Packet = { kind: "ipv4", source: port.ipv4.address, destination: VRRP_MULTICAST, ttl: VRRP_TTL, identification, payload: advert };
+    const exchange = this.newVrrpExchange();
+    this.emit("vrrp.advert-sent", { vrid: group.vrid, priority: group.priority, destination: VRRP_MULTICAST }, { device, port, exchange, pdu: advert });
+    this.transmit(device, port, { kind: "ethernet", source: group.mac, destination: multicastMac(parseIpv4(VRRP_MULTICAST) ?? 0), payload: packet }, exchange);
+  }
+
+  /** ARP gratuit : requête diffusée pour l'adresse virtuelle, émetteur = MAC virtuelle (les switches apprennent son nouveau port). */
+  private sendGratuitousArp(device: RuntimeDevice, port: RuntimePort, group: VrrpRuntime): void {
+    const frame: EthernetFrame = {
+      kind: "ethernet",
+      source: group.mac,
+      destination: BROADCAST_MAC,
+      payload: { kind: "arp", operation: "request", senderMac: group.mac, senderIp: group.address, targetMac: ZERO_MAC, targetIp: group.address },
+    };
+    const exchange = this.newVrrpExchange();
+    this.emit("vrrp.gratuitous-arp", { vrid: group.vrid, address: group.address, mac: group.mac }, { device, port, exchange, pdu: frame.payload });
+    this.transmit(device, port, frame, exchange);
+  }
+
+  private onVrrpStart(deviceId: string): void {
+    const device = this.device(deviceId);
+    for (const port of device.ports) {
+      const group = this.vrrpOn(device, port);
+      if (group) this.vrrpStartup(device, port, group);
+    }
+  }
+
+  private onVrrpAdvertTimer(deviceId: string, portId: string, generation: number): void {
+    const device = this.device(deviceId);
+    const port = device.portById.get(portId);
+    const group = port ? this.vrrpOn(device, port) : undefined;
+    if (!port || group?.generation !== generation || group.state !== "master") return;
+    this.sendVrrpAdvertisement(device, port, group);
+    group.nextAdvertAt = this.clock + group.masterAdverInterval;
+    this.dirtyDevices.add(deviceId);
+    this.schedule(group.nextAdvertAt, { type: "vrrp-advert", deviceId, portId, generation }, true);
+  }
+
+  /** Master_Down_Timer : aucune annonce acceptée depuis Master_Down_Interval, le secours devient maître. */
+  private onVrrpDown(deviceId: string, portId: string, generation: number): void {
+    const device = this.device(deviceId);
+    const port = device.portById.get(portId);
+    const group = port ? this.vrrpOn(device, port) : undefined;
+    if (!port || group?.generation !== generation || group.state !== "backup") return;
+    this.becomeMaster(device, port, group, "master-down");
+  }
+
+  /** Annonce reçue (RFC 5798 §6.4.2 et §6.4.3) : TTL 255, même VRID ; secours qui l'accepte ou maître qui cède. */
+  private onVrrp(device: RuntimeDevice, port: RuntimePort, packet: Ipv4Packet, advert: VrrpAdvertisement, exchange: string | null): void {
+    const where = { device, port, exchange, pdu: advert };
+    const group = this.vrrpOn(device, port);
+    if (!group || group.vrid !== advert.vrid) {
+      this.emit("vrrp.ignored", { reason: group ? "other-vrid" : "no-group", vrid: advert.vrid, from: packet.source }, where);
+      return;
+    }
+    if (packet.ttl !== VRRP_TTL) {
+      this.emit("vrrp.ignored", { reason: "ttl", vrid: advert.vrid, from: packet.source, ttl: packet.ttl }, where);
+      return;
+    }
+    if (group.state === "initialize" || !port.ipv4) return;
+    this.emit("vrrp.advert-received", { vrid: advert.vrid, priority: advert.priority, from: packet.source }, where);
+    const interval = advert.maxAdverInterval * 10_000_000;
+    if (group.state === "backup") {
+      if (!group.preempt || advert.priority >= group.priority) {
+        group.master = packet.source;
+        group.masterAdverInterval = interval;
+        group.generation += 1;
+        group.downAt = this.clock + this.masterDownInterval(group);
+        this.dirtyDevices.add(device.id);
+        this.schedule(group.downAt, { type: "vrrp-down", deviceId: device.id, portId: port.portId, generation: group.generation }, true);
+        return;
+      }
+      // Préemption : l'annonce d'un maître moins prioritaire est écartée ; le secours prendra la main à l'échéance.
+      this.emit("vrrp.advert-discarded", { vrid: advert.vrid, priority: advert.priority, local: group.priority, from: packet.source }, where);
+      return;
+    }
+    const senderWins = advert.priority > group.priority || (advert.priority === group.priority && (parseIpv4(packet.source) ?? 0) > port.ipv4.value);
+    if (!senderWins) {
+      this.emit("vrrp.advert-discarded", { vrid: advert.vrid, priority: advert.priority, local: group.priority, from: packet.source }, where);
+      return;
+    }
+    group.generation += 1;
+    group.master = packet.source;
+    group.masterAdverInterval = interval;
+    group.nextAdvertAt = null;
+    group.downAt = this.clock + this.masterDownInterval(group);
+    this.setVrrpState(device, port, group, "backup", "higher-priority");
+    this.schedule(group.downAt, { type: "vrrp-down", deviceId: device.id, portId: port.portId, generation: group.generation }, true);
+  }
+
+  /** Interface tombée : le groupe revient à l'initialisation ; rétablie : nouveau démarrage. */
+  private vrrpLinkChange(device: RuntimeDevice, port: RuntimePort, up: boolean): void {
+    const group = this.vrrpOn(device, port);
+    if (!group) return;
+    if (!up && group.state !== "initialize") {
+      group.generation += 1;
+      group.downAt = null;
+      group.nextAdvertAt = null;
+      group.master = null;
+      this.setVrrpState(device, port, group, "initialize", "interface-down");
+    } else if (up && group.state === "initialize") {
+      this.vrrpStartup(device, port, group);
+    }
+  }
+
+  private vrrpView(device: RuntimeDevice): DeviceView["vrrp"] {
+    const groups = device.ports.flatMap((port) => {
+      const group = this.vrrpOn(device, port);
+      return group
+        ? [{ portId: port.portId, vrid: group.vrid, address: group.address, virtualMac: group.mac, priority: group.priority, owner: group.owner, preempt: group.preempt, state: group.state, master: group.master, downAt: group.downAt, nextAdvertAt: group.nextAdvertAt }]
+        : [];
+    });
+    return groups.length > 0 ? groups : null;
   }
 
   // ---------------------------------------------------------------- OSPF version 2 (zone unique)
@@ -3755,6 +4046,7 @@ export class Simulation {
         : null,
       rip: this.ripView(device),
       ospf: this.ospfView(device),
+      vrrp: this.vrrpView(device),
       routes:
         device.kind === "switch"
           ? []

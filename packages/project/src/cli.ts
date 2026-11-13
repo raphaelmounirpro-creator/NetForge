@@ -14,6 +14,7 @@ import {
   setInterfaceIpv4,
   setOspfInterface,
   setRipInterface,
+  setVrrpGroup,
   setStp,
   setSwitchport,
   type CommandResult,
@@ -21,6 +22,7 @@ import {
 import { DHCP_LEASE_DEFAULT, formatLeaseDuration, parseDhcpPoolInput } from "./dhcp.js";
 import { isDnsAddress, normalizeDnsName, parseDnsRecordInput, sortedDnsRecords } from "./dns.js";
 import { error, type Issue } from "./issues.js";
+import { VRID_MAX, VRID_MIN, VRRP_DEFAULT_PRIORITY, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority } from "./vrrp.js";
 import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_DEFAULT_COST, OSPF_DEFAULT_PRIORITY, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, type OspfInterface, type OspfMode } from "./ospf.js";
 import { isIpv4Address, prefixToMask } from "./ipv4.js";
 import type { Device, NfgDocument } from "./schema.js";
@@ -56,6 +58,7 @@ export type CliRequest =
   | { readonly kind: "show-rip" }
   | { readonly kind: "show-ospf" }
   | { readonly kind: "show-ospf-database" }
+  | { readonly kind: "show-vrrp" }
   | { readonly kind: "ipconfig" }
   /** Client DHCP d'un PC : renouveler ou libérer le bail (demande d'exécution). */
   | { readonly kind: "dhcp"; readonly action: "renew" | "release" }
@@ -508,6 +511,16 @@ const COMMANDS: readonly CommandSpec[] = [
     run: ({ mode }) => ok(mode, { request: { kind: "show-ospf-database" } }),
   },
   {
+    id: "show-vrrp",
+    words: ["show", "vrrp"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-vrrp" } }),
+  },
+  {
     id: "show-rip",
     words: ["show", "rip"],
     syntax: "",
@@ -871,6 +884,52 @@ const COMMANDS: readonly CommandSpec[] = [
     },
   },
   {
+    id: "vrrp-group",
+    words: ["vrrp"],
+    syntax: "<vrid> <adresse> [priority <priorité>] [preempt on|off]",
+    modes: ["interface"],
+    devices: ["router"],
+    required: ["vrid", "adresse"],
+    maxArgs: 6,
+    run: ({ device, mode, args }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "vrrp" });
+      const [vridText = "", address = "", ...options] = args;
+      const vrid = /^\d{1,3}$/.test(vridText) ? Number(vridText) : Number.NaN;
+      if (!isVrid(vrid)) return invalid(mode, [error("vrrp.invalid-vrid", { value: vridText, min: VRID_MIN, max: VRID_MAX })]);
+      if (!isIpv4Address(address)) return invalid(mode, [error("ipv4.invalid-address", { value: address })]);
+      let priority = VRRP_DEFAULT_PRIORITY;
+      let preempt = true;
+      for (let index = 0; index < options.length; index += 2) {
+        const keyword = (options[index] ?? "").toLowerCase();
+        const value = options[index + 1];
+        if (keyword !== "priority" && keyword !== "preempt") return fail(mode, "cli.unexpected-argument", { word: options[index] ?? "" });
+        if (value === undefined) return fail(mode, "cli.missing-argument", { argument: keyword === "priority" ? "priorité" : "on|off" });
+        if (keyword === "priority") {
+          priority = /^\d{1,3}$/.test(value) ? Number(value) : Number.NaN;
+          if (!isVrrpPriority(priority)) return invalid(mode, [error("vrrp.invalid-priority", { value, min: VRRP_PRIORITY_MIN, max: VRRP_PRIORITY_MAX })]);
+        } else {
+          const choice = value.toLowerCase();
+          if (choice !== "on" && choice !== "off") return fail(mode, "cli.unexpected-argument", { word: value });
+          preempt = choice === "on";
+        }
+      }
+      return ok(mode, { edit: (doc) => setVrrpGroup(doc, { deviceId: device.id, interfaceId: mode.portId, group: { vrid, address, priority, preempt } }) });
+    },
+  },
+  {
+    id: "vrrp-clear",
+    words: ["vrrp", "clear"],
+    syntax: "",
+    modes: ["interface"],
+    devices: ["router"],
+    required: [],
+    maxArgs: 0,
+    run: ({ device, mode }) => {
+      if (mode.kind !== "interface") return fail(mode, "cli.wrong-mode", { command: "vrrp clear" });
+      return ok(mode, { edit: (doc) => setVrrpGroup(doc, { deviceId: device.id, interfaceId: mode.portId, group: null }) });
+    },
+  },
+  {
     id: "route-add",
     words: ["route", "add"],
     syntax: "<réseau>/<préfixe> via <prochain-saut>",
@@ -1089,7 +1148,7 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
       })
       .sort((a, b) => a.vlan - b.vlan);
     for (const sub of subinterfaces) lines.push(`interface ${sub.id}`, `address ${sub.ipv4.address}/${String(sub.ipv4.prefixLength)}`, "exit");
-    // Plages DHCP, RIP et OSPF du port puis de ses sous-interfaces (après leurs adresses).
+    // Plages DHCP, RIP, OSPF et VRRP du port puis de ses sous-interfaces (après leurs adresses).
     for (const id of [port.id, ...subinterfaces.map((sub) => sub.id)]) {
       const pool = config?.dhcpPools[id];
       if (pool) lines.push(`interface ${id}`, `dhcp pool ${pool.start} ${pool.end} gateway ${pool.gateway} lease ${formatLeaseDuration(pool.leaseSeconds)}`, "exit");
@@ -1102,6 +1161,12 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
         if (ospf.cost !== OSPF_DEFAULT_COST) lines.push(`ospf cost ${String(ospf.cost)}`);
         if (ospf.priority !== OSPF_DEFAULT_PRIORITY) lines.push(`ospf priority ${String(ospf.priority)}`);
         lines.push("exit");
+      }
+      const vrrp = config?.vrrpGroups[id];
+      if (vrrp) {
+        // Priorité et préemption : seulement si elles diffèrent des valeurs par défaut (100, préemption active).
+        const options = [vrrp.priority !== VRRP_DEFAULT_PRIORITY ? `priority ${String(vrrp.priority)}` : "", vrrp.preempt ? "" : "preempt off"].filter(Boolean);
+        lines.push(`interface ${id}`, [`vrrp ${String(vrrp.vrid)} ${vrrp.address}`, ...options].join(" "), "exit");
       }
     }
     const switchport = config?.switchports[port.id];

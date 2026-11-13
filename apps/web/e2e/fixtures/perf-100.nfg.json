@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "models": {
     "catalog": 2
   },
@@ -1917,7 +1917,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "sw1": {
       "interfaces": {},
@@ -1932,7 +1933,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc1": {
       "interfaces": {
@@ -1952,7 +1954,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc2": {
       "interfaces": {
@@ -1972,7 +1975,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc3": {
       "interfaces": {
@@ -1992,7 +1996,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc4": {
       "interfaces": {
@@ -2012,7 +2017,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc5": {
       "interfaces": {
@@ -2032,7 +2038,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc6": {
       "interfaces": {
@@ -2052,7 +2059,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc7": {
       "interfaces": {
@@ -2072,7 +2080,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc8": {
       "interfaces": {
@@ -2092,7 +2101,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc9": {
       "interfaces": {
@@ -2112,7 +2122,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc10": {
       "interfaces": {
@@ -2132,7 +2143,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "sw2": {
       "interfaces": {},
@@ -2147,7 +2159,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc11": {
       "interfaces": {
@@ -2167,7 +2180,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc12": {
       "interfaces": {
@@ -2187,7 +2201,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc13": {
       "interfaces": {
@@ -2207,7 +2222,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc14": {
       "interfaces": {
@@ -2227,7 +2243,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc15": {
       "interfaces": {
@@ -2247,7 +2264,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc16": {
       "interfaces": {
@@ -2267,7 +2285,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc17": {
       "interfaces": {
@@ -2287,7 +2306,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc18": {
       "interfaces": {
@@ -2307,7 +2327,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc19": {
       "interfaces": {
@@ -2327,7 +2348,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc20": {
       "interfaces": {
@@ -2347,7 +2369,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "sw3": {
       "interfaces": {},
@@ -2362,7 +2385,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc21": {
       "interfaces": {
@@ -2382,7 +2406,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc22": {
       "interfaces": {
@@ -2402,7 +2427,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc23": {
       "interfaces": {
@@ -2422,7 +2448,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc24": {
       "interfaces": {
@@ -2442,7 +2469,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc25": {
       "interfaces": {
@@ -2462,7 +2490,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc26": {
       "interfaces": {
@@ -2482,7 +2511,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc27": {
       "interfaces": {
@@ -2502,7 +2532,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc28": {
       "interfaces": {
@@ -2522,7 +2553,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc29": {
       "interfaces": {
@@ -2542,7 +2574,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc30": {
       "interfaces": {
@@ -2562,7 +2595,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "sw4": {
       "interfaces": {},
@@ -2577,7 +2611,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc31": {
       "interfaces": {
@@ -2597,7 +2632,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc32": {
       "interfaces": {
@@ -2617,7 +2653,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc33": {
       "interfaces": {
@@ -2637,7 +2674,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc34": {
       "interfaces": {
@@ -2657,7 +2695,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc35": {
       "interfaces": {
@@ -2677,7 +2716,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc36": {
       "interfaces": {
@@ -2697,7 +2737,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc37": {
       "interfaces": {
@@ -2717,7 +2758,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc38": {
       "interfaces": {
@@ -2737,7 +2779,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc39": {
       "interfaces": {
@@ -2757,7 +2800,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc40": {
       "interfaces": {
@@ -2777,7 +2821,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "sw5": {
       "interfaces": {},
@@ -2792,7 +2837,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc41": {
       "interfaces": {
@@ -2812,7 +2858,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc42": {
       "interfaces": {
@@ -2832,7 +2879,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc43": {
       "interfaces": {
@@ -2852,7 +2900,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc44": {
       "interfaces": {
@@ -2872,7 +2921,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc45": {
       "interfaces": {
@@ -2892,7 +2942,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc46": {
       "interfaces": {
@@ -2912,7 +2963,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc47": {
       "interfaces": {
@@ -2932,7 +2984,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc48": {
       "interfaces": {
@@ -2952,7 +3005,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc49": {
       "interfaces": {
@@ -2972,7 +3026,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc50": {
       "interfaces": {
@@ -2992,7 +3047,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "sw6": {
       "interfaces": {},
@@ -3007,7 +3063,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc51": {
       "interfaces": {
@@ -3027,7 +3084,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc52": {
       "interfaces": {
@@ -3047,7 +3105,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc53": {
       "interfaces": {
@@ -3067,7 +3126,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc54": {
       "interfaces": {
@@ -3087,7 +3147,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc55": {
       "interfaces": {
@@ -3107,7 +3168,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc56": {
       "interfaces": {
@@ -3127,7 +3189,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc57": {
       "interfaces": {
@@ -3147,7 +3210,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc58": {
       "interfaces": {
@@ -3167,7 +3231,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc59": {
       "interfaces": {
@@ -3187,7 +3252,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc60": {
       "interfaces": {
@@ -3207,7 +3273,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "sw7": {
       "interfaces": {},
@@ -3222,7 +3289,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc61": {
       "interfaces": {
@@ -3242,7 +3310,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc62": {
       "interfaces": {
@@ -3262,7 +3331,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc63": {
       "interfaces": {
@@ -3282,7 +3352,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc64": {
       "interfaces": {
@@ -3302,7 +3373,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc65": {
       "interfaces": {
@@ -3322,7 +3394,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc66": {
       "interfaces": {
@@ -3342,7 +3415,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc67": {
       "interfaces": {
@@ -3362,7 +3436,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc68": {
       "interfaces": {
@@ -3382,7 +3457,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc69": {
       "interfaces": {
@@ -3402,7 +3478,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc70": {
       "interfaces": {
@@ -3422,7 +3499,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "sw8": {
       "interfaces": {},
@@ -3437,7 +3515,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc71": {
       "interfaces": {
@@ -3457,7 +3536,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc72": {
       "interfaces": {
@@ -3477,7 +3557,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc73": {
       "interfaces": {
@@ -3497,7 +3578,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc74": {
       "interfaces": {
@@ -3517,7 +3599,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc75": {
       "interfaces": {
@@ -3537,7 +3620,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc76": {
       "interfaces": {
@@ -3557,7 +3641,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc77": {
       "interfaces": {
@@ -3577,7 +3662,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc78": {
       "interfaces": {
@@ -3597,7 +3683,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc79": {
       "interfaces": {
@@ -3617,7 +3704,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc80": {
       "interfaces": {
@@ -3637,7 +3725,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "sw9": {
       "interfaces": {},
@@ -3652,7 +3741,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc81": {
       "interfaces": {
@@ -3672,7 +3762,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc82": {
       "interfaces": {
@@ -3692,7 +3783,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc83": {
       "interfaces": {
@@ -3712,7 +3804,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc84": {
       "interfaces": {
@@ -3732,7 +3825,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc85": {
       "interfaces": {
@@ -3752,7 +3846,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc86": {
       "interfaces": {
@@ -3772,7 +3867,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc87": {
       "interfaces": {
@@ -3792,7 +3888,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc88": {
       "interfaces": {
@@ -3812,7 +3909,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc89": {
       "interfaces": {
@@ -3832,7 +3930,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc90": {
       "interfaces": {
@@ -3852,7 +3951,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     }
   },
   "faults": [],

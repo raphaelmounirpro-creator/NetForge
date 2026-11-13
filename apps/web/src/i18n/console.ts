@@ -217,6 +217,27 @@ export function showOspfDatabase(view: DeviceView): string[] {
   );
 }
 
+/** « show vrrp » : groupes VRRP, état, priorité, maître connu et échéances calculés par le moteur. */
+export function showVrrp(view: DeviceView): string[] {
+  if (!view.vrrp) return [t.vrrpNone];
+  const s = messages.simulation;
+  const c = t.columns;
+  return table(
+    [c.port, c.vrid, c.address, c.virtualMac, c.priority, c.preempt, c.state, c.master, c.deadline],
+    view.vrrp.map((group) => [
+      group.portId,
+      String(group.vrid),
+      group.address,
+      group.virtualMac,
+      String(group.priority),
+      group.preempt ? s.values.yes : s.values.no,
+      s.vrrpStates[group.state],
+      group.master ?? "—",
+      group.state === "master" && group.nextAdvertAt !== null ? formatSimTime(group.nextAdvertAt) : group.downAt !== null ? formatSimTime(group.downAt) : "—",
+    ]),
+  );
+}
+
 /** « ipconfig » : configuration du projet et adresse MAC calculée par le moteur. */
 export function ipconfig(doc: NfgDocument, deviceId: string, view: DeviceView | undefined): string[] {
   const device = doc.topology.devices.find((item) => item.id === deviceId);

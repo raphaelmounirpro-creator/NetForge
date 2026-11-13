@@ -52,6 +52,8 @@ export interface SimulationParameters {
   readonly ospfDeadInterval: SimTime;
   /** OSPF : retransmission d'une description de base sans réponse (RxmtInterval, 5 s). */
   readonly ospfRxmtInterval: SimTime;
+  /** VRRP : intervalle des annonces du maître (Advertisement_Interval, 1 s par défaut, RFC 5798 §6.1). */
+  readonly vrrpAdvertisementInterval: SimTime;
   readonly limits: SimulationLimits;
 }
 
@@ -101,6 +103,7 @@ export const DEFAULT_PARAMETERS: SimulationParameters = {
   ospfHelloInterval: fromSeconds(10),
   ospfDeadInterval: fromSeconds(40),
   ospfRxmtInterval: fromSeconds(5),
+  vrrpAdvertisementInterval: fromSeconds(1),
   limits: DEFAULT_LIMITS,
 };
 

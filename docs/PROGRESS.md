@@ -21,7 +21,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 8 — Routage dynamique et redondance
 
-**État : en cours (démarrée le 2026-11-12).** Tranches 1 (RIP) et 2 (OSPF en zone unique) terminées et vérifiées ; tranche 3 (VRRP) à venir.
+**État : tranches 1 à 3 terminées et vérifiées (2026-11-13) ; en attente de la validation du propriétaire.** RIP, OSPF en zone unique et VRRP sont livrés ; tous les critères d'acceptation du tableau sont atteints. La tranche 4 (OSPF multi-zone, puis BGP simplifié) n'est pas commencée : son report vers la feuille de route est proposé au propriétaire, à qui revient la décision de clôture (périmètre ci-dessous).
 
 ### Périmètre retenu
 
@@ -44,7 +44,18 @@ La ligne « phase 8 » de la feuille de route (P-04 et la part routage de P-05) 
 | RIP | Coupure d'un chemin redondant : route retirée puis chemin de secours, reconvergence mesurée en temps simulé | atteint : `rip.test.ts` (retrait immédiat aux deux extrémités, ping refusé par R1, route de secours en métrique 3 à l'annonce périodique de 30 s, suppression du réseau coupé à +120 s, retour du chemin court au rétablissement ; expiration à 180 s et suppression à 300 s derrière un switch), `rip.spec.ts` (coupure, lecture accélérée, ping TTL 61) |
 | RIP | Horizon partagé et métrique 16 observables ; console et formulaires équivalents ; anciens projets migrés sans RIP | atteint : `rip.test.ts` (aucune annonce d'une route sur son interface d'apprentissage, diamètre de 15 sauts, voisin passif, voisin d'un autre réseau), `project/rip.test.ts` (documents identiques, configuration rejouée), `migration.test.ts` (v7 → v8), `rip.spec.ts` (formulaire puis console) |
 | OSPF | Voisinages établis, base d'état des liens identique sur tous les routeurs, routes de plus faible coût ; reconvergence après coupure | atteint : `ospf.test.ts` (triangle de référence : voisinages pleins, base identique sur les trois routeurs, coût 30 par R2 plutôt que 40 en direct, ping TTL 61 ; coupure : voisin perdu aussitôt, LSA réseau retiré, détour en coût 40, retour du chemin court après l'attente de 40 s ; réseau à diffusion : DR par priorité, BDR par identifiant, perte du DR détectée après 40 s et nouvelle élection), `ospf.spec.ts` (panneau d'exécution, `show ospf`, `show ospf database`, coupure et détour, élection, formulaire et console équivalents) |
-| VRRP | Un poste garde sa passerelle virtuelle quand le routeur maître tombe ; bascule et retour observables | à faire |
+| VRRP | Un poste garde sa passerelle virtuelle quand le routeur maître tombe ; bascule et retour observables | atteint : `vrrp.test.ts` (élection à 3,5703125 s, bascule exactement Master_Down_Interval après la dernière annonce reçue, ARP gratuit et MAC virtuelle déplacée dans le switch, poste dont le cache ARP garde la même MAC virtuelle et dont le ping passe par le secours, retour par préemption et maintien sans préemption), `vrrp.spec.ts` (maître et secours, bascule en lecture accélérée, ping et `arp -a` inchangés, retour, `show vrrp`, formulaire et console) |
+
+### Vérifications de la tranche VRRP (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- État de départ : tranche OSPF commitée (`581962e`), vérifications complètes réussies (ci-dessous).
+- Après la tranche : `pnpm check` réussi (lint, typecheck, **530 tests** : format 181, moteur 201, interface 93, contrats 2, API 53 sur PostgreSQL réel ; builds). Bundle principal 1 264 kB (369 kB gzip), Worker 230 kB.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **36 parcours** réussis, dont les 2 de `vrrp.spec.ts` (passés aussi deux fois de suite isolément).
+- `pnpm test:e2e:accounts` : **5 parcours** réussis (note 30/30 avec « correcteur version 7 ») ; aucun port de test resté en écoute.
+- Inspection visuelle réelle (Edge) : panneau d'exécution après bascule, formulaire de l'onglet Routes ; 1 440 px thème sombre, 1 024 px thème clair avec mouvement réduit ; aucun débordement horizontal (mesuré). Captures locales ignorées par Git.
+- Défaut trouvé et corrigé : parcours de bascule dépendant de la charge (phrase de bascule sortie des 100 dernières décisions quand la pause arrivait tard pendant la suite complète) : journal filtré sur R2 et lecture ×10. Assertions de tests sans portée réelle repérées à la relecture et remplacées par des vérifications exactes (instant de bascule, seul le maître répond à l'ARP de l'adresse virtuelle).
+- Format **v10**, moteur **0.8.0**, correcteur **v7**. Référence consultée le 2026-11-13 : RFC 5798 (sections listées dans [protocols/vrrp.md](protocols/vrrp.md)) ; limites dans cette fiche et D-058.
+- Limites connues : un groupe par interface et une adresse virtuelle, IPv4 seulement, intervalle d'annonce et Accept_Mode non configurables (ping de la passerelle virtuelle sans réponse si le maître n'en est pas propriétaire, comportement normatif), pas d'annonce de priorité 0 ni de suivi d'interface.
 
 ### Vérifications de la tranche OSPF (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
 

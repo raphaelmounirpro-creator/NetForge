@@ -1,8 +1,8 @@
-import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setOspfInterface, setRipInterface, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setOspfInterface, setRipInterface, setVrrpGroup, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
-import { dhcpScenario, dnsScenario, ftthScenario, ospfScenario, ripScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
+import { dhcpScenario, dnsScenario, ftthScenario, ospfScenario, ripScenario, vrrpScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
 
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(result.errors.map((issue) => issue.code).join(", "));
@@ -228,6 +228,15 @@ describe("fonctions autorisées", () => {
     expect(gradeSubmission(exerciseOn(project, { allowed: ["simulation"], steps, hints: [] }), project, [], 0)).toMatchObject({ ok: true, score: 10, max: 10 });
     const withoutOspf = ospfScenario({ ospf: false });
     expect(gradeSubmission(exerciseOn(withoutOspf, { allowed: ["simulation"], steps, hints: [] }), withoutOspf, [], 0)).toMatchObject({ ok: true, score: 0 });
+  });
+
+  it("protègent les groupes VRRP par la fonction « routes » et notent un ping après l'élection du maître", () => {
+    const initial = vrrpScenario();
+    const lower = ok(setVrrpGroup(initial, { deviceId: "r1", interfaceId: "ge0", group: { vrid: 1, address: "192.168.1.1", priority: 90, preempt: true } }));
+    expect(forbiddenChanges(initial, lower, ["simulation", "addressing"])).toEqual(["routes"]);
+    expect(forbiddenChanges(initial, lower, ["routes"])).toEqual([]);
+    const steps = [{ kind: "fix" as const, title: "Joindre PC2", instruction: "Vérifiez la passerelle.", criteria: [{ kind: "ping-succeeds" as const, from: "pc1", to: "10.3.0.10" }], points: 10 }];
+    expect(gradeSubmission(exerciseOn(initial, { allowed: ["simulation"], steps, hints: [] }), initial, [], 0)).toMatchObject({ ok: true, score: 10, max: 10 });
   });
 
   it("notent un ping qui dépend de routes RIP, après la convergence initiale", () => {

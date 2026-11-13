@@ -54,6 +54,7 @@ function frameLabel(entry: TraceEntry): string {
   const carried = pdu.payload.payload;
   if (carried.kind === "udp") return carried.payload.kind.toUpperCase();
   if (carried.kind === "ospf") return "OSPF";
+  if (carried.kind === "vrrp") return "VRRP";
   return "ICMP";
 }
 

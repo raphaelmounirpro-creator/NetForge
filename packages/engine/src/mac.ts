@@ -25,6 +25,11 @@ export function multicastMac(address: number): MacAddress {
   return ["01:00:5e", hex((low >>> 16) & 0xff), hex((low >>> 8) & 0xff), hex(low & 0xff)].join(":");
 }
 
+/** MAC virtuelle d'un routeur VRRP pour IPv4 : 00-00-5E-00-01-{VRID} (RFC 5798 §7.3). */
+export function vrrpMac(vrid: number): MacAddress {
+  return `00:00:5e:00:01:${(vrid & 0xff).toString(16).padStart(2, "0")}`;
+}
+
 /** FNV-1a 32 bits : hachage simple et stable, sans dépendance. */
 function fnv1a(text: string, offset = 0x811c9dc5): number {
   let hash = offset >>> 0;

@@ -304,7 +304,32 @@ export function ospfBytes(packet: OspfPacket): number {
   }
 }
 
-export type Ipv4Payload = IcmpMessage | UdpDatagram | OspfPacket;
+/**
+ * Annonce VRRP version 3 (RFC 5798 §5.1, type 1) : VRID, priorité, intervalle
+ * maximal entre annonces (centisecondes) et adresses virtuelles. La somme de
+ * contrôle n'est pas modélisée.
+ */
+export interface VrrpAdvertisement {
+  readonly kind: "vrrp";
+  readonly version: 3;
+  readonly type: "advertisement";
+  readonly vrid: number;
+  readonly priority: number;
+  readonly maxAdverInterval: number;
+  readonly addresses: readonly string[];
+}
+
+/** VRRP sur IPv4 (RFC 5798 §5.1.1) : protocole 112, groupe 224.0.0.18, TTL 255 obligatoire. */
+export const VRRP_PROTOCOL = 112;
+export const VRRP_MULTICAST = "224.0.0.18";
+export const VRRP_TTL = 255;
+
+/** Annonce VRRP : 8 octets fixes et 4 par adresse IPv4. */
+export function vrrpBytes(packet: VrrpAdvertisement): number {
+  return 8 + 4 * packet.addresses.length;
+}
+
+export type Ipv4Payload = IcmpMessage | UdpDatagram | OspfPacket | VrrpAdvertisement;
 
 export interface Ipv4Packet {
   readonly kind: "ipv4";
@@ -328,7 +353,7 @@ export interface EthernetFrame {
   readonly payload: ArpPacket | Ipv4Packet;
 }
 
-export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage | DnsMessage | RipMessage | OspfPacket;
+export type Pdu = EthernetFrame | ArpPacket | Ipv4Packet | IcmpMessage | UdpDatagram | DhcpMessage | DnsMessage | RipMessage | OspfPacket | VrrpAdvertisement;
 
 export const ZERO_MAC: MacAddress = "00:00:00:00:00:00";
 
@@ -396,12 +421,14 @@ export function icmpBytes(message: IcmpMessage): number {
 
 export function ipv4Bytes(packet: Ipv4Packet): number {
   const payload = packet.payload;
+  if (payload.kind === "vrrp") return IPV4_HEADER_BYTES + vrrpBytes(payload);
   return IPV4_HEADER_BYTES + (payload.kind === "udp" ? udpBytes(payload) : payload.kind === "ospf" ? ospfBytes(payload) : icmpBytes(payload));
 }
 
-/** Numéro de protocole IPv4 (IANA) : 1 ICMP, 17 UDP, 89 OSPF. */
+/** Numéro de protocole IPv4 (IANA) : 1 ICMP, 17 UDP, 89 OSPF, 112 VRRP. */
 export function ipProtocol(packet: Ipv4Packet): number {
-  return packet.payload.kind === "udp" ? 17 : packet.payload.kind === "ospf" ? OSPF_PROTOCOL : 1;
+  const kind = packet.payload.kind;
+  return kind === "udp" ? 17 : kind === "ospf" ? OSPF_PROTOCOL : kind === "vrrp" ? VRRP_PROTOCOL : 1;
 }
 
 /** Taille de la trame, en-tête et FCS compris, complétée au minimum Ethernet de 64 octets. */

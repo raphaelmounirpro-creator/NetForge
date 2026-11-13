@@ -31,6 +31,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `show dns` (routeur) | Noms enregistrés et réponses données par le service DNS (calculés par le moteur) |
 | | `show rip` (routeur) | Interfaces RIP, prochaine annonce et table RIP (métrique, prochain saut, expiration) calculées par le moteur |
 | | `show ospf` (routeur) | Identifiant OSPF, état des interfaces (coût, priorité, DR, BDR) et voisins (état, rôle, instant de perte) |
+| | `show vrrp` (routeur) | Groupes VRRP : VRID, adresse et MAC virtuelles, priorité, préemption, état, maître connu, échéance |
 | | `show ospf database` (routeur) | Base d'états des liens : type, identifiant, annonceur, séquence, âge et contenu de chaque LSA |
 | | `show config` | Configuration réécrite en commandes (rejouable) |
 | | `clear arp` (routeur) / `clear mac` (switch) | Vide la table apprise |
@@ -51,6 +52,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `dhcp clear` (routeur) | Retire la plage de l'interface |
 | | `rip enable` / `rip passive` / `rip disable` (routeur) | Interface active dans RIP / réseau annoncé sans message RIP / retirée de RIP (interface adressée) |
 | | `ospf enable` / `ospf passive` / `ospf disable` (routeur) | Interface active dans OSPF, zone 0 / réseau décrit sans paquet OSPF / retirée d'OSPF (interface adressée ; coût et priorité conservés) |
+| | `vrrp <vrid> <adresse> [priority <priorité>] [preempt on\|off]` / `vrrp clear` (routeur) | Groupe VRRP de l'interface : VRID 1 à 255, adresse virtuelle du réseau de l'interface, priorité 1 à 254 (100 par défaut), préemption (activée par défaut) / retrait |
 | | `ospf cost <coût>` / `ospf priority <priorité>` (routeur) | Coût de 1 à 65535 (10 par défaut) / priorité de 0 à 255 pour l'élection du DR (1 par défaut) ; interface déjà dans OSPF |
 | Interface d'un switch (`SW1(config ge1)>`) | `access vlan <vlan>` | Port d'accès dans le VLAN (1 à 4094 ; `access vlan 1` revient au défaut) |
 | | `trunk [native <vlan>] [allowed <liste>\|all]` | Trunk 802.1Q ; par défaut VLAN natif 1 et tous les VLAN autorisés ; liste : `10,20,30-35` |

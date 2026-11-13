@@ -1,4 +1,4 @@
-import { dhcpScenario, dnsScenario, ftthScenario, ospfLanScenario, ospfScenario, performanceScenario, ripScenario, routedScenario, stpTriangleScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "@netforge/engine";
+import { dhcpScenario, dnsScenario, ftthScenario, ospfLanScenario, ospfScenario, performanceScenario, ripScenario, vrrpScenario, routedScenario, stpTriangleScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "@netforge/engine";
 import { parseNfgText, serializeNfg, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 
@@ -12,6 +12,7 @@ const expected: Record<string, NfgDocument> = {
   "rip.nfg.json": ripScenario(),
   "ospf.nfg.json": ospfScenario(),
   "ospf-lan.nfg.json": ospfLanScenario(),
+  "vrrp.nfg.json": vrrpScenario(),
   "two-routers-no-return.nfg.json": twoRoutersScenario({ r2Route: false }),
   "perf-100.nfg.json": performanceScenario(),
   "switch-loop.nfg.json": switchLoopScenario(),

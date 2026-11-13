@@ -9,6 +9,7 @@ import {
   ospfScenario,
   ripScenario,
   ScenarioBuilder,
+  vrrpScenario,
   routedScenario,
   twoRoutersScenario,
   VLAN_SCENARIO,
@@ -472,6 +473,89 @@ describe("observation OSPF sur des échanges réels", () => {
     const fields = pduLayers(update.pdu, names)[0]?.fields ?? [];
     expect(fields.find(([labelText]) => labelText === "LSA")?.[1]).toMatch(/^réseau \(2\) 10\.\d+\.0\.2, annonceur 10\.23\.0\.[12] \(R[23]\), séquence 0x8000000\d, âge \d+ s$/);
     expect(fields.find(([labelText]) => labelText === "Routeurs rattachés")?.[1]).toMatch(/\(R\d\), .*\(R\d\)/);
+  });
+});
+
+describe("observation VRRP sur des échanges réels", () => {
+  /** Exécution jusqu'à un instant donné, après des commandes appliquées une à une (bascule observable). */
+  const until = (doc: NfgDocument, steps: Array<{ command: SimCommand | null; until: number }>) => {
+    const created = createSimulation(doc);
+    if (!created.ok) throw new Error("document refusé");
+    const sim = created.simulation;
+    const trace: TraceEntry[] = [];
+    for (const step of steps) {
+      if (step.command) sim.enqueue(step.command);
+      trace.push(...sim.run({ until: step.until, maxEvents: 500_000 }).trace);
+    }
+    return { trace, snapshot: sim.snapshot() };
+  };
+  // Lien SW1–R1 (l2) coupé à 41 s puis rétabli à 50 s ; ping vers l'adresse virtuelle (Accept_Mode) et vers PC2.
+  const cut: SimCommand = { type: "set-link", linkId: "l2", up: false };
+  const runs = [
+    until(vrrpScenario(), [
+      { command: null, until: 41_000_000_000 },
+      { command: { type: "ping", deviceId: "pc1", destination: "192.168.1.1", count: 1 }, until: 46_000_000_000 },
+      { command: cut, until: 50_000_000_000 },
+      { command: { type: "set-link", linkId: "l2", up: true }, until: 60_000_000_000 },
+    ]),
+    until(vrrpScenario({ owner: true }), [{ command: { type: "ping", deviceId: "pc1", destination: "10.3.0.10", count: 1 }, until: 45_000_000_000 }]),
+  ];
+
+  it("explique chaque décision VRRP aux deux niveaux, sans paramètre manquant", () => {
+    const seen = new Set<string>();
+    for (const { trace, snapshot } of runs) {
+      const names = buildNameIndex(snapshot.devices);
+      for (const entry of trace) {
+        if (!entry.code.startsWith("vrrp.")) continue;
+        seen.add(entry.code);
+        for (const level of ["beginner", "technical"] as const) {
+          expect(formatTrace(entry, names, level), entry.code + " " + level).not.toMatch(/\{\w+\}|undefined|null|NaN/);
+        }
+      }
+    }
+    // « vrrp.ignored » (TTL ou VRID différents) ne se produit pas dans ces scénarios : gabarit vérifié par le test générique.
+    for (const code of TRACE_CODES.filter((item) => item.startsWith("vrrp.") && item !== "vrrp.ignored")) expect(seen, code).toContain(code);
+  });
+
+  it("formule les explications attendues et met en évidence le paquet refusé", () => {
+    const { trace, snapshot } = runs[0] ?? { trace: [], snapshot: undefined };
+    if (!snapshot) throw new Error("scénario attendu");
+    const names = buildNameIndex(snapshot.devices);
+    const text = (predicate: (entry: TraceEntry) => boolean) => {
+      const entry = trace.find(predicate);
+      if (!entry) throw new Error("décision attendue");
+      return formatTrace(entry, names);
+    };
+    expect(text((entry) => entry.code === "vrrp.state" && entry.deviceId === "r2" && entry.params["to"] === "master")).toBe(
+      "R2 ge0 devient maître du groupe VRRP 1 (aucune annonce du maître pendant Master_Down_Interval) : il répond désormais pour 192.168.1.1.",
+    );
+    expect(text((entry) => entry.code === "vrrp.gratuitous-arp" && entry.deviceId === "r2")).toBe(
+      "R2 ge0 diffuse un ARP gratuit : 192.168.1.1 se trouve désormais à 00:00:5e:00:01:01.",
+    );
+    const refused = trace.find((entry) => entry.code === "vrrp.not-accepted");
+    expect(refused && formatTrace(refused, names)).toBe("R1 refuse un paquet pour l'adresse virtuelle 192.168.1.1 : il n'en est pas propriétaire.");
+    expect(refused && isLossOrError(refused)).toBe(true);
+    expect(traceCategory("vrrp.state")).toBe("routing");
+  });
+
+  it("inspecte une annonce VRRP avec ses seuls champs modélisés", () => {
+    const { trace, snapshot } = runs[1] ?? { trace: [], snapshot: undefined };
+    if (!snapshot) throw new Error("scénario attendu");
+    const advert = trace.find((entry) => entry.code === "eth.transmit" && entry.deviceId === "r1" && entry.pdu?.kind === "ethernet" && entry.pdu.destination === "01:00:5e:00:00:12");
+    if (!advert?.pdu) throw new Error("annonce attendue");
+    const layers = pduLayers(advert.pdu, buildNameIndex(snapshot.devices));
+    expect(layers.map((layer) => layer.id)).toEqual(["ethernet", "ipv4", "vrrp"]);
+    expect(layers[0]?.fields[0]).toEqual(["MAC source", "00:00:5e:00:01:01"]);
+    expect(layers[1]?.fields).toContainEqual(["TTL", "255"]);
+    expect(layers[1]?.fields).toContainEqual(["Protocole transporté", "112 (VRRP)"]);
+    expect(layers[2]?.fields).toEqual([
+      ["Version", "3"],
+      ["Type", "1 (annonce)"],
+      ["VRID", "1"],
+      ["Priorité", "255 (propriétaire de l'adresse)"],
+      ["Intervalle maximal", "100 cs (1,00 s)"],
+      ["Adresses virtuelles", "192.168.1.1"],
+    ]);
   });
 });
 

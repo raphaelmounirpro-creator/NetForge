@@ -14,6 +14,7 @@ import {
   setOspfInterface,
   setRipInterface,
   setStp,
+  setVrrpGroup,
   setSwitchport,
   type CommandResult,
   type DeviceModelId,
@@ -158,6 +159,33 @@ export function ospfLanScenario(): NfgDocument {
     .build();
 }
 
+/**
+ * VRRP : deux routeurs de passerelle (R1 priorité 110, R2 priorité 100) derrière
+ * le switch du réseau de PC1, adresse virtuelle 192.168.1.1 (VRID 1), passerelle
+ * de PC1. OSPF relie R1 et R2 à R3, qui dessert le réseau de PC2 : après une
+ * bascule, le retour passe aussi par le nouveau maître. Option `owner` : R1
+ * possède l'adresse virtuelle (192.168.1.1 sur ge0, priorité 255).
+ */
+export function vrrpScenario(options: { owner?: boolean; r1Preempt?: boolean } = {}): NfgDocument {
+  const r1Address = options.owner ? "192.168.1.1/24" : "192.168.1.2/24";
+  return new ScenarioBuilder("vrrp", "VRRP : passerelle redondante")
+    .device("pc1", "PC", 60, 260).device("sw1", "S-24", 260, 260)
+    .device("r1", "R-200", 480, 120).device("r2", "R-200", 480, 400)
+    .device("r3", "R-200", 720, 260).device("pc2", "PC", 940, 260)
+    .link("pc1", "eth0", "sw1", "ge1").link("sw1", "ge2", "r1", "ge0").link("sw1", "ge3", "r2", "ge0")
+    .link("r1", "ge1", "r3", "ge1").link("r2", "ge1", "r3", "ge2").link("r3", "ge0", "pc2", "eth0")
+    .ip("r1", "ge0", r1Address).ip("r2", "ge0", "192.168.1.3/24")
+    .ip("r1", "ge1", "10.13.0.1/30").ip("r3", "ge1", "10.13.0.2/30")
+    .ip("r2", "ge1", "10.23.0.1/30").ip("r3", "ge2", "10.23.0.2/30")
+    .ip("r3", "ge0", "10.3.0.1/24")
+    .ip("pc1", "eth0", "192.168.1.10/24").gateway("pc1", "192.168.1.1")
+    .ip("pc2", "eth0", "10.3.0.10/24").gateway("pc2", "10.3.0.1")
+    .vrrp("r1", "ge0", 1, "192.168.1.1", { priority: 110, preempt: options.r1Preempt ?? true }).vrrp("r2", "ge0", 1, "192.168.1.1")
+    .ospf("r1", "ge0", { mode: "passive" }).ospf("r2", "ge0", { mode: "passive" }).ospf("r3", "ge0", { mode: "passive" })
+    .ospf("r1", "ge1").ospf("r2", "ge1").ospf("r3", "ge1").ospf("r3", "ge2")
+    .build();
+}
+
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(`scénario invalide : ${result.errors.map((issue) => issue.code).join(", ")}`);
   return result.document;
@@ -235,6 +263,12 @@ export class ScenarioBuilder {
   /** Participation d'une interface de routeur à OSPF (active, coût 10 et priorité 1 par défaut). */
   ospf(deviceId: string, interfaceId: string, options: { mode?: OspfMode; cost?: number; priority?: number } = {}): this {
     this.doc = ok(setOspfInterface(this.doc, { deviceId, interfaceId, ospf: { mode: options.mode ?? "active", cost: options.cost ?? 10, priority: options.priority ?? 1 } }));
+    return this;
+  }
+
+  /** Groupe VRRP d'une interface de routeur (priorité 100 et préemption par défaut). */
+  vrrp(deviceId: string, interfaceId: string, vrid: number, address: string, options: { priority?: number; preempt?: boolean } = {}): this {
+    this.doc = ok(setVrrpGroup(this.doc, { deviceId, interfaceId, group: { vrid, address, priority: options.priority ?? 100, preempt: options.preempt ?? true } }));
     return this;
   }
 

@@ -74,6 +74,13 @@ export const ISSUE_CODES = [
   "ospf.interface-not-enabled",
   "ospf.invalid-cost",
   "ospf.invalid-priority",
+  // VRRP
+  "vrrp.not-supported",
+  "vrrp.interface-not-addressed",
+  "vrrp.invalid-vrid",
+  "vrrp.invalid-priority",
+  "vrrp.address-outside-subnet",
+  "vrrp.address-mismatch",
   // VLAN
   "vlan.invalid-id",
   "vlan.mode-mismatch",

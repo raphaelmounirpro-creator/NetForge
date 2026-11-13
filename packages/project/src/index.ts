@@ -16,3 +16,4 @@ export * from "./schema.js";
 export * from "./stp.js";
 export * from "./validation.js";
 export * from "./vlan.js";
+export * from "./vrrp.js";

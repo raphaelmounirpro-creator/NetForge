@@ -15,6 +15,7 @@ import { fill, formatIssue, messages } from "../../../i18n";
 import { useLabStore, type OpenProject } from "../store";
 import { OspfSection } from "./OspfSection";
 import { RipSection } from "./RipSection";
+import { VrrpSection } from "./VrrpSection";
 
 const t = messages.properties;
 
@@ -136,6 +137,7 @@ export function RoutesTab({ projectId, project, device }: { projectId: string; p
       </form>
       <RipSection projectId={projectId} deviceId={device.id} config={project.document.configurations[device.id]} disabled={!editable} />
       <OspfSection projectId={projectId} deviceId={device.id} config={project.document.configurations[device.id]} disabled={!editable} />
+      <VrrpSection projectId={projectId} deviceId={device.id} config={project.document.configurations[device.id]} disabled={!editable} />
     </div>
   );
 }

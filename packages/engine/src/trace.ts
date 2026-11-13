@@ -102,6 +102,15 @@ export const TRACE_CODES = [
   "ospf.route-changed",
   "ospf.route-removed",
   "ospf.ignored",
+  // VRRP version 3
+  "vrrp.state",
+  "vrrp.advert-sent",
+  "vrrp.advert-received",
+  "vrrp.advert-discarded",
+  "vrrp.gratuitous-arp",
+  "vrrp.arp-reply",
+  "vrrp.not-accepted",
+  "vrrp.ignored",
   // ARP
   "arp.cache-hit",
   "arp.cache-miss",

@@ -111,6 +111,7 @@ export function traceCategory(code: TraceCode): TraceCategory {
       return "dns";
     case "rip":
     case "ospf":
+    case "vrrp":
       return "routing";
     case "ip":
       return "ip";
@@ -165,6 +166,8 @@ const LOSS_OR_ERROR_CODES: ReadonlySet<TraceCode> = new Set<TraceCode>([
   "rip.route-unreachable",
   "rip.ignored",
   "ospf.hello-mismatch",
+  "vrrp.not-accepted",
+  "vrrp.ignored",
 ]);
 
 export function isLossOrError(entry: TraceEntry): boolean {
@@ -222,6 +225,8 @@ function templateKey(entry: TraceEntry): keyof typeof messages.trace {
       return params["server"] === null ? "command.nslookup.no-server" : entry.code;
     case "rip.route-unreachable":
       return params["nextHop"] === null ? "rip.route-unreachable.local" : entry.code;
+    case "vrrp.state":
+      return params["to"] === "master" ? "vrrp.state.master" : params["to"] === "backup" ? "vrrp.state.backup" : "vrrp.state.initialize";
     case "ospf.hello-received":
       return params["listed"] === true ? "ospf.hello-received.listed" : entry.code;
     case "ospf.dd-sent":
@@ -277,6 +282,12 @@ export function formatTrace(entry: TraceEntry, names: NameIndex, level: Explanat
     values["reasonText"] = ripReasons[params["reason"] as keyof typeof ripReasons];
   }
   if (entry.code.startsWith("ospf.")) Object.assign(values, ospfValues(params, names, entry.code));
+  if (entry.code.startsWith("vrrp.")) {
+    values["fromText"] = label(t.vrrpStates, params["from"]);
+    values["causeText"] = label(t.vrrpCauses, params["cause"]);
+    values["reasonText"] = label(t.vrrpIgnored, params["reason"]);
+    if (typeof params["state"] === "string") values["state"] = label(t.vrrpStates, params["state"]);
+  }
   if (typeof params["routeKind"] === "string" && params["routeKind"] in messages.traceLabels.routeKinds) {
     values["routeKind"] = messages.traceLabels.routeKinds[params["routeKind"] as keyof typeof messages.traceLabels.routeKinds];
   }
@@ -333,6 +344,8 @@ export function formatExchange(exchange: string): string {
   if (rip) return fill(t.exchangeRip, { session: rip[1] ?? "" });
   const ospf = /^ospf-(\d+)$/.exec(exchange);
   if (ospf) return fill(t.exchangeOspf, { session: ospf[1] ?? "" });
+  const vrrp = /^vrrp-(\d+)$/.exec(exchange);
+  if (vrrp) return fill(t.exchangeVrrp, { session: vrrp[1] ?? "" });
   const echo = /^ping-(\d+)#(\d+)$/.exec(exchange);
   if (echo) return fill(t.exchangeEcho, { session: echo[1] ?? "", sequence: echo[2] ?? "" });
   const session = /^ping-(\d+)$/.exec(exchange);
@@ -340,7 +353,7 @@ export function formatExchange(exchange: string): string {
 }
 
 export interface PduLayer {
-  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp" | "dns" | "rip" | "ospf";
+  readonly id: "ethernet" | "arp" | "ipv4" | "icmp" | "quoted" | "udp" | "dhcp" | "dns" | "rip" | "ospf" | "vrrp";
   readonly title: string;
   readonly osi: string;
   readonly fields: ReadonlyArray<readonly [label: string, value: string]>;
@@ -384,7 +397,7 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
           [f.ipDestination, pdu.destination],
           [f.ttl, String(pdu.ttl)],
           [f.identification, String(pdu.identification)],
-          [f.protocol, pdu.payload.kind === "udp" ? v.protocolUdp : pdu.payload.kind === "ospf" ? v.protocolOspf : v.protocolIcmp],
+          [f.protocol, { udp: v.protocolUdp, ospf: v.protocolOspf, vrrp: v.protocolVrrp, icmp: v.protocolIcmp }[pdu.payload.kind]],
         ]),
         ...pduLayers(pdu.payload, names),
       ];
@@ -402,6 +415,17 @@ export function pduLayers(pdu: Pdu, names: NameIndex): PduLayer[] {
     }
     case "ospf":
       return [layer("ospf", ospfFields(pdu, names))];
+    case "vrrp":
+      return [
+        layer("vrrp", [
+          [f.vrrpVersion, String(pdu.version)],
+          [f.vrrpType, v.vrrpAdvertisement],
+          [f.vrrpVrid, String(pdu.vrid)],
+          [f.vrrpPriority, pdu.priority === 255 ? fill(v.vrrpOwner, { priority: 255 }) : String(pdu.priority)],
+          [f.vrrpInterval, fill(v.vrrpInterval, { centiseconds: pdu.maxAdverInterval, seconds: decimal(pdu.maxAdverInterval / 100, 2) })],
+          [f.vrrpAddresses, pdu.addresses.join(", ")],
+        ]),
+      ];
     case "rip":
       return [
         layer("rip", [

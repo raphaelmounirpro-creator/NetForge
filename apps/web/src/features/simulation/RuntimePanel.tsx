@@ -101,6 +101,29 @@ function DeviceRuntime({ device, names, disabled }: { device: DeviceView; names:
         </EntryList>
       )}
 
+      {device.vrrp && (
+        <EntryList title={t.vrrpTitle} empty={null}>
+          {device.vrrp.map((group) => (
+            <Entry
+              key={group.portId}
+              main={fill(t.vrrpGroup, { port: group.portId, vrid: group.vrid, address: group.address })}
+              detail={
+                <>
+                  {group.state === "initialize" ? (
+                    <State ok={false} label={fill(t.vrrpDetail, { state: messages.simulation.vrrpStates[group.state], priority: group.priority, mac: group.virtualMac })} />
+                  ) : (
+                    <State ok label={fill(t.vrrpDetail, { state: messages.simulation.vrrpStates[group.state], priority: group.priority, mac: group.virtualMac })} />
+                  )}
+                  {group.master !== null && <span className="block">{fill(t.vrrpMaster, { master: group.master })}</span>}
+                  {group.state === "master" && group.nextAdvertAt !== null && <span className="block">{fill(t.vrrpNext, { time: formatSimTime(group.nextAdvertAt) })}</span>}
+                  {group.state === "backup" && group.downAt !== null && <span className="block">{fill(t.vrrpDown, { time: formatSimTime(group.downAt) })}</span>}
+                </>
+              }
+            />
+          ))}
+        </EntryList>
+      )}
+
       {device.ospf && (
         <>
           <EntryList title={t.ospfTitle} empty={null}>

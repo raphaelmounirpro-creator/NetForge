@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "models": {
     "catalog": 2
   },
@@ -150,7 +150,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "r1": {
       "interfaces": {
@@ -188,7 +189,8 @@
         "ge1": "active",
         "ge2": "active"
       },
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "r2": {
       "interfaces": {
@@ -226,7 +228,8 @@
         "ge1": "active",
         "ge2": "active"
       },
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc2": {
       "interfaces": {
@@ -246,7 +249,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "r3": {
       "interfaces": {
@@ -284,7 +288,8 @@
         "ge2": "active",
         "ge1": "active"
       },
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     },
     "pc3": {
       "interfaces": {
@@ -304,7 +309,8 @@
       "dnsServer": null,
       "dnsRecords": null,
       "ripInterfaces": {},
-      "ospfInterfaces": {}
+      "ospfInterfaces": {},
+      "vrrpGroups": {}
     }
   },
   "faults": [],
