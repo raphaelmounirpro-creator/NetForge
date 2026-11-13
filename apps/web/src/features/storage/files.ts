@@ -2,7 +2,12 @@ import { error, LIMITS, type Issue } from "@netforge/project";
 
 /** Propose le téléchargement d'un texte (export .nfg.json). */
 export function downloadText(fileName: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  downloadBlob(fileName, new Blob([text], { type: "application/json" }));
+}
+
+/** Propose le téléchargement d'un fichier (export de bilans CSV ou PDF). */
+export function downloadBlob(fileName: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = fileName;

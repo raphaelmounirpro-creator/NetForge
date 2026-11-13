@@ -104,7 +104,7 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | F-09 | VLAN de service Internet/VoIP/IPTV, partage de bande passante | 9 | disponible avec limites | F-08, P-01 | Débits partagés expliqués (pon.test.ts, pon.spec.ts, [pon.md](protocols/pon.md)) ; partage max-min à l'heure de pointe, sans DBA ni trames |
 | F-10 | OTDR pédagogique (événements, pertes, limites documentées) | 9 | disponible avec limites | F-02 | Trace approximative documentée (otdr.test.ts, otdr.spec.ts, [otdr.md](protocols/otdr.md)) ; une branche après un coupleur, sans bruit ni zone morte |
 | F-11 | Vue arborescente colorée + alternative textuelle, implantation rue/immeuble/PBO | 9 | disponible | F-01 | Lisible sans couleur (tree.test.ts, tree.spec.ts, [fiche](protocols/ftth-bilan-optique.md)) |
-| F-12 | Export des bilans CSV/PDF | 9 | prévu | F-02 | Fichiers ouverts et cohérents |
+| F-12 | Export des bilans CSV/PDF | 9 | disponible | F-02 | Fichiers ouverts et cohérents (exportBudget.test.ts, pdf.test.ts, exports.spec.ts ; PDF relu par pdftotext) |
 
 ### Comptes, sécurité, déploiement (phase 5)
 

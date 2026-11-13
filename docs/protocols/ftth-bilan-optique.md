@@ -86,6 +86,19 @@ La perte de panne reste distincte de la perte nominale (colonnes séparées). Au
 
 Le formateur voit et injecte les pannes. Pendant un exercice, l'élève ne voit que les symptômes (état constaté par l'ONT, bilan de conception, mesures et inspections) ; la panne reste présente dans le fichier du projet (entraînement local, D-033).
 
+### Exports des bilans (phase 9)
+
+La colonne Chemins de la vue Optique propose deux exports. Ils reprennent les valeurs du bilan affiché ; en exercice, c'est le bilan de conception, sans colonne de panne.
+
+- **CSV** pour un tableur :
+  - une ligne par chemin et par sens ;
+  - encodé en UTF-8 avec marque d'ordre des octets, séparateur « ; », virgule décimale et trois décimales, comme le tableau des contributions ;
+  - puissances laissées vides pour un chemin bloqué (coupure, raccordement ou technologies incompatibles) ;
+  - un texte commençant par = + - @ est neutralisé (injection de formule).
+- **PDF** (A4, texte à chasse fixe Courier, encodage WinAnsi) :
+  - en-tête (date, nombre de chemins, mode), sources, puis chaque chemin avec ses deux sens et le tableau des contributions avec le cumul ;
+  - les symboles hors de WinAnsi sont remplacés par un équivalent lisible (→ « -> », ✓ « OK »).
+
 ### Arbre du réseau et implantation (phase 9)
 
 - **Arbre** (colonne de gauche de la vue Optique, onglet Arbre) : de chaque port d'OLT aux ONT, équipement par équipement, avec les ports d'entrée. Il est construit par le moteur (`tree.ts`) à partir des chemins du bilan, et regroupé par équipement.
@@ -112,6 +125,8 @@ Couche 1 (physique) : puissance optique, affaiblissement, connectique. Aucune un
 
 ## Tests de référence
 
+- `apps/web/src/features/optics/exportBudget.test.ts` et `pdf.test.ts` : CSV (valeurs du chemin ONT1 calculé à la main, exercice sans panne, chemin bloqué), texte du rapport (cumul 14,202 dB au coupleur 1:8, 24,974 dB à l'ONT1), PDF (WinAnsi, échappements, table de références croisées, pagination).
+- `apps/web/e2e/exports.spec.ts` : fichiers téléchargés depuis la vue Optique et relus (CSV, PDF).
 - `packages/engine/src/tree.test.ts` : arbre du réseau de référence (ODF, coupleurs, PBO à trois entrées, PTO, ONT), ONT d'une autre technologie, projet sans OLT.
 - `apps/web/e2e/tree.spec.ts` : arbre et états par branche, panne visible dans l'arbre, implantation par rue et immeuble, formulaire d'implantation.
 - `packages/engine/src/pon.test.ts` : chemin XGS-PON calculé à la main dans les deux sens, majoration sous 1 310 nm, pénalité DD40, technologies incompatibles, photomètre à 1 577 et 1 270 nm.

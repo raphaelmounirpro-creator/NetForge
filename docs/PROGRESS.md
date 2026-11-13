@@ -23,7 +23,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 9 — FTTH/PON avancé et OTDR
 
-**État : en cours.** Phase 8 validée le 2026-11-13 (« lance 9 »). Tranches 1 (technologies PON et enregistrement des ONT), 2 (services et partage de bande passante), 3 (OTDR pédagogique) et 4 (vue arborescente et implantation) terminées et vérifiées le 2026-11-13.
+**État : terminée et vérifiée le 2026-11-13, en attente de la validation du propriétaire.** Phase 8 validée le 2026-11-13 (« lance 9 »). Les cinq tranches sont livrées et vérifiées : technologies PON et enregistrement des ONT, services et partage de bande passante, OTDR pédagogique, vue arborescente et implantation, exports CSV et PDF. Tous les critères d'acceptation du tableau sont atteints.
 
 ### Périmètre retenu
 
@@ -48,7 +48,18 @@ La ligne « phase 9 » de la feuille de route (F-08 à F-12 ; spécification §1
 | Services | Débits partagés expliqués : garanties accordées dans la capacité, reste réparti, dépassement signalé | atteint : `engine/pon.test.ts` (réseau FTTH de référence calculé à la main : 320,4 Mbit/s garantis, 822,64 Mbit/s par accès Internet descendant, 414,59 montant, IPTV multicast comptée une fois ; ONT hors service sans débit ; plafonnement au maximum ; surréservation réduite au prorata), `project/pon.test.ts` (profils, offres, console équivalente et rejouable), `pon.spec.ts` (onglet Débits, `show bandwidth`, offre et profil modifiés par le formulaire) |
 | OTDR | Événements à leur distance avec leurs pertes ; coupure localisée ; trace approximative documentée | atteint : `otdr.test.ts` (réseau FTTH calculé à la main : 6 954 m, 23,794 dB à 1 550 nm, 24,474 dB à 1 310 nm ; coupure à 2 345 m d'ODF1 vue à 2 347 m depuis l'OLT et 4 607 m depuis l'ONT1 ; connecteur sale signalé sans être nommé ; section seule sans position), `otdr.spec.ts` (trace, coupure injectée avec sa position, localisation des deux côtés), [otdr.md](protocols/otdr.md) |
 | Vue | Arbre lisible sans couleur, avec alternative textuelle ; implantation affichée | atteint : `tree.test.ts` (arbre du réseau de référence, regroupement par équipement), `tree.spec.ts` (états par branche en symbole et texte, panne visible dans l'arbre, implantation par rue et immeuble, formulaire), `ftth.test.ts` (implantation : saisie, effacement, refus, migration v15 → v16) |
-| Exports | Fichiers CSV et PDF ouverts et cohérents avec le bilan affiché | à faire |
+| Exports | Fichiers CSV et PDF ouverts et cohérents avec le bilan affiché | atteint : `exportBudget.test.ts` (valeurs du chemin ONT1 calculé à la main, exercice sans panne, chemin bloqué, cumul du rapport), `pdf.test.ts` (encodage, références croisées, pagination), `exports.spec.ts` (fichiers téléchargés et relus), PDF relu par pdftotext (accents et colonnes corrects) |
+
+### Vérifications de la tranche exports (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- État de départ : tranche arbre et implantation commitée (`3316927`).
+- `pnpm check` réussi (lint, typecheck, **609 tests** : format 213, moteur 236, interface 105, contrats 2, API 53 sur PostgreSQL réel ; builds). Bundle principal 1 388 kB (402 kB gzip), Worker 254 kB.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **45 parcours** réussis, dont `exports.spec.ts` ; `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e:accounts` : **5 parcours** réussis ; aucun port de test resté en écoute.
+- Fichiers réels : le PDF téléchargé par le parcours a été relu par `pdftotext` (poppler, Git Bash) en sortie UTF-8 : accents (é, É, à, ·) et colonnes corrects. Le CSV relu par le parcours a les valeurs du bilan affiché (24,974 dB, 3,026 dB).
+- Inspection visuelle réelle (Edge, 1 440 px) : section d'export de la colonne Chemins ; aucun défaut relevé.
+- Défaut trouvé par les tests : deux attentes erronées de ma part (cumul au coupleur 1:8 recalculé à 14,202 dB ; parenthèses échappées dans le flux PDF) ; le code était juste.
+- Format **v16**, moteur **0.14.0**, exercices **v3**, correcteur **v11** (inchangés par la tranche).
+- Limites : PDF texte seul (pas de graphique ni de logo), symboles hors de WinAnsi remplacés ; pas d'export de la trace OTDR ni des débits (D-065).
 
 ### Vérifications de la tranche arbre et implantation (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
 

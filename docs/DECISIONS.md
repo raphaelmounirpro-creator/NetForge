@@ -361,3 +361,10 @@ Décision du propriétaire : 15 caractères minimum est jugé trop contraignant 
 - **Présentation** : une liste imbriquée dans la colonne de gauche de la vue Optique (onglets Chemins, Arbre, Implantation), plutôt qu'un deuxième dessin. Elle donne en texte l'état de chaque branche et sert d'alternative au canevas ; la couleur double le symbole et le texte.
 - **Format v16** : `location` (rue, immeuble ou site, logement) sur l'équipement, chaque champ de 80 caractères au plus, implantation vide interdite (null). Migration v15 → v16 : aucune implantation. Elle est libre en évaluation, comme le nom. Formulaire seulement : les équipements passifs n'ont pas de console, et l'implantation ne change pas le comportement du réseau.
 - `ENGINE_VERSION` 0.14.0 ; correcteur inchangé (v11).
+
+## D-065 — Exports des bilans en CSV et PDF sans dépendance (phase 9)
+
+- **PDF produit par un petit générateur maison** (`features/optics/pdf.ts`, texte seul, police standard Courier, WinAnsi, A4) plutôt qu'une bibliothèque. Un rapport de bilans aligné en colonnes n'a besoin ni d'image ni de police embarquée, et cela n'ajoute aucune dépendance au poids de l'application. Le générateur est vérifié par tests (structure, décalages, flux) et le fichier téléchargé a été relu par pdftotext.
+- **CSV aux conventions françaises** : « ; », virgule décimale, UTF-8 avec marque d'ordre des octets, pour qu'un tableur l'ouvre directement. Trois décimales, comme le tableau des contributions. Garde contre l'injection de formule sur les cellules de texte.
+- **Contenu identique à l'écran** : en exercice, bilan de conception sans les pannes, comme la vue Bilan (D-033).
+- Pas de nouvelle version du format ni du moteur : les exports ne lisent que le bilan calculé.

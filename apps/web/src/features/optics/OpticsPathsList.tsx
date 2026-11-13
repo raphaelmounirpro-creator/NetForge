@@ -1,4 +1,8 @@
-import { getModel } from "@netforge/project";
+import { exportFileName, getModel, type NfgDocument } from "@netforge/project";
+import { Button } from "../../components/ui/Button";
+import { downloadBlob } from "../storage/files";
+import { budgetCsv, budgetReportLines } from "./exportBudget";
+import { textPdf } from "./pdf";
 import { useState } from "react";
 import { Tabs } from "../../components/ui/Tabs";
 import { fill, messages } from "../../i18n";
@@ -11,6 +15,9 @@ import { useOpticsSession, useOpticsStore } from "./store";
 const t = messages.optics;
 
 type LeftView = "paths" | "tree" | "sites";
+
+/** « projet-bilans.csv » à partir du nom de fichier d'export du projet. */
+const baseName = (doc: NfgDocument, extension: string) => exportFileName(doc).replace(/\.nfg\.json$/, `-${t.exports.fileSuffix}.${extension}`);
 
 /** Colonne de gauche de la vue Optique : chemins, arbre du réseau ou implantation. */
 export function OpticsPathsList({ projectId, project }: { projectId: string; project: OpenProject }) {
@@ -107,6 +114,33 @@ function PathsList({ projectId, project }: { projectId: string; project: OpenPro
             </p>
           ))}
           {report.loops > 0 && <p className="text-xs text-warning">{fill(t.loops, { count: report.loops })}</p>}
+          {report.paths.length > 0 && (
+            <section aria-label={t.exports.title} className="flex flex-col gap-2 border-t border-border pt-3">
+              <h3 className="text-xs font-semibold text-text">{t.exports.title}</h3>
+              <p className="text-xs text-text-muted">{t.exports.hint}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    // BOM : un tableur reconnaît l'UTF-8 (accents des en-têtes).
+                    downloadBlob(baseName(doc, "csv"), new Blob(["\uFEFF", budgetCsv(doc, report, exercise)], { type: "text/csv;charset=utf-8" }));
+                  }}
+                >
+                  {t.exports.csv}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const date = new Intl.DateTimeFormat("fr", { dateStyle: "long", timeStyle: "short" }).format(new Date());
+                    const bytes = textPdf(fill(t.exports.reportTitle, { project: doc.metadata.name }), budgetReportLines(doc, report, exercise, date));
+                    downloadBlob(baseName(doc, "pdf"), new Blob([bytes], { type: "application/pdf" }));
+                  }}
+                >
+                  {t.exports.pdf}
+                </Button>
+              </div>
+            </section>
+          )}
           {report.truncated && <p className="text-xs text-warning">{t.truncated}</p>}
         </>
       )}
