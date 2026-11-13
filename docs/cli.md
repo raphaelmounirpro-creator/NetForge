@@ -32,6 +32,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `show rip` (routeur) | Interfaces RIP, prochaine annonce et table RIP (métrique, prochain saut, expiration) calculées par le moteur |
 | | `show ospf` (routeur) | Identifiant OSPF, état des interfaces (coût, priorité, DR, BDR) et voisins (état, rôle, instant de perte) |
 | | `show bgp` (routeur) | AS et identifiant, voisins (AS, état, réseaux reçus), table BGP (chemin d'AS, prochain saut, retenu ou de secours) |
+| | `show bandwidth` (OLT) | Débits de chaque port PON à l'heure de pointe : débit de ligne, garanties, demande, contention et chaque flux (VLAN, garanti, maximum, pointe) |
 | | `show pon` (OLT, ONT) | Activation PON calculée par le moteur (sans simulation chargée) : sur l'OLT, ONT autorisés et découverts par port ; sur l'ONT, état et étapes franchies |
 | | `show vrrp` (routeur) | Groupes VRRP : VRID, adresse et MAC virtuelles, priorité, préemption, état, maître connu, échéance |
 | | `show ospf database` (routeur) | Base d'états des liens : type, identifiant, annonceur, séquence, âge et contenu de chaque LSA |
@@ -59,6 +60,8 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `bgp neighbor <adresse> remote-as <as>` / `bgp neighbor <adresse> delete` | Déclare un voisin externe directement connecté, ou le retire |
 | | `bgp network <réseau>/<préfixe> [delete]` | Annonce un réseau présent dans la table de routage, ou cesse de l'annoncer |
 | | `ont add <port> <numéro-de-série> [onu-id <identifiant>]` / `ont delete <port> <numéro-de-série>` (OLT, mode configuration) | Autorise un ONT sur un port PON (identifiant d'ONU : le plus petit libre par défaut, 0 à 253 en GPON, 0 à 1 020 en XGS-PON), ou retire l'autorisation |
+| | `service <internet\|voip\|iptv> vlan <vlan> down <garanti>/<max> [up <garanti>/<max>]` / `service <service> delete` (OLT) | Profil d'un service : VLAN et débits en Mbit/s (virgule ou point, trois décimales) ; pas de sens montant pour l'IPTV |
+| | `ont services <port> <numéro-de-série> <internet,voip,iptv\|none>` (OLT) | Offre d'un ONT autorisé (services souscrits) |
 | | `serial-number <numéro-de-série>` (ONT, mode configuration) | Remplace le numéro de série (quatre lettres puis huit chiffres hexadécimaux) |
 | | `ospf area <zone>` (routeur) | Zone de l'interface OSPF : décimal (« 1 ») ou notation pointée (« 0.0.0.1 ») ; 0 = dorsale (défaut) |
 | | `ospf cost <coût>` / `ospf priority <priorité>` (routeur) | Coût de 1 à 65535 (10 par défaut) / priorité de 0 à 255 pour l'élection du DR (1 par défaut) ; interface déjà dans OSPF |

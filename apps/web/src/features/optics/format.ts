@@ -16,6 +16,11 @@ export const formatDb = (value: number): string => decibel.format(value);
 /** Contribution d'un élément, à trois décimales (une jarretière de 2 m vaut 0,002 dB). */
 export const formatFineDb = (value: number): string => fine.format(value);
 
+const mbps = new Intl.NumberFormat("fr", { maximumFractionDigits: 2 });
+
+/** Débit en Mbit/s à partir de kbit/s (« 822,64 », « 0,2 », « 2 488,32 »). */
+export const formatMbps = (kbps: number): string => mbps.format(kbps / 1000);
+
 /** Longueur d'onde en nm, à la française (« 1 490 »). */
 export const formatWavelength = (nanometres: number): string => integer.format(nanometres);
 

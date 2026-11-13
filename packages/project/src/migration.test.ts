@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectDevices, setDhcpPool, setDnsRecord, setInterfaceDhcp, setInterfaceIpv4, setOspfInterface, setRipInterface } from "./commands.js";
+import { setPonAuthorization, connectDevices, setDhcpPool, setDnsRecord, setInterfaceDhcp, setInterfaceIpv4, setOspfInterface, setRipInterface } from "./commands.js";
 import { parseNfgText, parseNfgValue, serializeNfg } from "./io.js";
 import { expectOk, projectWith } from "./test-helpers.js";
 
@@ -34,12 +34,12 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 13", () => {
+describe("migration du format version 1 → 14", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(13);
+    expect(result.document.schemaVersion).toBe(14);
     expect(result.document.models).toEqual({ catalog: 3 });
     expect(result.document.faults).toEqual([]);
     // Routes (v2), ports de switch, STP (v5), DHCP (v6), DNS (v7), RIP (v8) et OSPF (v9) : tous les ports en accès dans
@@ -60,6 +60,7 @@ describe("migration du format version 1 → 13", () => {
       bgp: null,
       ponAuthorizations: {},
       serialNumber: null,
+      ponServices: {},
     });
     expect(result.document.configurations["r1"]).toEqual({
       ...versionOne.configurations.r1,
@@ -76,6 +77,7 @@ describe("migration du format version 1 → 13", () => {
       bgp: null,
       ponAuthorizations: {},
       serialNumber: null,
+      ponServices: {},
     });
     // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre.
     expect(result.document.topology).toEqual({
@@ -135,7 +137,7 @@ describe("migration du format version 1 → 13", () => {
     const result = parseNfgValue(versionThree);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(13);
+    expect(result.document.schemaVersion).toBe(14);
     expect(result.document.models.catalog).toBe(3);
     expect(result.document.topology.links[0]?.fiber).toBeNull();
     expect(result.document.faults).toEqual([]);
@@ -231,6 +233,24 @@ describe("migration du format version 1 → 13", () => {
     expect(result.document.configurations["olt1"]?.ponAuthorizations).toEqual({});
     // Un fichier v13 doit porter les deux champs PON de chaque configuration.
     expect(errorCodes({ ...old, schemaVersion: 13, models: { catalog: 3 } })).toContain("import.schema");
+  });
+
+  it("migre les anciens fichiers v13 : aucun profil de service, aucun service souscrit", () => {
+    let current = projectWith(["olt1", "OLT-16"], ["ont1", "ONT-1G"]);
+    current = expectOk(setPonAuthorization(current, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000001", present: true }));
+    const old = {
+      ...current,
+      schemaVersion: 13,
+      configurations: Object.fromEntries(
+        Object.entries(current.configurations).map(([id, { ponServices: _services, ponAuthorizations, ...config }]) => [
+          id,
+          { ...config, ponAuthorizations: Object.fromEntries(Object.entries(ponAuthorizations).map(([port, entries]) => [port, entries.map(({ services: _offer, ...entry }) => entry)])) },
+        ]),
+      ),
+    };
+    const result = parseNfgValue(old);
+    expect(result.ok && result.document).toEqual(current);
+    expect(result.ok && result.document.configurations["olt1"]?.ponAuthorizations["pon1"]).toEqual([{ serial: "NFGE00000001", onuId: 0, services: [] }]);
   });
 
   it("migre les anciens fichiers v11 sans faire participer de routeur à BGP", () => {

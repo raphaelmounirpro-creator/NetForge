@@ -1,4 +1,4 @@
-import { addDevice, addStaticRoute, moveDevice, setOntSerial, setPonAuthorization, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setBgpAs, setOspfInterface, setRipInterface, setVrrpGroup, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, setOntSerial, setOntServices, setPonAuthorization, setPonService, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setBgpAs, setOspfInterface, setRipInterface, setVrrpGroup, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
@@ -277,7 +277,16 @@ describe("fonctions autorisées", () => {
     // L'ONT GPON raccordé à l'OLT XGS-PON ne fonctionne jamais.
     const mismatch = exerciseOn(initial, { version: 3, allowed: ["pon"], steps: [{ ...steps[0], criteria: [{ kind: "ont-operational" as const, ont: "ont3" }] }], hints: [] });
     expect(gradeSubmission(mismatch, ok(setPonAuthorization(initial, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000003", present: true })), [], 0)).toMatchObject({ ok: true, score: 0 });
-    expect(EVALUATOR_VERSION).toBe(10);
+    expect(EVALUATOR_VERSION).toBe(11);
+  });
+
+  it("protègent aussi les profils de service et les offres des ONT par « pon »", () => {
+    const initial = ftthScenario();
+    const slower = ok(setPonService(initial, { deviceId: "olt1", service: "iptv", profile: { vlan: 300, downstream: { guaranteedKbps: 10_000, maxKbps: 10_000 }, upstream: null } }));
+    expect(forbiddenChanges(initial, slower, ["optics"])).toEqual(["pon"]);
+    const offer = ok(setOntServices(initial, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000002", services: ["internet"] }));
+    expect(forbiddenChanges(initial, offer, ["optics"])).toEqual(["pon"]);
+    expect(forbiddenChanges(initial, offer, ["pon"])).toEqual([]);
   });
 
   it("n'autorisent le retrait d'une panne optique qu'avec « optics », et jamais son ajout ou sa modification", () => {

@@ -1,7 +1,7 @@
-import { addFault, disconnect, setFiber, setOntSerial, setPonAuthorization, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addFault, disconnect, setFiber, setOntSerial, setOntServices, setPonAuthorization, setPonService, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { analyzeOptics, fiberDbPerKm, measurePower, type OpticalPath } from "./optics.js";
-import { analyzePon, type OntActivation } from "./pon.js";
+import { analyzePon, analyzePonBandwidth, sharePeak, type DirectionShare, type OntActivation } from "./pon.js";
 import { ftthScenario, lanScenario, xgsPonScenario } from "./scenarios.js";
 
 /*
@@ -162,5 +162,68 @@ describe("activation des ONT : chemin optique conforme et enregistrement sont di
 
   it("ne donne aucun port ni aucun ONT à un projet sans réseau optique", () => {
     expect(analyzePon(lanScenario())).toEqual({ onts: [], ports: [] });
+  });
+});
+
+/*
+ * Partage à l'heure de pointe, réseau FTTH de référence (GPON : 2 488 320 kbit/s
+ * descendant, 1 244 160 montant). Offres : ONT1 Internet, VoIP, IPTV ; ONT2
+ * Internet, VoIP ; ONT3 Internet, IPTV. Internet 100/1 000 Mbit/s descendant,
+ * 20/500 montant ; VoIP 0,2/0,2 ; IPTV 20/20 descendant, compté une fois.
+ *
+ * Descendant : garanties 3 × 100 000 + 2 × 200 + 20 000 = 320 400 kbit/s ;
+ * reste 2 167 920, partagé entre les trois accès Internet (900 000 de plus
+ * demandés chacun) : 722 640 chacun, soit 822 640 kbit/s à l'heure de pointe.
+ * Demande 3 × 1 000 000 + 400 + 20 000 = 3 020 400 kbit/s.
+ * Montant : garanties 3 × 20 000 + 2 × 200 = 60 400 ; reste 1 183 760 / 3 =
+ * 394 586,67 de plus pour chaque accès Internet.
+ */
+const flow = (share: DirectionShare | undefined, service: string, ontId: string | null) => {
+  const found = share?.flows.find((item) => item.service === service && item.ontId === ontId);
+  if (!found) throw new Error(`flux ${service} ${String(ontId)} attendu`);
+  return found;
+};
+
+describe("services et partage de bande passante", () => {
+  it("donne les garanties, partage le reste équitablement sans dépasser les maximums, et compte l'IPTV une fois", () => {
+    const [port, ...others] = analyzePonBandwidth(ftthScenario());
+    expect(others).toEqual([]);
+    expect(port?.downstream).toMatchObject({ capacityKbps: 2_488_320, guaranteedKbps: 320_400, demandKbps: 3_020_400, guaranteesExceeded: false });
+    expect(port?.downstream.contention).toBeCloseTo(3_020_400 / 2_488_320, DIGITS);
+    for (const ontId of ["ont1", "ont2", "ont3"]) expect(flow(port?.downstream, "internet", ontId).peakKbps).toBeCloseTo(822_640, DIGITS);
+    expect(flow(port?.downstream, "voip", "ont2")).toMatchObject({ vlan: 200, peakKbps: 200 });
+    const iptv = flow(port?.downstream, "iptv", null);
+    expect([iptv.vlan, iptv.subscribers, iptv.peakKbps]).toEqual([300, ["ont1", "ont3"], 20_000]);
+    expect(port?.downstream.flows.filter((item) => item.service === "iptv")).toHaveLength(1);
+    expect(port?.upstream).toMatchObject({ capacityKbps: 1_244_160, guaranteedKbps: 60_400, guaranteesExceeded: false });
+    expect(flow(port?.upstream, "internet", "ont3").peakKbps).toBeCloseTo(20_000 + 1_183_760 / 3, DIGITS);
+    expect(port?.upstream.flows.some((item) => item.service === "iptv")).toBe(false);
+    expect(port?.idle).toEqual([]);
+  });
+
+  it("n'attribue aucun débit à un ONT qui ne fonctionne pas, et plafonne au maximum quand la capacité suffit", () => {
+    const [port] = analyzePonBandwidth(ftthScenario({ dirtyPto3: true }));
+    expect(port?.idle).toEqual([{ serial: "NFGE00000003", ontId: "ont3", services: ["internet", "iptv"] }]);
+    // Deux accès Internet : 2 267 920 kbit/s de reste, plus que les 900 000 demandés par chacun.
+    expect(flow(port?.downstream, "internet", "ont1").peakKbps).toBe(1_000_000);
+    expect(flow(port?.downstream, "iptv", null).subscribers).toEqual(["ont1"]);
+  });
+
+  it("réduit les garanties au prorata quand elles dépassent la capacité (surréservation signalée)", () => {
+    expect(sharePeak(1000, [{ guaranteedKbps: 600, maxKbps: 900 }, { guaranteedKbps: 900, maxKbps: 900 }])).toEqual([400, 600]);
+    expect(sharePeak(1000, [{ guaranteedKbps: 100, maxKbps: 150 }, { guaranteedKbps: 0, maxKbps: 1000 }, { guaranteedKbps: 0, maxKbps: 1000 }])).toEqual([150, 425, 425]);
+    const overbooked = ok(setPonService(ftthScenario(), { deviceId: "olt1", service: "internet", profile: { vlan: 100, downstream: { guaranteedKbps: 1_000_000, maxKbps: 1_000_000 }, upstream: { guaranteedKbps: 20_000, maxKbps: 500_000 } } }));
+    const [port] = analyzePonBandwidth(overbooked);
+    expect(port?.downstream.guaranteesExceeded).toBe(true);
+    const total = port?.downstream.flows.reduce((sum, item) => sum + item.peakKbps, 0) ?? 0;
+    expect(total).toBeCloseTo(2_488_320, DIGITS);
+    expect(flow(port?.downstream, "internet", "ont1").peakKbps).toBeCloseTo((1_000_000 * 2_488_320) / 3_020_400, DIGITS);
+  });
+
+  it("ignore un port sans offre et utilise le débit de ligne XGS-PON", () => {
+    expect(analyzePonBandwidth(xgsPonScenario())).toEqual([]);
+    const doc = ok(setOntServices(ok(setPonService(xgsPonScenario(), { deviceId: "olt1", service: "internet", profile: { vlan: 100, downstream: { guaranteedKbps: 0, maxKbps: 10_000_000 }, upstream: { guaranteedKbps: 0, maxKbps: 10_000_000 } } })), { deviceId: "olt1", portId: "pon1", serial: "NFGE00000001", services: ["internet"] }));
+    const [port] = analyzePonBandwidth(doc);
+    expect([port?.downstream.capacityKbps, port?.upstream.capacityKbps, flow(port?.downstream, "internet", "ont1").peakKbps]).toEqual([9_953_280, 9_953_280, 9_953_280]);
   });
 });

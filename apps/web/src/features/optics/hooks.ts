@@ -1,4 +1,4 @@
-import { analyzeOptics, analyzePon, worstStatus, type OpticalReport, type OpticalStatus, type PonReport } from "@netforge/engine";
+import { analyzeOptics, analyzePon, analyzePonBandwidth, worstStatus, type OpticalReport, type OpticalStatus, type PonReport, type PortBandwidth } from "@netforge/engine";
 import { getModel, isOptical, type NfgDocument } from "@netforge/project";
 import { useEffect, useMemo } from "react";
 import { useExerciseStore } from "../exercises/progress";
@@ -11,6 +11,11 @@ export function useOpticalReport(doc: NfgDocument): OpticalReport {
 /** Activation des ONT (calcul statique du moteur, à partir du bilan optique). */
 export function usePonReport(doc: NfgDocument, report: OpticalReport): PonReport {
   return useMemo(() => analyzePon(doc, report), [doc, report]);
+}
+
+/** Partage de bande passante des ports PON (calcul du moteur, à partir de l'activation). */
+export function usePonBandwidth(doc: NfgDocument, pon: PonReport): readonly PortBandwidth[] {
+  return useMemo(() => analyzePonBandwidth(doc, pon), [doc, pon]);
 }
 
 /** Vrai si le projet est un exercice : les pannes sont alors masquées. */

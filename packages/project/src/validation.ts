@@ -1,6 +1,6 @@
 import { findPort, getModel } from "./catalog.js";
 import { isDnsAddress } from "./dns.js";
-import { ONU_ID_MAX, isOnuId, ponTechnologyOf } from "./pon.js";
+import { ONU_ID_MAX, PON_SERVICES, isDownstreamOnly, isOnuId, ponTechnologyOf } from "./pon.js";
 import { error, warning, type Issue } from "./issues.js";
 import {
   broadcastAddress,
@@ -53,11 +53,24 @@ function checkPon(doc: NfgDocument): Issue[] {
     }
     if (!config) continue;
     const ports = Object.entries(config.ponAuthorizations);
-    if (ports.length === 0) continue;
+    const profiles = PON_SERVICES.flatMap((service) => {
+      const profile = config.ponServices[service];
+      return profile ? [{ service, profile }] : [];
+    });
+    if (ports.length === 0 && profiles.length === 0) continue;
     const technology = ponTechnologyOf(device.model);
     if (model.kind !== "olt" || technology === null) {
       issues.push(error("pon.not-olt", base));
       continue;
+    }
+    // Profils de service : garanti ≤ maximum, flux montant selon le service, VLAN distincts.
+    const vlans = new Map<number, string>();
+    for (const { service, profile } of profiles) {
+      if ([profile.downstream, profile.upstream].some((rate) => rate !== null && rate.guaranteedKbps > rate.maxKbps)) issues.push(error("pon.service-invalid-rate", { ...base, service }));
+      if ((profile.upstream === null) !== isDownstreamOnly(service)) issues.push(error("pon.service-direction", { ...base, service }));
+      const other = vlans.get(profile.vlan);
+      if (other !== undefined) issues.push(error("pon.service-duplicate-vlan", { ...base, vlan: profile.vlan, services: `${other}, ${service}` }));
+      vlans.set(profile.vlan, service);
     }
     for (const [portId, entries] of ports) {
       if (!findPort(device.model, portId)) issues.push(error("pon.not-pon-port", { ...base, portId }));
@@ -67,6 +80,9 @@ function checkPon(doc: NfgDocument): Issue[] {
         if (!isOnuId(technology, entry.onuId)) issues.push(error("pon.invalid-onu-id", { ...base, portId, value: String(entry.onuId), max: ONU_ID_MAX[technology] }));
         if (serials.has(entry.serial)) issues.push(error("pon.duplicate-serial", { ...base, portId, serial: entry.serial }));
         if (ids.has(entry.onuId)) issues.push(error("pon.duplicate-onu-id", { ...base, portId, onuId: entry.onuId }));
+        for (const service of entry.services) {
+          if (!config.ponServices[service]) issues.push(error("pon.service-undefined", { ...base, portId, serial: entry.serial, service }));
+        }
         serials.add(entry.serial);
         ids.add(entry.onuId);
       }

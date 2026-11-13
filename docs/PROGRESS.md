@@ -23,7 +23,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 9 — FTTH/PON avancé et OTDR
 
-**État : en cours.** Phase 8 validée le 2026-11-13 (« lance 9 »). Tranche 1 (technologies PON et enregistrement des ONT) terminée et vérifiée le 2026-11-13.
+**État : en cours.** Phase 8 validée le 2026-11-13 (« lance 9 »). Tranches 1 (technologies PON et enregistrement des ONT) et 2 (services et partage de bande passante) terminées et vérifiées le 2026-11-13.
 
 ### Périmètre retenu
 
@@ -45,10 +45,21 @@ La ligne « phase 9 » de la feuille de route (F-08 à F-12 ; spécification §1
 |---|---|---|
 | PON | Un ONT au chemin optique conforme mais au numéro de série non autorisé n'est pas enregistré ; une fois autorisé, il l'est ; un ONT XGS-PON sur un port GPON ne s'enregistre pas ; console et formulaires équivalents | atteint : `engine/pon.test.ts` (ONT2 conforme mais en O2-3 « non autorisé », O5 avec l'identifiant 1 une fois autorisé ; ONT GPON sur l'OLT XGS-PON en O1 « technologies incompatibles » ; salve montante perdue, coupure, numéro en double, ONT changé, ONT isolé), `project/pon.test.ts` (documents identiques par console et formulaires, configuration rejouable), `pon.spec.ts` (onglet PON, `ont add` puis `show pon`, formulaire de l'OLT, numéro de série de l'ONT) |
 | PON | Bilan d'un chemin XGS-PON avec ses longueurs d'onde et sa classe, retrouvé par un calcul à la main | atteint : `engine/pon.test.ts` (25,204 dB et marge 3,796 dB à 1 577 nm ; 25,36528 dB et marge 3,63472 dB à 1 270 nm ; budget 29 dB, classe N1 ; DD40), `pon.spec.ts` (mêmes valeurs dans le bilan affiché) |
-| Services | Débits partagés expliqués : garanties accordées dans la capacité, reste réparti, dépassement signalé | à faire |
+| Services | Débits partagés expliqués : garanties accordées dans la capacité, reste réparti, dépassement signalé | atteint : `engine/pon.test.ts` (réseau FTTH de référence calculé à la main : 320,4 Mbit/s garantis, 822,64 Mbit/s par accès Internet descendant, 414,59 montant, IPTV multicast comptée une fois ; ONT hors service sans débit ; plafonnement au maximum ; surréservation réduite au prorata), `project/pon.test.ts` (profils, offres, console équivalente et rejouable), `pon.spec.ts` (onglet Débits, `show bandwidth`, offre et profil modifiés par le formulaire) |
 | OTDR | Événements à leur distance avec leurs pertes ; coupure localisée ; trace approximative documentée | à faire |
 | Vue | Arbre lisible sans couleur, avec alternative textuelle ; implantation affichée | à faire |
 | Exports | Fichiers CSV et PDF ouverts et cohérents avec le bilan affiché | à faire |
+
+### Vérifications de la tranche services et débits (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- État de départ : tranche PON commitée (`0d5a847`).
+- Source consultée le 2026-11-13 : G.984.2 (08/2019) §8.2.1 et annexe A (débits nominaux GPON) ; débits XGS-PON déjà relevés dans G.9807.1 (tableaux B.9.3 et B.9.4).
+- `pnpm check` réussi (lint, typecheck, **591 tests** : format 210, moteur 228, interface 98, contrats 2, API 53 sur PostgreSQL réel ; builds). Bundle principal 1 355 kB (393 kB gzip), Worker 253 kB.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **42 parcours** réussis, dont les 3 de `pon.spec.ts` ; `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e:accounts` : **5 parcours** réussis (« correcteur version 11 ») ; aucun port de test resté en écoute.
+- Inspection visuelle réelle (Edge, 1 440 px) : onglet Débits (deux sens, tableau des flux), profils de service et offres dans l'onglet PON de l'OLT. Correction : débits des résumés affichés avec la virgule française.
+- Défauts trouvés par les tests et corrigés : ordre des clés d'une configuration neuve différent de celui du schéma (aller-retour export/import non identique octet par octet) ; séparateur des milliers (espace fine insécable) dans une attente du parcours navigateur.
+- Format **v14**, moteur **0.12.0**, exercices **v3**, correcteur **v11**.
+- Limites : partage instantané à l'heure de pointe (max-min), sans DBA, file d'attente, priorité ni latence ; débit de ligne nominal comme majorant (D-062, [protocols/pon.md](protocols/pon.md)).
 
 ### Vérifications de la tranche PON (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
 

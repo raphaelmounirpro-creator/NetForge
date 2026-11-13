@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { configurationCommands, interpret, OPERATION_MODE, type CliMode } from "./cli.js";
-import { addDevice, removeDevice, setOntSerial, setPonAuthorization } from "./commands.js";
+import { addDevice, removeDevice, setOntSerial, setOntServices, setPonAuthorization, setPonService } from "./commands.js";
 import { parseNfgValue } from "./io.js";
-import { formatPonSerial, lowestFreeOnuId, nextPonSerial, normalizePonSerial, ONU_ID_MAX, ponTechnologyOf } from "./pon.js";
+import { formatPonSerial, lowestFreeOnuId, nextPonSerial, normalizePonSerial, ONU_ID_MAX, parseMbps, parseRateInput, parseServiceList, ponTechnologyOf } from "./pon.js";
 import type { NfgDocument } from "./schema.js";
 import { expectOk, projectWith } from "./test-helpers.js";
 import { validateDocument } from "./validation.js";
@@ -72,9 +72,9 @@ describe("PON : ONT autorisés par port d'OLT", () => {
     doc = expectOk(setPonAuthorization(doc, { deviceId: "olt1", portId: "pon1", serial: "NFGE000000AA", present: true }));
     expect(doc.configurations["olt1"]?.ponAuthorizations).toEqual({
       pon1: [
-        { serial: "NFGE00000002", onuId: 0 },
-        { serial: "NFGE000000AA", onuId: 1 },
-        { serial: "NFGE00000001", onuId: 5 },
+        { serial: "NFGE00000002", onuId: 0, services: [] },
+        { serial: "NFGE000000AA", onuId: 1, services: [] },
+        { serial: "NFGE00000001", onuId: 5, services: [] },
       ],
     });
     expect(validateDocument(doc)).toEqual([]);
@@ -115,7 +115,7 @@ describe("PON : ONT autorisés par port d'OLT", () => {
     const doc = base();
     const r1 = doc.configurations["r1"];
     if (!r1) throw new Error("configuration attendue");
-    const onRouter = { ...doc, configurations: { ...doc.configurations, r1: { ...r1, ponAuthorizations: { ge0: [{ serial: "NFGE00000001", onuId: 0 }] } } } };
+    const onRouter = { ...doc, configurations: { ...doc.configurations, r1: { ...r1, ponAuthorizations: { ge0: [{ serial: "NFGE00000001", onuId: 0, services: [] }] } } } };
     const result = parseNfgValue(onRouter);
     expect(result.ok ? [] : result.errors.map((issue) => issue.code)).toEqual(["pon.not-olt"]);
     const serialOnRouter = parseNfgValue({ ...doc, configurations: { ...doc.configurations, r1: { ...r1, serialNumber: "NFGE00000009" } } });
@@ -157,5 +157,83 @@ describe("PON : console équivalente aux formulaires", () => {
     expect(configurationCommands(doc, "ont1")).toEqual(["configure", "hostname ONT1", "serial-number ABCD00000001", "end"]);
     const replayed = session(session(base(), "olt1", configurationCommands(doc, "olt1")), "ont1", configurationCommands(doc, "ont1"));
     expect(replayed.configurations).toEqual(doc.configurations);
+  });
+});
+
+const INTERNET = { vlan: 100, downstream: { guaranteedKbps: 100_000, maxKbps: 1_000_000 }, upstream: { guaranteedKbps: 20_000, maxKbps: 500_000 } };
+const IPTV = { vlan: 300, downstream: { guaranteedKbps: 20_000, maxKbps: 20_000 }, upstream: null };
+
+describe("PON : profils de service et offres des ONT", () => {
+  it("lit les débits en Mbit/s (virgule ou point, trois décimales) et les listes de services", () => {
+    expect([parseMbps("100"), parseMbps("0,2"), parseMbps("0.125"), parseMbps("10000"), parseMbps("10000.001"), parseMbps("1.2345"), parseMbps("-1")]).toEqual([100_000, 200, 125, 10_000_000, null, null, null]);
+    expect(parseRateInput("100/1000")).toEqual({ guaranteedKbps: 100_000, maxKbps: 1_000_000 });
+    expect([parseRateInput("1000/100"), parseRateInput("0/0"), parseRateInput("1/2/3"), parseRateInput("100")]).toEqual([null, null, null, null]);
+    expect(parseServiceList("iptv,internet,iptv")).toEqual(["internet", "iptv"]);
+    expect([parseServiceList("none"), parseServiceList("internet,web")]).toEqual([[], null]);
+  });
+
+  it("définit les profils de l'OLT, l'offre de chaque ONT, et retire un service de toutes les offres avec son profil", () => {
+    let doc = expectOk(setPonAuthorization(base(), { deviceId: "olt1", portId: "pon1", serial: "NFGE00000001", present: true }));
+    doc = expectOk(setPonService(doc, { deviceId: "olt1", service: "internet", profile: INTERNET }));
+    doc = expectOk(setPonService(doc, { deviceId: "olt1", service: "iptv", profile: IPTV }));
+    doc = expectOk(setOntServices(doc, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000001", services: ["iptv", "internet"] }));
+    expect(doc.configurations["olt1"]?.ponAuthorizations["pon1"]?.[0]?.services).toEqual(["internet", "iptv"]);
+    expect(validateDocument(doc)).toEqual([]);
+    const without = expectOk(setPonService(doc, { deviceId: "olt1", service: "iptv", profile: null }));
+    expect(without.configurations["olt1"]?.ponServices).toEqual({ internet: INTERNET });
+    expect(without.configurations["olt1"]?.ponAuthorizations["pon1"]?.[0]?.services).toEqual(["internet"]);
+  });
+
+  it("refuse un service non défini, un ONT non autorisé, un VLAN partagé entre services, un sens montant pour l'IPTV ou absent pour Internet", () => {
+    let doc = expectOk(setPonAuthorization(base(), { deviceId: "olt1", portId: "pon1", serial: "NFGE00000001", present: true }));
+    doc = expectOk(setPonService(doc, { deviceId: "olt1", service: "internet", profile: INTERNET }));
+    expect(codes(setOntServices(doc, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000001", services: ["voip"] }))).toEqual(["pon.service-undefined"]);
+    expect(codes(setOntServices(doc, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000009", services: [] }))).toEqual(["pon.not-authorized"]);
+    expect(codes(setPonService(doc, { deviceId: "olt1", service: "iptv", profile: { ...IPTV, vlan: 100 } }))).toEqual(["pon.service-duplicate-vlan"]);
+    expect(codes(setPonService(doc, { deviceId: "olt1", service: "iptv", profile: { ...IPTV, upstream: IPTV.downstream } }))).toEqual(["pon.service-direction"]);
+    expect(codes(setPonService(doc, { deviceId: "olt1", service: "voip", profile: { ...INTERNET, vlan: 200, upstream: null } }))).toEqual(["pon.service-direction"]);
+    expect(codes(setPonService(doc, { deviceId: "olt1", service: "voip", profile: { ...INTERNET, vlan: 200, downstream: { guaranteedKbps: 9, maxKbps: 1 } } }))).toEqual(["pon.service-invalid-rate"]);
+    expect(codes(setPonService(doc, { deviceId: "ont1", service: "voip", profile: INTERNET }))).toEqual(["pon.not-olt"]);
+  });
+
+  it("console : « service » et « ont services » donnent les mêmes documents que les formulaires ; configuration rejouable", () => {
+    let viaForms = expectOk(setPonAuthorization(base(), { deviceId: "olt1", portId: "pon1", serial: "NFGE00000001", present: true }));
+    viaForms = expectOk(setPonService(viaForms, { deviceId: "olt1", service: "internet", profile: INTERNET }));
+    viaForms = expectOk(setPonService(viaForms, { deviceId: "olt1", service: "voip", profile: { vlan: 200, downstream: { guaranteedKbps: 200, maxKbps: 200 }, upstream: { guaranteedKbps: 200, maxKbps: 200 } } }));
+    viaForms = expectOk(setPonService(viaForms, { deviceId: "olt1", service: "iptv", profile: IPTV }));
+    viaForms = expectOk(setOntServices(viaForms, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000001", services: ["internet", "voip", "iptv"] }));
+    const viaCli = session(base(), "olt1", [
+      "configure",
+      "ont add pon1 NFGE00000001",
+      "service internet vlan 100 down 100/1000 up 20/500",
+      "service voip vlan 200 down 0,2/0,2 up 0.2/0.2",
+      "service iptv vlan 300 down 20/20",
+      "ont services pon1 NFGE00000001 voip,iptv,internet",
+      "end",
+    ]);
+    expect(viaCli).toEqual(viaForms);
+    expect(configurationCommands(viaForms, "olt1")).toEqual([
+      "configure",
+      "hostname OLT1",
+      "service internet vlan 100 down 100/1000 up 20/500",
+      "service voip vlan 200 down 0.2/0.2 up 0.2/0.2",
+      "service iptv vlan 300 down 20/20",
+      "ont add pon1 NFGE00000001 onu-id 0",
+      "ont services pon1 NFGE00000001 internet,voip,iptv",
+      "end",
+    ]);
+    expect(session(base(), "olt1", configurationCommands(viaForms, "olt1")).configurations["olt1"]).toEqual(viaForms.configurations["olt1"]);
+    const config: CliMode = { kind: "config" };
+    const unknown = interpret(viaForms, "olt1", config, "service web vlan 400 down 1/1");
+    expect(!unknown.ok && unknown.error?.code).toBe("cli.unexpected-argument");
+    const iptvUp = interpret(viaForms, "olt1", config, "service iptv vlan 300 down 20/20 up 1/1");
+    expect(!iptvUp.ok && iptvUp.error?.code).toBe("cli.unexpected-argument");
+    const badRate = interpret(viaForms, "olt1", config, "service internet vlan 100 down 1000/100 up 1/1");
+    expect(!badRate.ok && badRate.issues.map((issue) => issue.code)).toEqual(["pon.invalid-rate"]);
+    const badList = interpret(viaForms, "olt1", config, "ont services pon1 NFGE00000001 web");
+    expect(!badList.ok && badList.issues.map((issue) => issue.code)).toEqual(["pon.invalid-service-list"]);
+    const removed = session(viaForms, "olt1", ["configure", "service voip delete", "end"]);
+    expect(removed.configurations["olt1"]?.ponAuthorizations["pon1"]?.[0]?.services).toEqual(["internet", "iptv"]);
+    expect(interpret(viaForms, "olt1", OPERATION_MODE, "sh bandwidth")).toMatchObject({ ok: true, request: { kind: "show-bandwidth" } });
   });
 });

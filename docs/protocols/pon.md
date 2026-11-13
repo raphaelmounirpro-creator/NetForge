@@ -1,6 +1,6 @@
-# PON : technologies GPON et XGS-PON, enregistrement des ONT
+# PON : GPON et XGS-PON, enregistrement des ONT, services et débits
 
-Niveau : pédagogique simplifié (phase 9, tranche 1). C'est un calcul statique, comme le bilan optique : aucun message PLOAM n'est simulé dans le moteur à événements. Les étapes de l'activation sont déduites, pas chronométrées.
+Niveau : pédagogique simplifié (phase 9, tranches 1 et 2). C'est un calcul statique, comme le bilan optique : aucun message PLOAM n'est simulé dans le moteur à événements. Les étapes de l'activation sont déduites, pas chronométrées.
 
 ## Références
 
@@ -13,6 +13,7 @@ Consultées le 2026-11-13 (textes publics de l'UIT-T, téléchargés depuis itu.
   - §C.11.2.1 : ONU-ID de 0 à 1 020 ;
   - §C.11.2.6 : numéro de série = Vendor_ID (quatre caractères, codes 65 à 90) + VSSN (entier de quatre octets) ;
   - §C.12 : activation en trois phases (synchronisation descendante, acquisition du numéro de série, mesure de distance) ; états O1 (Off-Sync, Profile Learning), O2-3, O4, O5, O6, O7.
+- UIT-T G.984.2 (08/2019) §8.2.1 et annexe A : combinaisons de débits nominaux de ligne ; la classe B+ de l'annexe A vise 2 488,32 Mbit/s descendant et 1 244,16 Mbit/s montant.
 - UIT-T G.984.3 (01/2014), *G-PON : Transmission convergence layer specification* :
   - §9.1.1 : ONU-ID de 0 à 253 ;
   - §9.2.4.1 : Serial_Number_ONU (Vendor_ID sur quatre octets puis numéro propre au fabricant) ;
@@ -71,12 +72,39 @@ ONT2(config)> end
 ONT2> show pon
 ```
 
+## Services et partage de bande passante (tranche 2)
+
+| Élément | Comportement |
+|---|---|
+| Profils de service (OLT) | Internet, VoIP et IPTV : VLAN (1 à 4094, distinct par service), débits garanti et maximal en Mbit/s (saisis au millième, stockés en kbit/s), descendant et montant ; l'IPTV n'a pas de sens montant |
+| Offre (ONT autorisé) | Liste des services souscrits ; retirer un profil le retire de toutes les offres |
+| Débit de ligne | GPON 2 488,32 / 1 244,16 Mbit/s ; XGS-PON 9 953,28 Mbit/s dans les deux sens : majorant du débit utile (en-têtes, correction d'erreurs et allocation non déduits) |
+| Heure de pointe | Tous les flux demandent leur maximum : chacun reçoit sa garantie, puis le reste est partagé équitablement (max-min) entre les flux qui demandent davantage, sans dépasser leur maximum |
+| Surréservation | Garanties supérieures au débit de ligne : signalée, chaque garantie réduite au prorata |
+| Multicast | L'IPTV n'est comptée qu'une fois par port, quel que soit le nombre d'abonnés |
+| ONT hors service | Un ONT autorisé qui n'est pas en fonctionnement (O5) ne consomme rien ; il est listé « sans débit » |
+
+Taux de contention affiché = demande à l'heure de pointe / débit de ligne. Le partage max-min est une simplification de l'allocation dynamique de bande (DBA) des recommandations : ni T-CONT, ni GEM/XGEM, ni planification dans le temps.
+
+Configuration équivalente par le formulaire (onglet PON d'un OLT : profils de service et cases de l'offre de chaque ONT) et par la console :
+
+```
+OLT1(config)> service internet vlan 100 down 100/1000 up 20/500
+OLT1(config)> service voip vlan 200 down 0,2/0,2 up 0,2/0,2
+OLT1(config)> service iptv vlan 300 down 20/20
+OLT1(config)> ont services pon1 NFGE00000001 internet,voip,iptv
+OLT1(config)> service iptv delete
+OLT1(config)> end
+OLT1> show bandwidth
+```
+
 ## Observation
 
 - **Vue Optique, liste des chemins** : technologie du chemin (ou « OLT XGS-PON, ONT GPON »).
 - **Canevas** : sous chaque ONT, l'état optique puis l'état d'activation (« ✓ Conforme · O5 », « ✓ Conforme · ◌ O2-3 »).
 - **Onglet PON** : pour chaque port, les ONT autorisés (avec l'ONT et son état), les ONT découverts mais non enregistrés, puis chaque ONT avec ses étapes franchies, bloquées ou non atteintes.
 - **Bilan** : profils de l'émetteur et du récepteur, classe d'affaiblissement (B+ ou N1).
+- **Onglet Débits** : pour chaque port, par sens, le débit de ligne, les garanties, la demande, le taux de contention et chaque flux (VLAN, garanti, maximum, heure de pointe) ; les ONT sans débit.
 - **Pendant un exercice** : l'état optique est donné comme symptôme. L'état d'activation est un symptôme lui aussi : un OLT réel liste ses ONT découverts.
 
 ## Simplifications et limites
@@ -85,6 +113,7 @@ ONT2> show pon
 - Classes N2, E1 et E2 de XGS-PON non modélisées. Pas de coexistence GPON/XGS-PON sur le même arbre par filtre WDM : un ONT branché sur l'arbre d'une autre technologie est déclaré incompatible.
 - Portée et distance différentielle non vérifiées (au-delà de 40 km en XGS-PON, la pénalité DD40 reste appliquée).
 - Le calcul utilise la longueur d'onde nominale de l'émetteur : un émetteur GPON en bas de sa bande (1 260 nm) subirait jusqu'à 0,07 dB/km de plus.
+- Débits : partage instantané à l'heure de pointe, sans file d'attente, priorité ni latence ; un service consomme son maximum ou rien (pas de profil de trafic variable).
 - Pas d'authentification par mot de passe ou par Registration_ID, pas d'état d'arrêt d'urgence (O7), pas de découverte automatique avec autorisation automatique.
 - L'ONT n'est pas relié au réseau IP simulé.
 
@@ -102,8 +131,11 @@ ONT2> show pon
   - activation O5, O2-3 non autorisé, O1 incompatible ;
   - salve montante perdue (courbure de 3,7 dB), coupure, états GPON ;
   - numéro en double, ONT changé, ONT isolé.
-- `packages/engine/src/evaluation.test.ts` : fonction protégée « pon » (un ONT ajouté n'est pas une modification PON) ; critère « ONT en fonctionnement ».
+- `packages/engine/src/pon.test.ts` (partage) : réseau FTTH de référence calculé à la main (garanties 320,4 Mbit/s, 822,64 Mbit/s par accès Internet descendant, 414,59 montant, IPTV comptée une fois), ONT hors service, plafonnement au maximum, surréservation au prorata, débit de ligne XGS-PON.
+- `packages/project/src/pon.test.ts` (services) : saisie des débits et des listes, profils et offres, refus (service non défini, VLAN partagé, sens montant de l'IPTV), console équivalente et rejouable.
+- `packages/engine/src/evaluation.test.ts` : fonction protégée « pon » (un ONT ajouté n'est pas une modification PON ; profils et offres compris) ; critère « ONT en fonctionnement ».
 - `apps/web/e2e/pon.spec.ts` :
   - bilan XGS-PON et classe N1 ; onglet PON (autorisés, découvert, étapes) ;
   - autorisation et `show pon` à la console ;
-  - formulaire de l'OLT et numéro de série de l'ONT.
+  - formulaire de l'OLT et numéro de série de l'ONT ;
+  - onglet Débits, `show bandwidth`, offre et profil modifiés par le formulaire.

@@ -4,7 +4,7 @@ import { DHCP_LEASE_MAX, DHCP_LEASE_MIN } from "./dhcp.js";
 import { DNS_MAX_RECORDS, normalizeDnsName } from "./dns.js";
 import { BGP_AS_MAX, BGP_AS_MIN, BGP_MAX_NEIGHBORS, BGP_MAX_NETWORKS } from "./bgp.js";
 import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_MODES, OSPF_PRIORITY_MAX, parseOspfArea } from "./ospf.js";
-import { ONU_ID_MAX, PON_MAX_AUTHORIZATIONS, PON_SERIAL_PATTERN } from "./pon.js";
+import { normalizeServices, ONU_ID_MAX, PON_MAX_AUTHORIZATIONS, PON_RATE_MAX_KBPS, PON_SERIAL_PATTERN, PON_SERVICES } from "./pon.js";
 import { RIP_MODES } from "./rip.js";
 import { isIpv4Address } from "./ipv4.js";
 import { STP_PRIORITY_MAX, STP_PRIORITY_STEP } from "./stp.js";
@@ -12,18 +12,19 @@ import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
 import { VRID_MAX, VRID_MIN, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN } from "./vrrp.js";
 
 /**
- * Format d'échange .nfg.json, version 13 (v2 : routes statiques ; v3 : annotations ;
+ * Format d'échange .nfg.json, version 14 (v2 : routes statiques ; v3 : annotations ;
  * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces —,
  * STP par switch ; v6 : DHCP — plages des routeurs, adressage automatique des postes ;
  * v7 : DNS ; v8 : RIP ; v9 : OSPF en zone unique ; v10 : VRRP ; v11 : zones OSPF ; v12 : BGP ; v13 : catalogue 3 — XGS-PON —, numéros de série
- * des ONT et ONT autorisés par port d'OLT).
+ * des ONT et ONT autorisés par port d'OLT ; v14 : profils de service des OLT et
+ * services souscrits par ONT).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 13;
+export const CURRENT_SCHEMA_VERSION = 14;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -62,6 +63,12 @@ const portIdSchema = z.string().regex(/^[a-z]{1,8}\d{0,3}$/, "identifiant de por
 const interfaceIdSchema = z.string().regex(/^[a-z]{1,8}\d{0,3}(?:\.\d{1,4})?$/, "identifiant d'interface invalide");
 const ipv4AddressSchema = z.string().refine(isIpv4Address, "adresse IPv4 invalide");
 const ponSerialSchema = z.string().regex(PON_SERIAL_PATTERN, "numéro de série PON invalide");
+/** Débits d'un service en kbit/s (v14). */
+const ponRateSchema = z.strictObject({ guaranteedKbps: z.int().min(0).max(PON_RATE_MAX_KBPS), maxKbps: z.int().min(1).max(PON_RATE_MAX_KBPS) });
+const ponServicesSchema = z
+  .array(z.enum(PON_SERVICES))
+  .max(PON_SERVICES.length)
+  .refine((services) => normalizeServices(services).join() === services.join(), "services triés sans doublon");
 
 export const ipv4InterfaceSchema = z.strictObject({
   address: ipv4AddressSchema,
@@ -178,8 +185,13 @@ const deviceConfigSchema = z.strictObject({
    */
   ponAuthorizations: z.record(
     portIdSchema,
-    z.array(z.strictObject({ serial: ponSerialSchema, onuId: z.int().min(0).max(ONU_ID_MAX["xgs-pon"]) })).max(PON_MAX_AUTHORIZATIONS),
+    z.array(z.strictObject({ serial: ponSerialSchema, onuId: z.int().min(0).max(ONU_ID_MAX["xgs-pon"]), services: ponServicesSchema })).max(PON_MAX_AUTHORIZATIONS),
   ),
+  /**
+   * Profils de service d'un OLT (v14) : VLAN, débits descendant et montant
+   * (montant null pour l'IPTV) ; vide ailleurs ou sans service.
+   */
+  ponServices: z.partialRecord(z.enum(PON_SERVICES), z.strictObject({ vlan: vlanIdSchema, downstream: ponRateSchema, upstream: ponRateSchema.nullable() })),
   /** Numéro de série d'un ONT (v13) ; null pour les autres équipements. */
   serialNumber: ponSerialSchema.nullable(),
 });

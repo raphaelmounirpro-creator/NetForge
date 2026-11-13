@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 13,
+  "schemaVersion": 14,
   "models": {
     "catalog": 3
   },
@@ -154,6 +154,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "r1": {
@@ -211,6 +212,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "r2": {
@@ -268,6 +270,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "pc2": {
@@ -292,6 +295,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "r3": {
@@ -349,6 +353,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "pc3": {
@@ -373,6 +378,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     }
   },

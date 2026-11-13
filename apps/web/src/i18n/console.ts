@@ -1,8 +1,8 @@
-import { analyzePon, type DeviceView } from "@netforge/engine";
+import { analyzePon, analyzePonBandwidth, type DeviceView } from "@netforge/engine";
 import { formatVlanList, getModel, prefixToMask, switchportOf, type CliError, type CliHelpEntry, type NfgDocument } from "@netforge/project";
 import { fill, messages } from "./index";
 import { formatSimTime, ospfSequence, type NameIndex } from "./simulation";
-import { blockText, ontStateText } from "../features/optics/format";
+import { blockText, formatMbps, ontStateText } from "../features/optics/format";
 
 /**
  * Sorties de la console mises en forme à partir des codes de l'interpréteur
@@ -282,6 +282,43 @@ export function showPon(doc: NfgDocument, deviceId: string): string[] {
         ...port.discovered.map((item) => [item.serial, "—", name(item.ontId), p.blocks[item.block]]),
       ],
     ),
+  ]);
+}
+
+/** « show bandwidth » : partage de chaque port PON de l'OLT à l'heure de pointe (Mbit/s), calculé par le moteur. */
+export function showBandwidth(doc: NfgDocument, deviceId: string): string[] {
+  const b = messages.optics.bandwidth;
+  const technology = messages.optics.technology;
+  const services = messages.properties.serviceNames;
+  const c = t.columns;
+  const name = (id: string) => doc.topology.devices.find((device) => device.id === id)?.name ?? id;
+  const rate = (kbps: number) => fill(b.rate, { value: formatMbps(kbps) });
+  const ports = analyzePonBandwidth(doc).filter((port) => port.oltId === deviceId);
+  if (ports.length === 0) return [t.bandwidthNone];
+  return ports.flatMap((port, index) => [
+    ...(index > 0 ? [""] : []),
+    fill(b.port, { olt: name(port.oltId), port: port.portId, technology: technology[port.technology] }),
+    ...[port.downstream, port.upstream].flatMap((share) => [
+      "",
+      fill(b.direction[share.direction], { capacity: rate(share.capacityKbps) }),
+      ...(share.flows.length === 0
+        ? [b.empty]
+        : [
+            fill(b.summary, { guaranteed: rate(share.guaranteedKbps), demand: rate(share.demandKbps), contention: share.contention.toFixed(2).replace(".", ",") }),
+            ...(share.guaranteesExceeded ? [b.exceeded] : []),
+            ...table(
+              [c.flow, c.vlan, c.guaranteed, c.maximum, c.peak],
+              share.flows.map((flow) => [
+                flow.ontId === null ? fill(b.multicast, { service: services[flow.service], subscribers: flow.subscribers.map(name).join(", ") }) : fill(b.flow, { ont: name(flow.ontId), service: services[flow.service] }),
+                String(flow.vlan),
+                formatMbps(flow.guaranteedKbps),
+                formatMbps(flow.maxKbps),
+                formatMbps(flow.peakKbps),
+              ]),
+            ),
+          ]),
+    ]),
+    ...port.idle.map((item) => fill(b.idle, { serial: item.serial, name: item.ontId ? name(item.ontId) : b.idleAbsent, services: item.services.map((service) => services[service]).join(", ") })),
   ]);
 }
 

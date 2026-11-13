@@ -102,6 +102,12 @@ export const ISSUE_CODES = [
   "pon.no-free-onu-id",
   "pon.missing-serial",
   "pon.duplicate-ont-serial",
+  "pon.invalid-rate",
+  "pon.invalid-service-list",
+  "pon.service-invalid-rate",
+  "pon.service-direction",
+  "pon.service-duplicate-vlan",
+  "pon.service-undefined",
   // VRRP
   "vrrp.not-supported",
   "vrrp.interface-not-addressed",

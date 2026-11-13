@@ -212,6 +212,29 @@ function migrateV12toV13(doc: Record<string, unknown>): Record<string, unknown> 
 }
 
 /**
+ * Version 13 → 14 : aucun OLT n'a de profil de service, aucun ONT autorisé
+ * n'a de service souscrit.
+ */
+function migrateV13toV14(doc: Record<string, unknown>): Record<string, unknown> {
+  const configs = doc["configurations"];
+  const withServices = (authorizations: unknown) =>
+    isRecord(authorizations)
+      ? Object.fromEntries(
+          Object.entries(authorizations).map(([port, entries]) => [port, Array.isArray(entries) ? entries.map((entry: unknown) => (isRecord(entry) ? { ...entry, services: [] } : entry)) : entries]),
+        )
+      : authorizations;
+  return {
+    ...doc,
+    schemaVersion: 14,
+    configurations: isRecord(configs)
+      ? Object.fromEntries(
+          Object.entries(configs).map(([id, config]) => [id, isRecord(config) ? { ...config, ponAuthorizations: withServices(config["ponAuthorizations"]), ponServices: {} } : config]),
+        )
+      : configs,
+  };
+}
+
+/**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
  */
@@ -228,6 +251,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   10: migrateV10toV11,
   11: migrateV11toV12,
   12: migrateV12toV13,
+  13: migrateV13toV14,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

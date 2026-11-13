@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 13,
+  "schemaVersion": 14,
   "models": {
     "catalog": 3
   },
@@ -224,14 +224,17 @@
         "pon1": [
           {
             "serial": "NFGE00000001",
-            "onuId": 0
+            "onuId": 0,
+            "services": []
           },
           {
             "serial": "NFGE000000FF",
-            "onuId": 5
+            "onuId": 5,
+            "services": []
           }
         ]
       },
+      "ponServices": {},
       "serialNumber": null
     },
     "odf1": {
@@ -248,6 +251,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "cpl1": {
@@ -264,6 +268,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "pto1": {
@@ -280,6 +285,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "pto2": {
@@ -296,6 +302,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "pto3": {
@@ -312,6 +319,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": null
     },
     "ont1": {
@@ -328,6 +336,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": "NFGE00000001"
     },
     "ont2": {
@@ -344,6 +353,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": "NFGE00000002"
     },
     "ont3": {
@@ -360,6 +370,7 @@
       "vrrpGroups": {},
       "bgp": null,
       "ponAuthorizations": {},
+      "ponServices": {},
       "serialNumber": "NFGE00000003"
     }
   },

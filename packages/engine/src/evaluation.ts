@@ -31,8 +31,10 @@ import { createSimulation } from "./simulation.js";
  * « routes » ; contrôles après l'établissement des sessions.
  * Version 10 : PON (format v13), autorisations des OLT et numéros de série des
  * ONT protégés par la fonction « pon » ; critère « ONT en fonctionnement ».
+ * Version 11 : services PON (format v14), profils de service des OLT et offres
+ * des ONT protégés par « pon ».
  */
-export const EVALUATOR_VERSION = 10;
+export const EVALUATOR_VERSION = 11;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */
@@ -235,12 +237,12 @@ function routesOf(doc: NfgDocument): string {
   );
 }
 
-/** ONT autorisés par port d'OLT (seuls les ports qui en portent). */
+/** ONT autorisés par port d'OLT, avec leur offre, et profils de service (seuls les OLT qui en portent). */
 function authorizationsOf(doc: NfgDocument): string {
   return stable(
     sortedEntries(doc.configurations)
-      .filter(([, config]) => Object.keys(config.ponAuthorizations).length > 0)
-      .map(([id, config]) => [id, sortedEntries(config.ponAuthorizations)]),
+      .filter(([, config]) => Object.keys(config.ponAuthorizations).length > 0 || Object.keys(config.ponServices).length > 0)
+      .map(([id, config]) => [id, sortedEntries(config.ponAuthorizations), sortedEntries(config.ponServices)]),
   );
 }
 

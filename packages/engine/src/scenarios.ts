@@ -19,7 +19,9 @@ import {
   setBgpNeighbor,
   setBgpNetwork,
   setOntSerial,
+  setOntServices,
   setPonAuthorization,
+  setPonService,
   setSwitchport,
   type CommandResult,
   type DeviceModelId,
@@ -28,6 +30,7 @@ import {
   type Fiber,
   type NfgDocument,
   type OspfMode,
+  type PonService,
   type RipMode,
 } from "@netforge/project";
 
@@ -380,6 +383,20 @@ export class ScenarioBuilder {
     return this;
   }
 
+  /** Profil d'un service sur un OLT : VLAN, débits garanti/maximal en Mbit/s (descendant, puis montant ou null). */
+  service(oltId: string, service: PonService, vlan: number, down: readonly [number, number], up: readonly [number, number] | null): this {
+    const rate = ([guaranteed, max]: readonly [number, number]) => ({ guaranteedKbps: Math.round(guaranteed * 1000), maxKbps: Math.round(max * 1000) });
+    this.doc = ok(setPonService(this.doc, { deviceId: oltId, service, profile: { vlan, downstream: rate(down), upstream: up ? rate(up) : null } }));
+    return this;
+  }
+
+  /** Offre d'un ONT autorisé (par son identifiant d'équipement) sur un port d'OLT. */
+  offer(oltId: string, portId: string, ontId: string, services: readonly PonService[]): this {
+    const serial = this.doc.configurations[ontId]?.serialNumber ?? ontId;
+    this.doc = ok(setOntServices(this.doc, { deviceId: oltId, portId, serial, services }));
+    return this;
+  }
+
   fault(id: string, kind: FaultKind, target: FaultTarget, extraLoss: number | null = null): this {
     this.doc = ok(addFault(this.doc, { id, kind, target, extraLoss }));
     return this;
@@ -621,6 +638,9 @@ export const FTTH_DROPS = [150, 60, 120] as const;
  * —raccordement (FTTH_DROPS, G.657.A2, câble court)— PTO1..3 | out —jarretière 2 m— ONT1..3.
  * Liens : l1 à l3 (tronc), l4 à l6 (distribution), l7 à l9 (raccordement), l10 à l12 (jarretières).
  * ONT1 à ONT3 (NFGE00000001 à 3) autorisés sur OLT1 pon1, identifiants d'ONU 0 à 2.
+ * Services de l'OLT : Internet (VLAN 100, descendant 100/1 000 Mbit/s, montant 20/500),
+ * VoIP (VLAN 200, 0,2/0,2 dans les deux sens), IPTV (VLAN 300, descendant 20/20, multicast).
+ * Offres : ONT1 Internet, VoIP, IPTV ; ONT2 Internet, VoIP ; ONT3 Internet, IPTV.
  * Option dirtyPto3 : connecteur de sortie de PTO3 sale (+4,5 dB), exercice de dépannage.
  */
 export function ftthScenario(options: { dirtyPto3?: boolean } = {}): NfgDocument {
@@ -646,6 +666,13 @@ export function ftthScenario(options: { dirtyPto3?: boolean } = {}): NfgDocument
     builder.device(`ont${String(index)}`, "ONT-1G", 1040, 120 + (index - 1) * 140).link(`pto${String(index)}`, "out", `ont${String(index)}`, "pon");
     builder.authorize("olt1", "pon1", `ont${String(index)}`);
   }
+  builder
+    .service("olt1", "internet", 100, [100, 1000], [20, 500])
+    .service("olt1", "voip", 200, [0.2, 0.2], [0.2, 0.2])
+    .service("olt1", "iptv", 300, [20, 20], null)
+    .offer("olt1", "pon1", "ont1", ["internet", "voip", "iptv"])
+    .offer("olt1", "pon1", "ont2", ["internet", "voip"])
+    .offer("olt1", "pon1", "ont3", ["internet", "iptv"]);
   if (options.dirtyPto3) builder.fault("panne-1", "dirty-connector", { kind: "port", deviceId: "pto3", portId: "out" }, 4.5);
   return builder.build();
 }

@@ -101,7 +101,7 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | F-06 | Pannes simples (coupure, courbure, connecteur sale, épissure) | 4 | disponible | F-02 | Cinq pannes (dont polissage APC/UPC sans pénalité inventée) ; symptômes seuls pendant un exercice (e2e) |
 | F-07 | Exercice local de dépannage FTTH | 4 | disponible | F-06 | « L'abonné sans service » terminé à 100/100 (e2e) ; nettoyage au mauvais endroit refusé (catalog.test.ts) |
 | F-08 | GPON/XGS-PON pédagogiques, enregistrement par numéro de série | 9 | disponible avec limites | F-04 | Chemin optique OK distinct d'un ONT enregistré (pon.test.ts, pon.spec.ts, [pon.md](protocols/pon.md)) ; activation déduite, sans messages PLOAM ni allocation de bande |
-| F-09 | VLAN de service Internet/VoIP/IPTV, partage de bande passante | 9 | prévu | F-08, P-01 | Débits partagés expliqués |
+| F-09 | VLAN de service Internet/VoIP/IPTV, partage de bande passante | 9 | disponible avec limites | F-08, P-01 | Débits partagés expliqués (pon.test.ts, pon.spec.ts, [pon.md](protocols/pon.md)) ; partage max-min à l'heure de pointe, sans DBA ni trames |
 | F-10 | OTDR pédagogique (événements, pertes, limites documentées) | 9 | prévu | F-02 | Trace approximative documentée |
 | F-11 | Vue arborescente colorée + alternative textuelle, implantation rue/immeuble/PBO | 9 | prévu | F-01 | Lisible sans couleur |
 | F-12 | Export des bilans CSV/PDF | 9 | prévu | F-02 | Fichiers ouverts et cohérents |

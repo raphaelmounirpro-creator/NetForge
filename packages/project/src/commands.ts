@@ -2,7 +2,7 @@ import { CATALOG_VERSION, findPort, getModel, type DeviceModelId } from "./catal
 import { DHCP_LEASE_MAX, DHCP_LEASE_MIN, isDhcpLease, type DhcpPool } from "./dhcp.js";
 import { DNS_MAX_RECORDS, isDnsAddress, normalizeDnsName } from "./dns.js";
 import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, parseOspfArea, type OspfInterface } from "./ospf.js";
-import { PON_MAX_AUTHORIZATIONS, isOnuId, lowestFreeOnuId, nextPonSerial, normalizePonSerial, ONU_ID_MAX, ponTechnologyOf } from "./pon.js";
+import { PON_MAX_AUTHORIZATIONS, isOnuId, lowestFreeOnuId, nextPonSerial, normalizePonSerial, normalizeServices, ONU_ID_MAX, ponTechnologyOf, type PonService, type PonServiceProfile } from "./pon.js";
 import type { RipMode } from "./rip.js";
 import { BGP_AS_MAX, BGP_AS_MIN, BGP_MAX_NEIGHBORS, BGP_MAX_NETWORKS, isBgpAs } from "./bgp.js";
 import { VRID_MAX, VRID_MIN, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority, type VrrpGroup } from "./vrrp.js";
@@ -57,7 +57,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {}, vrrpGroups: {}, bgp: null, ponAuthorizations: {}, serialNumber: null };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {}, vrrpGroups: {}, bgp: null, ponAuthorizations: {}, ponServices: {}, serialNumber: null };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -854,7 +854,7 @@ export function setPonAuthorization(
   const config = doc.configurations[device.id] ?? emptyConfig();
   const current = config.ponAuthorizations[params.portId] ?? [];
   const others = current.filter((entry) => entry.serial !== serial);
-  const write = (entries: readonly { serial: string; onuId: number }[]) => {
+  const write = (entries: DeviceConfig["ponAuthorizations"][string]) => {
     const { [params.portId]: _removed, ...rest } = config.ponAuthorizations;
     const ponAuthorizations = entries.length === 0 ? rest : { ...rest, [params.portId]: [...entries].sort((a, b) => a.onuId - b.onuId) };
     return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ponAuthorizations } } });
@@ -869,5 +869,48 @@ export function setPonAuthorization(
   if (onuId === null) return fail(error("pon.no-free-onu-id", { ...base, portId: params.portId }));
   if (!isOnuId(technology, onuId)) return fail(error("pon.invalid-onu-id", { ...base, portId: params.portId, value: String(onuId), max: ONU_ID_MAX[technology] }));
   if (current.some((entry) => entry.onuId === onuId)) return fail(error("pon.duplicate-onu-id", { ...base, portId: params.portId, onuId }));
-  return write([...current, { serial, onuId }]);
+  return write([...current, { serial, onuId, services: [] }]);
+}
+
+/** OLT dont on modifie la configuration PON, ou refus explicite. */
+function ponOlt(doc: NfgDocument, deviceId: string): { device: Device; config: DeviceConfig } | { result: CommandResult } {
+  const device = findDevice(doc, deviceId);
+  if (!device) return { result: deviceNotFound(deviceId) };
+  if (getModel(device.model).kind !== "olt") return { result: fail(error("pon.not-olt", { deviceId: device.id, deviceName: device.name })) };
+  return { device, config: doc.configurations[device.id] ?? emptyConfig() };
+}
+
+/**
+ * Définit le profil d'un service sur un OLT (VLAN, débits), ou le retire
+ * (null) : le service est alors retiré de l'offre de chaque ONT autorisé.
+ */
+export function setPonService(doc: NfgDocument, params: { deviceId: string; service: PonService; profile: PonServiceProfile | null }): CommandResult {
+  const found = ponOlt(doc, params.deviceId);
+  if ("result" in found) return found.result;
+  const { device, config } = found;
+  const { [params.service]: _removed, ...others } = config.ponServices;
+  if (params.profile === null) {
+    const ponAuthorizations = Object.fromEntries(
+      Object.entries(config.ponAuthorizations).map(([port, entries]) => [port, entries.map((entry) => ({ ...entry, services: entry.services.filter((service) => service !== params.service) }))]),
+    );
+    return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ponServices: others, ponAuthorizations } } });
+  }
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ponServices: { ...config.ponServices, [params.service]: params.profile } } } });
+}
+
+/** Remplace l'offre (services souscrits) d'un ONT autorisé sur un port d'OLT. */
+export function setOntServices(doc: NfgDocument, params: { deviceId: string; portId: string; serial: string; services: readonly PonService[] }): CommandResult {
+  const found = ponOlt(doc, params.deviceId);
+  if ("result" in found) return found.result;
+  const { device, config } = found;
+  const base = { deviceId: device.id, deviceName: device.name, portId: params.portId };
+  const serial = normalizePonSerial(params.serial);
+  if (serial === null) return fail(error("pon.invalid-serial", { value: params.serial.trim() }));
+  const entries = config.ponAuthorizations[params.portId] ?? [];
+  if (!entries.some((entry) => entry.serial === serial)) return fail(error("pon.not-authorized", { ...base, serial }));
+  const services = normalizeServices(params.services);
+  const missing = services.find((service) => !config.ponServices[service]);
+  if (missing) return fail(error("pon.service-undefined", { ...base, serial, service: missing }));
+  const ponAuthorizations = { ...config.ponAuthorizations, [params.portId]: entries.map((entry) => (entry.serial === serial ? { ...entry, services } : entry)) };
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ponAuthorizations } } });
 }

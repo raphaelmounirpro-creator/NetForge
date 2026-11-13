@@ -105,3 +105,43 @@ test("PON : formulaire de l'OLT et numéro de série de l'ONT équivalents à la
   await expect(tools(page).getByRole("button", { name: /^ONT1 · XGS-PON · ABCD00000001/ })).toContainText("◌ O2-3 · numéro de série, en attente d'identifiant");
   await expect(tools(page).getByRole("region", { name: "OLT1 pon1 · XGS-PON" })).toContainText("NFGE00000001 · identifiant 0 : aucun ONT raccordé ne porte ce numéro");
 });
+
+test("PON : débits partagés à l'heure de pointe, offre d'un abonné et profil de service modifiés", async ({ page }) => {
+  await page.goto("/projets");
+  await page.getByTestId("import-input").setInputFiles(new URL("./fixtures/ftth.nfg.json", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
+  await expect(page).toHaveURL(/\/laboratoire$/);
+  await page.getByRole("tab", { name: "Optique", exact: true }).click();
+  await tools(page).getByRole("tab", { name: "Débits", exact: true }).click();
+  // Garanties 320,4 Mbit/s ; reste 2 167,92 partagé entre trois accès Internet : 100 + 722,64 = 822,64 Mbit/s chacun.
+  const port = tools(page).getByRole("region", { name: "OLT1 pon1 · GPON" });
+  const down = port.getByRole("region", { name: "Descendant · débit de ligne 2 488,32 Mbit/s" });
+  await expect(down).toContainText("Garanties : 320,4 Mbit/s · demande à l'heure de pointe : 3 020,4 Mbit/s · taux de contention : 1,21");
+  await expect(down.getByRole("row", { name: /^ONT1 · Internet/ })).toContainText("822,64");
+  await expect(down.getByRole("row", { name: /^IPTV \(multicast : ONT1, ONT3\)/ })).toContainText("20");
+  const up = port.getByRole("region", { name: "Montant · débit de ligne 1 244,16 Mbit/s" });
+  await expect(up.getByRole("row", { name: /^ONT3 · Internet/ })).toContainText("414,59");
+  await page.screenshot({ path: "test-results/pon-bandwidth-1440.png" });
+
+  // Console : mêmes débits.
+  await page.getByRole("tab", { name: "Simulation", exact: true }).click();
+  await dock(page).getByRole("tablist", { name: "Résultats de la simulation" }).getByRole("tab", { name: "Console", exact: true }).click();
+  await dock(page).getByLabel("Équipement", { exact: true }).selectOption({ label: "OLT1" });
+  await line(page, "show bandwidth");
+  // Séparateur des milliers : espace fine insécable (\s la reconnaît).
+  await expect(log(page)).toContainText(/ONT1 · Internet\s+100\s+100\s+1\s000\s+822,64/);
+
+  // Formulaire : ONT3 renonce à Internet ; les deux accès restants atteignent leur maximum.
+  await page.getByRole("tab", { name: "Topologie", exact: true }).click();
+  await selectDevice(page, "OLT1");
+  await propertiesPanel(page).getByRole("tab", { name: "PON", exact: true }).click();
+  await propertiesPanel(page).getByRole("group", { name: "Offre de NFGE00000003" }).getByLabel("Internet").uncheck();
+  const iptv = propertiesPanel(page).getByRole("form", { name: "IPTV" });
+  await iptv.getByLabel("Descendant (Mbit/s)").fill("40/40");
+  await iptv.getByRole("button", { name: "Enregistrer IPTV" }).click();
+  await expect(iptv).toContainText("VLAN 300 · descendant 40/40");
+  await page.screenshot({ path: "test-results/pon-services-1440.png" });
+  await page.getByRole("tab", { name: "Optique", exact: true }).click();
+  await tools(page).getByRole("tab", { name: "Débits", exact: true }).click();
+  await expect(down.getByRole("row", { name: /^ONT1 · Internet/ })).toContainText(/1\s000/);
+  await expect(down.getByRole("row", { name: /^IPTV \(multicast : ONT1, ONT3\)/ })).toContainText("40");
+});

@@ -17,7 +17,9 @@ import {
   setBgpNeighbor,
   setBgpNetwork,
   setOntSerial,
+  setOntServices,
   setPonAuthorization,
+  setPonService,
   setRipInterface,
   setVrrpGroup,
   setStp,
@@ -28,7 +30,7 @@ import { DHCP_LEASE_DEFAULT, formatLeaseDuration, parseDhcpPoolInput } from "./d
 import { isDnsAddress, normalizeDnsName, parseDnsRecordInput, sortedDnsRecords } from "./dns.js";
 import { BGP_AS_MAX, BGP_AS_MIN, isBgpAs } from "./bgp.js";
 import { error, type Issue } from "./issues.js";
-import { ONU_ID_MAX, ponTechnologyOf } from "./pon.js";
+import { formatMbpsInput, isDownstreamOnly, isPonService, ONU_ID_MAX, parseRateInput, parseServiceList, PON_SERVICES, ponTechnologyOf } from "./pon.js";
 import { VRID_MAX, VRID_MIN, VRRP_DEFAULT_PRIORITY, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority } from "./vrrp.js";
 import {
   OSPF_BACKBONE_AREA,
@@ -80,6 +82,7 @@ export type CliRequest =
   | { readonly kind: "show-vrrp" }
   | { readonly kind: "show-bgp" }
   | { readonly kind: "show-pon" }
+  | { readonly kind: "show-bandwidth" }
   | { readonly kind: "ipconfig" }
   /** Client DHCP d'un PC : renouveler ou libérer le bail (demande d'exécution). */
   | { readonly kind: "dhcp"; readonly action: "renew" | "release" }
@@ -566,6 +569,16 @@ const COMMANDS: readonly CommandSpec[] = [
     required: [],
     maxArgs: 0,
     run: ({ mode }) => ok(mode, { request: { kind: "show-pon" } }),
+  },
+  {
+    id: "show-bandwidth",
+    words: ["show", "bandwidth"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: ["olt"],
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-bandwidth" } }),
   },
   {
     id: "show-vrrp",
@@ -1104,6 +1117,58 @@ const COMMANDS: readonly CommandSpec[] = [
     },
   },
   {
+    id: "service",
+    words: ["service"],
+    syntax: "<internet|voip|iptv> vlan <vlan> down <garanti>/<max> [up <garanti>/<max>] | <service> delete",
+    modes: ["config"],
+    devices: ["olt"],
+    required: ["service", "vlan"],
+    maxArgs: 7,
+    run: ({ device, mode, args }) => {
+      const [name = "", keyword = "", vlanText, downWord, downText, upWord, upText] = args;
+      const service = name.toLowerCase();
+      if (!isPonService(service)) return fail(mode, "cli.unexpected-argument", { word: name });
+      if (keyword.toLowerCase() === "delete") {
+        if (args.length > 2) return fail(mode, "cli.unexpected-argument", { word: args[2] ?? "" });
+        return ok(mode, { edit: (doc) => setPonService(doc, { deviceId: device.id, service, profile: null }) });
+      }
+      if (keyword.toLowerCase() !== "vlan") return fail(mode, "cli.missing-argument", { argument: "vlan" });
+      if (vlanText === undefined) return fail(mode, "cli.missing-argument", { argument: "vlan" });
+      const vlan = vlanNumber(vlanText);
+      if (vlan === null) return invalid(mode, [error("vlan.invalid-id", { value: vlanText, min: VLAN_MIN, max: VLAN_MAX })]);
+      if (downWord?.toLowerCase() !== "down") return fail(mode, "cli.missing-argument", { argument: "down" });
+      if (downText === undefined) return fail(mode, "cli.missing-argument", { argument: "garanti/max" });
+      const downstream = parseRateInput(downText);
+      if (downstream === null) return invalid(mode, [error("pon.invalid-rate", { value: downText })]);
+      if (isDownstreamOnly(service)) {
+        if (upWord !== undefined) return fail(mode, "cli.unexpected-argument", { word: upWord });
+        return ok(mode, { edit: (doc) => setPonService(doc, { deviceId: device.id, service, profile: { vlan, downstream, upstream: null } }) });
+      }
+      if (upWord?.toLowerCase() !== "up") return fail(mode, "cli.missing-argument", { argument: "up" });
+      if (upText === undefined) return fail(mode, "cli.missing-argument", { argument: "garanti/max" });
+      const upstream = parseRateInput(upText);
+      if (upstream === null) return invalid(mode, [error("pon.invalid-rate", { value: upText })]);
+      return ok(mode, { edit: (doc) => setPonService(doc, { deviceId: device.id, service, profile: { vlan, downstream, upstream } }) });
+    },
+  },
+  {
+    id: "ont-services",
+    words: ["ont", "services"],
+    syntax: "<port> <numéro-de-série> <internet,voip,iptv|none>",
+    modes: ["config"],
+    devices: ["olt"],
+    required: ["port", "numéro-de-série", "services"],
+    maxArgs: 3,
+    run: ({ device, mode, args }) => {
+      const [portArg = "", serial = "", list = ""] = args;
+      const port = ponPort(device, portArg);
+      if (port === null) return fail(mode, "cli.unknown-port", { port: portArg, ports: getModel(device.model).ports.map((item) => item.id).join(", ") });
+      const services = parseServiceList(list);
+      if (services === null) return invalid(mode, [error("pon.invalid-service-list", { value: list })]);
+      return ok(mode, { edit: (doc) => setOntServices(doc, { deviceId: device.id, portId: port, serial, services }) });
+    },
+  },
+  {
     id: "serial-number",
     words: ["serial-number"],
     syntax: "<numéro-de-série>",
@@ -1294,9 +1359,9 @@ export function complete(doc: NfgDocument, deviceId: string, mode: CliMode, line
     const next = spec.words[done.length];
     if (next !== undefined) options.add(next);
     // Après « interface » ou « ont add|delete », propose les ports de l'équipement.
-    else if ((spec.id === "interface" && done.length === 1) || ((spec.id === "ont-add" || spec.id === "ont-delete") && done.length === 2)) {
+    else if ((spec.id === "interface" && done.length === 1) || ((spec.id === "ont-add" || spec.id === "ont-delete" || spec.id === "ont-services") && done.length === 2)) {
       for (const port of getModel(device.model).ports) options.add(port.id);
-    }
+    } else if (spec.id === "service" && done.length === 1) for (const service of PON_SERVICES) options.add(service);
   }
   const candidates = [...options].filter((option) => option.startsWith(partial)).sort();
   if (candidates.length === 1) {
@@ -1329,9 +1394,18 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
     return lines;
   }
   if (model.kind === "olt") {
-    // ONT autorisés, port par port, avec l'identifiant d'ONU attribué.
+    // Profils de service, puis ONT autorisés port par port (identifiant d'ONU attribué), puis leur offre.
+    for (const service of PON_SERVICES) {
+      const profile = config?.ponServices[service];
+      if (!profile) continue;
+      const rate = (value: { guaranteedKbps: number; maxKbps: number }) => `${formatMbpsInput(value.guaranteedKbps)}/${formatMbpsInput(value.maxKbps)}`;
+      lines.push([`service ${service} vlan ${String(profile.vlan)} down ${rate(profile.downstream)}`, profile.upstream ? `up ${rate(profile.upstream)}` : ""].join(" ").trim());
+    }
     for (const port of model.ports) {
-      for (const entry of config?.ponAuthorizations[port.id] ?? []) lines.push(`ont add ${port.id} ${entry.serial} onu-id ${String(entry.onuId)}`);
+      for (const entry of config?.ponAuthorizations[port.id] ?? []) {
+        lines.push(`ont add ${port.id} ${entry.serial} onu-id ${String(entry.onuId)}`);
+        if (entry.services.length > 0) lines.push(`ont services ${port.id} ${entry.serial} ${entry.services.join(",")}`);
+      }
     }
     lines.push("end");
     return lines;

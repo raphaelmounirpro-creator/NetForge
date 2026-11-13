@@ -330,3 +330,17 @@ Décision du propriétaire : 15 caractères minimum est jugé trop contraignant 
 - **Console** : l'OLT et l'ONT ont désormais une console (`ont add|delete`, `serial-number`, `show pon`). Les équipements passifs n'en ont toujours pas. `show pon` ne montre que des symptômes, comme la console d'un équipement réel.
 - **Exercices v3** : critère « ONT en fonctionnement » (O5) et fonction autorisée « pon » ; les versions 1 et 2 restent valides telles quelles.
 - **Correcteur v10** : autorisations et numéros de série des ONT existants protégés par « pon ». Un ONT ajouté, qui relève de la topologie, n'est pas une modification PON. `ENGINE_VERSION` 0.11.0.
+
+## D-062 — Services PON et partage de bande passante, format v14 et correcteur v11 (phase 9)
+
+- **Format v14** :
+  - `ponServices` par OLT : Internet, VoIP, IPTV, avec VLAN et débits garanti/maximal en kbit/s, descendant et montant (aucun montant pour l'IPTV) ;
+  - `services` (offre) par ONT autorisé ;
+  - migration v13 → v14 : aucun profil, offres vides ;
+  - le scénario FTTH de référence reçoit trois profils et trois offres, calculables à la main.
+- **Modèle** : profils sur l'OLT et offre par abonné, plutôt que des débits saisis ONT par ONT. Un service se définit une fois et chaque abonné y souscrit ; c'est plus lisible et cela fait apparaître le VLAN partagé par service (modèle N:1).
+- **Débit de ligne nominal comme capacité** : majorant documenté du débit utile. Aucun rendement (en-têtes, FEC) n'est inventé.
+- **Partage** : partage max-min à l'heure de pointe, plutôt qu'une simulation de l'allocation dynamique de bande. C'est déterministe, calculable à la main et suffisant pour expliquer garantie, maximum, contention et surréservation.
+- **IPTV multicast** : comptée une fois par port.
+- **Correcteur v11** : profils et offres protégés par « pon ». `ENGINE_VERSION` 0.12.0.
+- **Ordre des clés** : une configuration neuve suit l'ordre du schéma, pour que l'aller-retour export/import reste identique octet par octet.

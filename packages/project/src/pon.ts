@@ -30,9 +30,78 @@ export const NETFORGE_VENDOR_ID = "NFGE";
  */
 export const PON_SERIAL_PATTERN = /^[A-Z]{4}[0-9A-F]{8}$/;
 
+/**
+ * Services d'un réseau d'accès (format version 14) : chacun circule dans son
+ * VLAN entre l'OLT et le réseau de l'opérateur. L'IPTV est une diffusion
+ * descendante (multicast) : aucun flux montant.
+ */
+export const PON_SERVICES = ["internet", "voip", "iptv"] as const;
+export type PonService = (typeof PON_SERVICES)[number];
+
+/** Débit garanti ou maximal d'un service, en kbit/s (borne NetForge : 10 Gbit/s). */
+export const PON_RATE_MAX_KBPS = 10_000_000;
+
+export interface PonRate {
+  readonly guaranteedKbps: number;
+  readonly maxKbps: number;
+}
+
+export interface PonServiceProfile {
+  readonly vlan: number;
+  readonly downstream: PonRate;
+  /** null pour l'IPTV, service seulement descendant. */
+  readonly upstream: PonRate | null;
+}
+
 export interface PonAuthorization {
   readonly serial: string;
   readonly onuId: number;
+  /** Services souscrits par l'abonné (offre), dans l'ordre de PON_SERVICES. */
+  readonly services: readonly PonService[];
+}
+
+export const isDownstreamOnly = (service: PonService): boolean => service === "iptv";
+
+export function isPonService(value: string): value is PonService {
+  return (PON_SERVICES as readonly string[]).includes(value);
+}
+
+/** Liste de services sans doublon, dans l'ordre canonique. */
+export function normalizeServices(services: Iterable<PonService>): PonService[] {
+  const set = new Set(services);
+  return PON_SERVICES.filter((service) => set.has(service));
+}
+
+/** « internet,voip » ou « none » ; null si un nom est inconnu. */
+export function parseServiceList(text: string): PonService[] | null {
+  const trimmed = text.trim().toLowerCase();
+  if (trimmed === "none") return [];
+  const names = trimmed.split(",").map((name) => name.trim());
+  if (names.some((name) => !isPonService(name))) return null;
+  return normalizeServices(names as PonService[]);
+}
+
+/** Débit saisi en Mbit/s (« 100 », « 0,2 », « 0.2 » ; trois décimales au plus) converti en kbit/s, ou null. */
+export function parseMbps(text: string): number | null {
+  const value = text.trim().replace(",", ".");
+  if (!/^\d{1,5}(?:\.\d{1,3})?$/.test(value)) return null;
+  const kbps = Math.round(Number(value) * 1000);
+  return kbps <= PON_RATE_MAX_KBPS ? kbps : null;
+}
+
+/** « garanti/max » en Mbit/s, garanti ≤ max et max > 0 ; null sinon. */
+export function parseRateInput(text: string): PonRate | null {
+  const [guaranteed = "", max = "", ...rest] = text.split("/");
+  if (rest.length > 0) return null;
+  const guaranteedKbps = parseMbps(guaranteed);
+  const maxKbps = parseMbps(max);
+  if (guaranteedKbps === null || maxKbps === null || maxKbps === 0 || guaranteedKbps > maxKbps) return null;
+  return { guaranteedKbps, maxKbps };
+}
+
+/** Débit en Mbit/s pour la console (« 0.2 », « 100 »). */
+export function formatMbpsInput(kbps: number): string {
+  return String(kbps / 1000);
 }
 
 /** Numéro de série saisi (espaces et casse tolérés), ou null s'il est mal formé. */
@@ -66,7 +135,7 @@ export function isOnuId(technology: PonTechnology, value: number): boolean {
 }
 
 /** Plus petit identifiant d'ONU libre d'un port, ou null si tous sont pris. */
-export function lowestFreeOnuId(technology: PonTechnology, authorizations: readonly PonAuthorization[]): number | null {
+export function lowestFreeOnuId(technology: PonTechnology, authorizations: readonly { readonly onuId: number }[]): number | null {
   const used = new Set(authorizations.map((item) => item.onuId));
   for (let id = 0; id <= ONU_ID_MAX[technology]; id += 1) if (!used.has(id)) return id;
   return null;

@@ -1,7 +1,8 @@
 import { Tabs } from "../../components/ui/Tabs";
 import { messages } from "../../i18n";
 import type { OpenProject } from "../lab/store";
-import { useIsExercise, useOpticalReport, usePonReport } from "./hooks";
+import { useIsExercise, useOpticalReport, usePonBandwidth, usePonReport } from "./hooks";
+import { OpticsBandwidth } from "./OpticsBandwidth";
 import { OpticsBudget } from "./OpticsBudget";
 import { OpticsFaults, OpticsInterventions } from "./OpticsFaults";
 import { OpticsMeasure } from "./OpticsMeasure";
@@ -19,12 +20,14 @@ export function OpticsSidePanel({ projectId, project }: { projectId: string; pro
   const exercise = useIsExercise(projectId);
   const report = useOpticalReport(project.document);
   const pon = usePonReport(project.document, report);
+  const bandwidth = usePonBandwidth(project.document, pon);
   const session = useOpticsSession(projectId);
   const path = report.paths.find((item) => item.id === session.selectedPathId);
   const editable = project.access === "editor";
   const tabs: { id: OpticsTab; label: string }[] = [
     { id: "budget", label: t.tabBudget },
     { id: "pon", label: t.tabPon },
+    { id: "bandwidth", label: t.tabBandwidth },
     { id: "measure", label: t.tabMeasure },
     { id: "interventions", label: t.tabInterventions },
     ...(exercise ? [] : [{ id: "faults" as const, label: t.tabFaults }]),
@@ -47,6 +50,8 @@ export function OpticsSidePanel({ projectId, project }: { projectId: string; pro
           <OpticsBudget doc={project.document} path={path} exercise={exercise} reserve={report.reserveDb} />
         ) : tab === "pon" ? (
           <OpticsPon doc={project.document} report={pon} exercise={exercise} />
+        ) : tab === "bandwidth" ? (
+          <OpticsBandwidth doc={project.document} ports={bandwidth} />
         ) : tab === "measure" ? (
           <OpticsMeasure projectId={projectId} doc={project.document} selection={project.selection} />
         ) : tab === "interventions" ? (

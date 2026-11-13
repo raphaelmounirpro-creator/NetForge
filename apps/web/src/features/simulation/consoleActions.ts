@@ -1,6 +1,6 @@
 import { cliPrompt, configurationCommands, interpret, type CliRequest } from "@netforge/project";
 import { fill, formatIssue, messages } from "../../i18n";
-import { formatCliError, helpLines, ipconfig, showArp, showDhcp, showDns, showInterfaces, showMac, showOspf, showOspfDatabase, showRip, showVrrp, showBgp, showPon, showRoutes, showStp, showVlans } from "../../i18n/console";
+import { formatCliError, helpLines, ipconfig, showArp, showDhcp, showDns, showInterfaces, showMac, showOspf, showOspfDatabase, showRip, showVrrp, showBgp, showBandwidth, showPon, showRoutes, showStp, showVlans } from "../../i18n/console";
 import { formatCommandError } from "../../i18n/simulation";
 import { useLabStore } from "../lab/store";
 import { consoleKey, EMPTY_CONSOLE, useConsoleStore } from "./consoleStore";
@@ -84,6 +84,9 @@ async function handleRequest(projectId: string, deviceId: string, key: string, r
       return;
     case "show-pon":
       consoles.append(key, "output", showPon(doc, deviceId));
+      return;
+    case "show-bandwidth":
+      consoles.append(key, "output", showBandwidth(doc, deviceId));
       return;
     case "show-interfaces":
       runtime(() => (view ? showInterfaces(view) : []));

@@ -29,7 +29,7 @@ test("notes libres : rédaction, liste, export/réimport, sans effet sur la simu
   await page.getByRole("button", { name: "Exporter" }).click();
   const text = await (await (await download).createReadStream()).toArray().then((chunks) => Buffer.concat(chunks).toString("utf8"));
   const exported = JSON.parse(text) as { schemaVersion: number; layout: { annotations: Array<{ text: string }> } };
-  expect(exported.schemaVersion).toBe(13);
+  expect(exported.schemaVersion).toBe(14);
   expect(exported.layout.annotations.map((note) => note.text)).toEqual(["Baie B2"]);
   await page.getByRole("link", { name: "Projets" }).click();
   await page.getByTestId("import-input").setInputFiles({ name: "plan.nfg.json", mimeType: "application/json", buffer: Buffer.from(text) });

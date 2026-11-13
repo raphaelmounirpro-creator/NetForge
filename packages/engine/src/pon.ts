@@ -1,5 +1,5 @@
-import { getModel, ponTechnologyOf, type NfgDocument, type PonTechnology } from "@netforge/project";
-import { analyzeOptics, type OpticalPath, type OpticalPortRef, type OpticalReport, type OpticalStatus } from "./optics.js";
+import { getModel, isDownstreamOnly, PON_SERVICES, ponTechnologyOf, type NfgDocument, type PonRate, type PonService, type PonTechnology } from "@netforge/project";
+import { analyzeOptics, type Direction, type OpticalPath, type OpticalPortRef, type OpticalReport, type OpticalStatus } from "./optics.js";
 
 /**
  * Activation des ONT sur un réseau PON (phase 9).
@@ -187,4 +187,157 @@ export function analyzePon(doc: NfgDocument, report: OpticalReport = analyzeOpti
     }
   }
   return { onts, ports };
+}
+
+// ---------------------------------------------------------------- Services et partage de bande passante
+
+/**
+ * Débits nominaux de ligne (kbit/s) : GPON classe B+, 2 488,32 Mbit/s
+ * descendant et 1 244,16 Mbit/s montant (G.984.2 §8.2.1 et annexe A) ;
+ * XGS-PON, 9 953,28 Mbit/s dans les deux sens (G.9807.1, tableaux B.9.3 et
+ * B.9.4). C'est un majorant du débit utile : en-têtes de trame, correction
+ * d'erreurs et allocation dynamique ne sont pas déduits (aucun rendement inventé).
+ */
+export const PON_LINE_RATES_KBPS: Readonly<Record<PonTechnology, Readonly<Record<Direction, number>>>> = {
+  gpon: { downstream: 2_488_320, upstream: 1_244_160 },
+  "xgs-pon": { downstream: 9_953_280, upstream: 9_953_280 },
+};
+
+export interface ServiceFlow {
+  readonly service: PonService;
+  readonly vlan: number;
+  /** ONT du flux ; null pour la diffusion IPTV, une seule fois pour tout le port. */
+  readonly ontId: string | null;
+  readonly serial: string | null;
+  /** ONT abonnés servis par ce flux (un seul, sauf pour la diffusion IPTV). */
+  readonly subscribers: readonly string[];
+  readonly guaranteedKbps: number;
+  readonly maxKbps: number;
+  /** Débit obtenu à l'heure de pointe, quand tous les flux demandent leur maximum. */
+  readonly peakKbps: number;
+}
+
+export interface DirectionShare {
+  readonly direction: Direction;
+  readonly capacityKbps: number;
+  /** Somme des débits garantis. */
+  readonly guaranteedKbps: number;
+  /** Somme des débits maximaux (demande à l'heure de pointe). */
+  readonly demandKbps: number;
+  /** Demande rapportée à la capacité (taux de contention). */
+  readonly contention: number;
+  /** Les garanties dépassent la capacité : chacune est réduite au prorata. */
+  readonly guaranteesExceeded: boolean;
+  readonly flows: readonly ServiceFlow[];
+}
+
+export interface PortBandwidth {
+  readonly oltId: string;
+  readonly portId: string;
+  readonly technology: PonTechnology;
+  readonly downstream: DirectionShare;
+  readonly upstream: DirectionShare;
+  /** ONT autorisés avec une offre mais pas en fonctionnement : aucun débit. */
+  readonly idle: readonly { readonly serial: string; readonly ontId: string | null; readonly services: readonly PonService[] }[];
+}
+
+/**
+ * Partage à l'heure de pointe : chaque flux reçoit d'abord sa garantie, puis
+ * le reste de la capacité est réparti équitablement (max-min) entre les flux
+ * qui demandent davantage, sans dépasser leur maximum. Si les garanties
+ * dépassent la capacité, chacune est réduite au prorata (configuration
+ * surréservée, signalée). Simplification pédagogique de l'allocation
+ * dynamique de bande : aucune trame n'est simulée.
+ */
+export function sharePeak(capacityKbps: number, flows: readonly PonRate[]): number[] {
+  const guaranteed = flows.reduce((sum, flow) => sum + flow.guaranteedKbps, 0);
+  if (guaranteed > capacityKbps) return flows.map((flow) => (flow.guaranteedKbps * capacityKbps) / guaranteed);
+  const peak = flows.map((flow) => flow.guaranteedKbps);
+  let rest = capacityKbps - guaranteed;
+  const order = flows
+    .map((_, index) => index)
+    .filter((index) => (flows[index]?.maxKbps ?? 0) > (flows[index]?.guaranteedKbps ?? 0))
+    .sort((a, b) => {
+      const extra = (index: number) => (flows[index]?.maxKbps ?? 0) - (flows[index]?.guaranteedKbps ?? 0);
+      return extra(a) - extra(b) || a - b;
+    });
+  let left = order.length;
+  for (const index of order) {
+    const flow = flows[index];
+    if (!flow) continue;
+    const extra = Math.min(flow.maxKbps - flow.guaranteedKbps, rest / left);
+    peak[index] = (peak[index] ?? 0) + extra;
+    rest -= extra;
+    left -= 1;
+  }
+  return peak;
+}
+
+function directionShare(direction: Direction, capacityKbps: number, flows: readonly Omit<ServiceFlow, "peakKbps">[]): DirectionShare {
+  const rates = flows.map((flow) => ({ guaranteedKbps: flow.guaranteedKbps, maxKbps: flow.maxKbps }));
+  const peaks = sharePeak(capacityKbps, rates);
+  const guaranteedKbps = rates.reduce((sum, flow) => sum + flow.guaranteedKbps, 0);
+  const demandKbps = rates.reduce((sum, flow) => sum + flow.maxKbps, 0);
+  return {
+    direction,
+    capacityKbps,
+    guaranteedKbps,
+    demandKbps,
+    contention: demandKbps / capacityKbps,
+    guaranteesExceeded: guaranteedKbps > capacityKbps,
+    flows: flows.map((flow, index) => ({ ...flow, peakKbps: peaks[index] ?? 0 })),
+  };
+}
+
+/**
+ * Débits de chaque port d'OLT dont au moins un ONT autorisé a une offre.
+ * Seuls les ONT en fonctionnement (O5) consomment du débit ; la diffusion
+ * IPTV n'est comptée qu'une fois par port, quel que soit le nombre d'abonnés.
+ */
+export function analyzePonBandwidth(doc: NfgDocument, pon: PonReport = analyzePon(doc)): PortBandwidth[] {
+  const states = new Map(pon.onts.map((ont) => [ont.ontId, ont]));
+  const result: PortBandwidth[] = [];
+  for (const port of pon.ports) {
+    const config = doc.configurations[port.oltId];
+    const entries = config?.ponAuthorizations[port.portId] ?? [];
+    if (!config || entries.every((entry) => entry.services.length === 0)) continue;
+    const down: Omit<ServiceFlow, "peakKbps">[] = [];
+    const up: Omit<ServiceFlow, "peakKbps">[] = [];
+    const iptv: string[] = [];
+    const idle: { serial: string; ontId: string | null; services: PonService[] }[] = [];
+    for (const entry of entries) {
+      if (entry.services.length === 0) continue;
+      const status = port.authorizations.find((item) => item.serial === entry.serial);
+      const ontId = status?.ontId ?? null;
+      if (ontId === null || states.get(ontId)?.state !== "O5") {
+        idle.push({ serial: entry.serial, ontId, services: entry.services });
+        continue;
+      }
+      for (const service of entry.services) {
+        const profile = config.ponServices[service];
+        if (!profile) continue;
+        if (isDownstreamOnly(service)) {
+          iptv.push(ontId);
+          continue;
+        }
+        const base = { service, vlan: profile.vlan, ontId, serial: entry.serial, subscribers: [ontId] };
+        down.push({ ...base, ...profile.downstream });
+        if (profile.upstream) up.push({ ...base, ...profile.upstream });
+      }
+    }
+    for (const service of PON_SERVICES.filter(isDownstreamOnly)) {
+      const profile = config.ponServices[service];
+      if (profile && iptv.length > 0) down.push({ service, vlan: profile.vlan, ontId: null, serial: null, subscribers: iptv, ...profile.downstream });
+    }
+    const rates = PON_LINE_RATES_KBPS[port.technology];
+    result.push({
+      oltId: port.oltId,
+      portId: port.portId,
+      technology: port.technology,
+      downstream: directionShare("downstream", rates.downstream, down),
+      upstream: directionShare("upstream", rates.upstream, up),
+      idle,
+    });
+  }
+  return result;
 }
