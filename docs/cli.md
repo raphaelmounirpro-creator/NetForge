@@ -32,6 +32,7 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `show rip` (routeur) | Interfaces RIP, prochaine annonce et table RIP (métrique, prochain saut, expiration) calculées par le moteur |
 | | `show ospf` (routeur) | Identifiant OSPF, état des interfaces (coût, priorité, DR, BDR) et voisins (état, rôle, instant de perte) |
 | | `show bgp` (routeur) | AS et identifiant, voisins (AS, état, réseaux reçus), table BGP (chemin d'AS, prochain saut, retenu ou de secours) |
+| | `show pon` (OLT, ONT) | Activation PON calculée par le moteur (sans simulation chargée) : sur l'OLT, ONT autorisés et découverts par port ; sur l'ONT, état et étapes franchies |
 | | `show vrrp` (routeur) | Groupes VRRP : VRID, adresse et MAC virtuelles, priorité, préemption, état, maître connu, échéance |
 | | `show ospf database` (routeur) | Base d'états des liens : type, identifiant, annonceur, séquence, âge et contenu de chaque LSA |
 | | `show config` | Configuration réécrite en commandes (rejouable) |
@@ -57,6 +58,8 @@ Code : [packages/project/src/cli.ts](../packages/project/src/cli.ts) (interprét
 | | `bgp as <as>` / `bgp disable` (routeur, mode configuration) | Active BGP avec cet AS (1 à 65535) ou le désactive |
 | | `bgp neighbor <adresse> remote-as <as>` / `bgp neighbor <adresse> delete` | Déclare un voisin externe directement connecté, ou le retire |
 | | `bgp network <réseau>/<préfixe> [delete]` | Annonce un réseau présent dans la table de routage, ou cesse de l'annoncer |
+| | `ont add <port> <numéro-de-série> [onu-id <identifiant>]` / `ont delete <port> <numéro-de-série>` (OLT, mode configuration) | Autorise un ONT sur un port PON (identifiant d'ONU : le plus petit libre par défaut, 0 à 253 en GPON, 0 à 1 020 en XGS-PON), ou retire l'autorisation |
+| | `serial-number <numéro-de-série>` (ONT, mode configuration) | Remplace le numéro de série (quatre lettres puis huit chiffres hexadécimaux) |
 | | `ospf area <zone>` (routeur) | Zone de l'interface OSPF : décimal (« 1 ») ou notation pointée (« 0.0.0.1 ») ; 0 = dorsale (défaut) |
 | | `ospf cost <coût>` / `ospf priority <priorité>` (routeur) | Coût de 1 à 65535 (10 par défaut) / priorité de 0 à 255 pour l'élection du DR (1 par défaut) ; interface déjà dans OSPF |
 | Interface d'un switch (`SW1(config ge1)>`) | `access vlan <vlan>` | Port d'accès dans le VLAN (1 à 4094 ; `access vlan 1` revient au défaut) |

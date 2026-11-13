@@ -3,11 +3,13 @@ import {
   editAnnotation,
   getModel,
   isOptical,
+  ponTechnologyOf,
   removeAnnotation,
   removeDevice,
   renameDevice,
   renameProject,
   setDefaultGateway,
+  setOntSerial,
   switchportOf,
   validateDocument,
   type Device,
@@ -27,12 +29,13 @@ import { DhcpMode, DhcpPools } from "./DhcpForms";
 import { DnsServerForm, DnsServiceSection } from "./DnsForms";
 import { SubinterfacesSection } from "./SubinterfacesSection";
 import { SwitchportForm } from "./SwitchportForm";
+import { PonTab } from "./PonTab";
 import { RoutesTab } from "./RoutesTab";
 import { SingleFieldForm } from "./SingleFieldForm";
 import { StpForm } from "./StpForm";
 
 const t = messages.properties;
-type DeviceTab = "general" | "interfaces" | "routes";
+type DeviceTab = "general" | "interfaces" | "routes" | "pon";
 
 function findLinkOnPort(doc: NfgDocument, deviceId: string, portId: string) {
   return doc.topology.links.find((link) => link.endpoints.some((end) => end.deviceId === deviceId && end.portId === portId));
@@ -84,6 +87,8 @@ function ProjectProperties({ projectId, project }: { projectId: string; project:
 function GeneralTab({ projectId, project, device }: { projectId: string; project: OpenProject; device: Device }) {
   const model = getModel(device.model);
   const editable = project.access === "editor";
+  const technology = ponTechnologyOf(device.model);
+  const serial = project.document.configurations[device.id]?.serialNumber ?? "";
   return (
     <div className="flex flex-col gap-4 p-4">
       <SingleFieldForm
@@ -101,7 +106,23 @@ function GeneralTab({ projectId, project, device }: { projectId: string; project
         <dd className="text-text">{t.kind[model.kind]}</dd>
         <dt className="text-text-muted">{t.portsLabel}</dt>
         <dd className="text-text">{fill(isOptical(model.kind) ? t.portsFiber : t.ports, { count: model.ports.length })}</dd>
+        {technology && (
+          <>
+            <dt className="text-text-muted">{t.technology}</dt>
+            <dd className="text-text">{t.technologies[technology]}</dd>
+          </>
+        )}
       </dl>
+      {model.kind === "ont" && (
+        <SingleFieldForm
+          key={serial}
+          label={t.ontSerial}
+          hint={t.ontSerialHint}
+          initial={serial}
+          disabled={!editable}
+          onApply={(value) => useLabStore.getState().apply(projectId, (doc) => setOntSerial(doc, { deviceId: device.id, serial: value }))}
+        />
+      )}
       {model.kind === "switch" && (
         <StpForm
           key={JSON.stringify(project.document.configurations[device.id]?.stp)}
@@ -232,6 +253,7 @@ function DeviceProperties({ projectId, project, device, issues }: { projectId: s
           { id: "general", label: t.general },
           { id: "interfaces", label: isOptical(getModel(device.model).kind) ? t.portsTab : t.interfaces },
           ...(getModel(device.model).kind === "router" ? [{ id: "routes" as const, label: t.routes }] : []),
+          ...(getModel(device.model).kind === "olt" ? [{ id: "pon" as const, label: t.ponTab }] : []),
         ]}
         selected={tab}
         onSelect={setTab}
@@ -241,6 +263,8 @@ function DeviceProperties({ projectId, project, device, issues }: { projectId: s
           <GeneralTab projectId={projectId} project={project} device={device} />
         ) : tab === "routes" ? (
           <RoutesTab projectId={projectId} project={project} device={device} />
+        ) : tab === "pon" ? (
+          <PonTab projectId={projectId} doc={project.document} device={device} disabled={project.access !== "editor"} />
         ) : (
           <InterfacesTab projectId={projectId} project={project} device={device} />
         )}

@@ -3,7 +3,7 @@ import { messages } from "../../i18n";
 import type { OpenProject } from "../lab/store";
 import { TopologyCanvas } from "../lab/topology/TopologyCanvas";
 import { statusText } from "./format";
-import { ontStatuses, useIsExercise, useOpticalReport } from "./hooks";
+import { ontStatuses, useIsExercise, useOpticalReport, usePonReport } from "./hooks";
 import { useOpticsSession } from "./store";
 
 const t = messages.optics;
@@ -12,6 +12,7 @@ const t = messages.optics;
 export function OpticsView({ projectId, project }: { projectId: string; project: OpenProject }) {
   const exercise = useIsExercise(projectId);
   const report = useOpticalReport(project.document);
+  const pon = usePonReport(project.document, report);
   const { selectedPathId } = useOpticsSession(projectId);
   const selected = report.paths.find((path) => path.id === selectedPathId);
 
@@ -21,10 +22,16 @@ export function OpticsView({ projectId, project }: { projectId: string; project:
   );
   const details = useMemo(() => {
     const map = new Map<string, string>();
-    for (const [ontId, status] of ontStatuses(report)) map.set(ontId, statusText(status, exercise));
+    // Sous chaque ONT : l'état optique, puis l'état d'activation PON quand la lumière passe (un chemin conforme ne suffit pas).
+    const states = new Map(pon.onts.map((ont) => [ont.ontId, ont.state]));
+    for (const [ontId, status] of ontStatuses(report)) {
+      const state = states.get(ontId);
+      const inService = status === "ok" || status === "low-margin";
+      map.set(ontId, inService && state ? `${statusText(status, exercise)} · ${state === "O5" ? "" : `${t.pon.stateSymbol[state]} `}${t.pon.stateShort[state]}` : statusText(status, exercise));
+    }
     for (const ontId of report.unreachedOnts) map.set(ontId, `${t.symbol.cut} ${t.unreachedShort}`);
     return map;
-  }, [report, exercise]);
+  }, [report, pon, exercise]);
 
   return <TopologyCanvas projectId={projectId} project={project} mode="optics" highlightLinks={highlight} deviceDetails={details} />;
 }

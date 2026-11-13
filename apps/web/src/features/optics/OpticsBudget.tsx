@@ -1,4 +1,4 @@
-import { ODN_CLASS_B_PLUS, type BudgetFigures, type Direction, type DirectionBudget, type OpticalPath } from "@netforge/engine";
+import { type BudgetFigures, type Direction, type DirectionBudget, type OpticalPath } from "@netforge/engine";
 import type { NfgDocument } from "@netforge/project";
 import { useState } from "react";
 import { Notice } from "../../components/ui/Notice";
@@ -21,19 +21,19 @@ function DirectionSummary({ doc, budget, exercise, reserve }: { doc: NfgDocument
   // En exercice, seul le bilan de conception est affiché : les pannes se découvrent à la mesure.
   const figures: BudgetFigures = exercise ? budget.nominal : budget.actual;
   const withFaults = !exercise && budget.actual.lossMaxDb !== budget.nominal.lossMaxDb;
-  const blocked = figures.status === "cut" || figures.status === "incompatible";
+  const blocked = figures.status === "cut" || figures.status === "incompatible" || figures.status === "technology-mismatch";
   const title = fill(budget.direction === "downstream" ? t.downstream : t.upstream, { wavelength: formatWavelength(budget.wavelengthNm) });
   return (
     <section aria-label={title} className="flex flex-col gap-2 rounded-md border border-border p-3">
       <h4 className="text-sm font-semibold text-text">{title}</h4>
       <dl className="flex flex-col gap-1.5 text-xs">
-        <Row label={fill(t.transmitter, { device: deviceName(doc, budget.transmitter.deviceId) })} value={fill(t.txRange, { min: formatDb(budget.txMinDbm), max: formatDb(budget.txMaxDbm) })} />
+        <Row label={fill(t.transmitter, { device: deviceName(doc, budget.transmitter.deviceId), profile: t.profiles[budget.transmitterProfile] })} value={fill(t.txRange, { min: formatDb(budget.txMinDbm), max: formatDb(budget.txMaxDbm) })} />
         <Row
-          label={fill(t.receiver, { device: deviceName(doc, budget.receiver.deviceId) })}
+          label={fill(t.receiver, { device: deviceName(doc, budget.receiver.deviceId), profile: t.profiles[budget.receiverProfile] })}
           value={fill(t.rxLimits, { sensitivity: formatDb(budget.sensitivityDbm), overload: formatDb(budget.overloadDbm) })}
         />
         <Row label={t.penalty} value={fill(t.db, { value: formatDb(budget.penaltyDb) })} />
-        <Row label={t.available} value={fill(t.availableValue, { value: formatDb(budget.availableDb), min: ODN_CLASS_B_PLUS.minLossDb, max: ODN_CLASS_B_PLUS.maxLossDb })} />
+        <Row label={t.available} value={fill(t.availableValue, { value: formatDb(budget.availableDb), odnClass: budget.odnClass.id, min: budget.odnClass.minLossDb, max: budget.odnClass.maxLossDb })} />
         <Row label={t.loss} value={fill(t.lossValue, { min: formatDb(budget.nominal.lossMinDb), max: formatDb(budget.nominal.lossMaxDb) })} />
         {withFaults && <Row label={t.lossWithFaults} value={fill(t.lossValue, { min: formatDb(budget.actual.lossMinDb), max: formatDb(budget.actual.lossMaxDb) })} />}
         {!blocked && (

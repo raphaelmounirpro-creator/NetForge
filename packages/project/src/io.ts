@@ -1,4 +1,5 @@
 import { DEVICE_MODELS, getModel, type DeviceModelId } from "./catalog.js";
+import { formatPonSerial } from "./pon.js";
 import { error, type Issue } from "./issues.js";
 import { STP_DEFAULT_PRIORITY } from "./stp.js";
 import { CURRENT_SCHEMA_VERSION, LIMITS, NFG_FORMAT, nfgDocumentSchema, type NfgDocument } from "./schema.js";
@@ -182,6 +183,35 @@ function migrateV11toV12(doc: Record<string, unknown>): Record<string, unknown> 
 }
 
 /**
+ * Version 12 → 13 : catalogue 3 (OLT et ONT XGS-PON ajoutés, aucun modèle
+ * modifié). Chaque ONT reçoit un numéro de série NetForge, dans l'ordre des
+ * équipements (NFGE00000001, NFGE00000002…) ; aucun OLT n'a d'ONT autorisé :
+ * les ONT existants sont découverts mais pas enregistrés tant que le
+ * formateur ne les autorise pas.
+ */
+function migrateV12toV13(doc: Record<string, unknown>): Record<string, unknown> {
+  const configs = doc["configurations"];
+  const topology = doc["topology"];
+  const devices: unknown[] = isRecord(topology) && Array.isArray(topology["devices"]) ? (topology["devices"] as unknown[]) : [];
+  const serials = new Map<string, string>();
+  for (const device of devices) {
+    if (!isRecord(device) || typeof device["id"] !== "string" || typeof device["model"] !== "string") continue;
+    if (!Object.hasOwn(DEVICE_MODELS, device["model"])) continue;
+    if (getModel(device["model"] as DeviceModelId).kind === "ont") serials.set(device["id"], formatPonSerial(serials.size + 1));
+  }
+  return {
+    ...doc,
+    schemaVersion: 13,
+    models: isRecord(doc["models"]) && doc["models"]["catalog"] === 2 ? { ...doc["models"], catalog: 3 } : doc["models"],
+    configurations: isRecord(configs)
+      ? Object.fromEntries(
+          Object.entries(configs).map(([id, config]) => [id, isRecord(config) ? { ...config, ponAuthorizations: {}, serialNumber: serials.get(id) ?? null } : config]),
+        )
+      : configs,
+  };
+}
+
+/**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
  */
@@ -197,6 +227,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   9: migrateV9toV10,
   10: migrateV10toV11,
   11: migrateV11toV12,
+  12: migrateV12toV13,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

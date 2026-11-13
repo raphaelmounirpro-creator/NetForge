@@ -88,7 +88,7 @@ test("exercice créé dans l'éditeur, essayé, publié, puis passé et noté pa
   await dialog.getByRole("button", { name: "Soumettre" }).click();
   await expect(panel.getByText("Note : 30 / 30")).toBeVisible();
   await expect(panel.getByText(/Nouvelle étape : 20 \/ 20 \(obtenu\)/)).toBeVisible();
-  await expect(panel.getByText(/correcteur version 9/)).toBeVisible();
+  await expect(panel.getByText(/correcteur version 10/)).toBeVisible();
 
   // Tentatives épuisées ; résultat consultable depuis la page de l'évaluation.
   await student.goto(link);

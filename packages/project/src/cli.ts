@@ -16,6 +16,8 @@ import {
   setBgpAs,
   setBgpNeighbor,
   setBgpNetwork,
+  setOntSerial,
+  setPonAuthorization,
   setRipInterface,
   setVrrpGroup,
   setStp,
@@ -26,6 +28,7 @@ import { DHCP_LEASE_DEFAULT, formatLeaseDuration, parseDhcpPoolInput } from "./d
 import { isDnsAddress, normalizeDnsName, parseDnsRecordInput, sortedDnsRecords } from "./dns.js";
 import { BGP_AS_MAX, BGP_AS_MIN, isBgpAs } from "./bgp.js";
 import { error, type Issue } from "./issues.js";
+import { ONU_ID_MAX, ponTechnologyOf } from "./pon.js";
 import { VRID_MAX, VRID_MIN, VRRP_DEFAULT_PRIORITY, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority } from "./vrrp.js";
 import {
   OSPF_BACKBONE_AREA,
@@ -76,6 +79,7 @@ export type CliRequest =
   | { readonly kind: "show-ospf-database" }
   | { readonly kind: "show-vrrp" }
   | { readonly kind: "show-bgp" }
+  | { readonly kind: "show-pon" }
   | { readonly kind: "ipconfig" }
   /** Client DHCP d'un PC : renouveler ou libérer le bail (demande d'exécution). */
   | { readonly kind: "dhcp"; readonly action: "renew" | "release" }
@@ -149,6 +153,9 @@ interface CommandSpec {
 
 const ALL_MODES: readonly ModeKind[] = ["operation", "config", "interface"];
 const NETWORK_DEVICES: readonly DeviceKind[] = ["router", "switch"];
+/** Équipements actifs du réseau optique : OLT (autorisations) et ONT (numéro de série). */
+const PON_DEVICES: readonly DeviceKind[] = ["olt", "ont"];
+const CONFIGURABLE_DEVICES: readonly DeviceKind[] = [...NETWORK_DEVICES, ...PON_DEVICES];
 
 const ok = (mode: CliMode, extra: { edit?: (doc: NfgDocument) => CommandResult; request?: CliRequest } = {}): CliResult => ({
   ok: true,
@@ -207,6 +214,12 @@ function asNumber(text: string): number | null {
   return isBgpAs(value) ? value : null;
 }
 
+/** Port PON d'un OLT saisi à la console (casse ignorée), ou null. */
+function ponPort(device: Device, text: string): string | null {
+  const port = text.toLowerCase();
+  return getModel(device.model).ports.some((item) => item.id === port) ? port : null;
+}
+
 function pcPort(device: Device): string {
   return getModel(device.model).ports[0]?.id ?? "eth0";
 }
@@ -218,7 +231,7 @@ const COMMANDS: readonly CommandSpec[] = [
     words: ["help"],
     syntax: "",
     modes: ALL_MODES,
-    devices: ["pc", "router", "switch"],
+    devices: ["pc", "router", "switch", "olt", "ont"],
     required: [],
     maxArgs: 0,
     run: ({ device, mode }) => ok(mode, { request: { kind: "help", entries: helpEntries(device, mode) } }),
@@ -228,7 +241,7 @@ const COMMANDS: readonly CommandSpec[] = [
     words: ["cls"],
     syntax: "",
     modes: ALL_MODES,
-    devices: ["pc", "router", "switch"],
+    devices: ["pc", "router", "switch", "olt", "ont"],
     required: [],
     maxArgs: 0,
     run: ({ mode }) => ok(mode, { request: { kind: "clear-screen" } }),
@@ -435,7 +448,7 @@ const COMMANDS: readonly CommandSpec[] = [
     words: ["show", "config"],
     syntax: "",
     modes: ALL_MODES,
-    devices: NETWORK_DEVICES,
+    devices: CONFIGURABLE_DEVICES,
     required: [],
     maxArgs: 0,
     run: ({ mode }) => ok(mode, { request: { kind: "show-config" } }),
@@ -545,6 +558,16 @@ const COMMANDS: readonly CommandSpec[] = [
     run: ({ mode }) => ok(mode, { request: { kind: "show-bgp" } }),
   },
   {
+    id: "show-pon",
+    words: ["show", "pon"],
+    syntax: "",
+    modes: ALL_MODES,
+    devices: PON_DEVICES,
+    required: [],
+    maxArgs: 0,
+    run: ({ mode }) => ok(mode, { request: { kind: "show-pon" } }),
+  },
+  {
     id: "show-vrrp",
     words: ["show", "vrrp"],
     syntax: "",
@@ -634,7 +657,7 @@ const COMMANDS: readonly CommandSpec[] = [
     words: ["configure"],
     syntax: "",
     modes: ["operation"],
-    devices: NETWORK_DEVICES,
+    devices: CONFIGURABLE_DEVICES,
     required: [],
     maxArgs: 0,
     run: () => ok({ kind: "config" }),
@@ -644,7 +667,7 @@ const COMMANDS: readonly CommandSpec[] = [
     words: ["exit"],
     syntax: "",
     modes: ["config", "interface"],
-    devices: NETWORK_DEVICES,
+    devices: CONFIGURABLE_DEVICES,
     required: [],
     maxArgs: 0,
     run: ({ mode }) => ok(mode.kind === "interface" ? { kind: "config" } : OPERATION_MODE),
@@ -654,7 +677,7 @@ const COMMANDS: readonly CommandSpec[] = [
     words: ["end"],
     syntax: "",
     modes: ["config", "interface"],
-    devices: NETWORK_DEVICES,
+    devices: CONFIGURABLE_DEVICES,
     required: [],
     maxArgs: 0,
     run: () => ok(OPERATION_MODE),
@@ -665,7 +688,7 @@ const COMMANDS: readonly CommandSpec[] = [
     words: ["hostname"],
     syntax: "<nom>",
     modes: ["config"],
-    devices: NETWORK_DEVICES,
+    devices: CONFIGURABLE_DEVICES,
     required: ["nom"],
     maxArgs: 1,
     run: ({ device, mode, args }) => ok(mode, { edit: (doc) => renameDevice(doc, { deviceId: device.id, name: args[0] ?? "" }) }),
@@ -1043,6 +1066,54 @@ const COMMANDS: readonly CommandSpec[] = [
     },
   },
   {
+    id: "ont-add",
+    words: ["ont", "add"],
+    syntax: "<port> <numéro-de-série> [onu-id <identifiant>]",
+    modes: ["config"],
+    devices: ["olt"],
+    required: ["port", "numéro-de-série"],
+    maxArgs: 4,
+    run: ({ device, mode, args }) => {
+      const [portArg = "", serial = "", keyword, value] = args;
+      const port = ponPort(device, portArg);
+      if (port === null) return fail(mode, "cli.unknown-port", { port: portArg, ports: getModel(device.model).ports.map((item) => item.id).join(", ") });
+      if (keyword === undefined) return ok(mode, { edit: (doc) => setPonAuthorization(doc, { deviceId: device.id, portId: port, serial, present: true }) });
+      if (keyword.toLowerCase() !== "onu-id") return fail(mode, "cli.unexpected-argument", { word: keyword });
+      if (value === undefined) return fail(mode, "cli.missing-argument", { argument: "identifiant" });
+      const onuId = /^\d{1,4}$/.test(value) ? Number(value) : Number.NaN;
+      if (Number.isNaN(onuId)) {
+        const max = ONU_ID_MAX[ponTechnologyOf(device.model) ?? "gpon"];
+        return invalid(mode, [error("pon.invalid-onu-id", { deviceId: device.id, deviceName: device.name, portId: port, value, max })]);
+      }
+      return ok(mode, { edit: (doc) => setPonAuthorization(doc, { deviceId: device.id, portId: port, serial, present: true, onuId }) });
+    },
+  },
+  {
+    id: "ont-delete",
+    words: ["ont", "delete"],
+    syntax: "<port> <numéro-de-série>",
+    modes: ["config"],
+    devices: ["olt"],
+    required: ["port", "numéro-de-série"],
+    maxArgs: 2,
+    run: ({ device, mode, args }) => {
+      const [portArg = "", serial = ""] = args;
+      const port = ponPort(device, portArg);
+      if (port === null) return fail(mode, "cli.unknown-port", { port: portArg, ports: getModel(device.model).ports.map((item) => item.id).join(", ") });
+      return ok(mode, { edit: (doc) => setPonAuthorization(doc, { deviceId: device.id, portId: port, serial, present: false }) });
+    },
+  },
+  {
+    id: "serial-number",
+    words: ["serial-number"],
+    syntax: "<numéro-de-série>",
+    modes: ["config"],
+    devices: ["ont"],
+    required: ["numéro-de-série"],
+    maxArgs: 1,
+    run: ({ device, mode, args }) => ok(mode, { edit: (doc) => setOntSerial(doc, { deviceId: device.id, serial: args[0] ?? "" }) }),
+  },
+  {
     id: "route-add",
     words: ["route", "add"],
     syntax: "<réseau>/<préfixe> via <prochain-saut>",
@@ -1222,8 +1293,10 @@ export function complete(doc: NfgDocument, deviceId: string, mode: CliMode, line
     if (startingWith([spec], keywords).length === 0) continue;
     const next = spec.words[done.length];
     if (next !== undefined) options.add(next);
-    // Après « interface », propose les ports de l'équipement.
-    else if (spec.id === "interface" && done.length === 1) for (const port of getModel(device.model).ports) options.add(port.id);
+    // Après « interface » ou « ont add|delete », propose les ports de l'équipement.
+    else if ((spec.id === "interface" && done.length === 1) || ((spec.id === "ont-add" || spec.id === "ont-delete") && done.length === 2)) {
+      for (const port of getModel(device.model).ports) options.add(port.id);
+    }
   }
   const candidates = [...options].filter((option) => option.startsWith(partial)).sort();
   if (candidates.length === 1) {
@@ -1250,6 +1323,19 @@ export function configurationCommands(doc: NfgDocument, deviceId: string): strin
     return lines;
   }
   const lines = ["configure", `hostname ${device.name}`];
+  if (model.kind === "ont") {
+    if (config?.serialNumber) lines.push(`serial-number ${config.serialNumber}`);
+    lines.push("end");
+    return lines;
+  }
+  if (model.kind === "olt") {
+    // ONT autorisés, port par port, avec l'identifiant d'ONU attribué.
+    for (const port of model.ports) {
+      for (const entry of config?.ponAuthorizations[port.id] ?? []) lines.push(`ont add ${port.id} ${entry.serial} onu-id ${String(entry.onuId)}`);
+    }
+    lines.push("end");
+    return lines;
+  }
   for (const port of model.ports) {
     const ipv4 = config?.interfaces[port.id]?.ipv4;
     if (ipv4) lines.push(`interface ${port.id}`, `address ${ipv4.address}/${String(ipv4.prefixLength)}`, "exit");

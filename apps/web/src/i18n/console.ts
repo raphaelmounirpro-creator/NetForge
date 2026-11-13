@@ -1,7 +1,8 @@
-import type { DeviceView } from "@netforge/engine";
+import { analyzePon, type DeviceView } from "@netforge/engine";
 import { formatVlanList, getModel, prefixToMask, switchportOf, type CliError, type CliHelpEntry, type NfgDocument } from "@netforge/project";
 import { fill, messages } from "./index";
 import { formatSimTime, ospfSequence, type NameIndex } from "./simulation";
+import { blockText, ontStateText } from "../features/optics/format";
 
 /**
  * Sorties de la console mises en forme à partir des codes de l'interpréteur
@@ -242,6 +243,46 @@ export function showBgp(view: DeviceView): string[] {
       bgp.table.map((route) => [route.network, route.asPath.length === 0 ? "—" : route.asPath.join(" "), route.nextHop ?? r.bgpLocal, route.best ? r.bgpBest : r.bgpAlternative]),
     ),
   ];
+}
+
+/**
+ * « show pon » : activation PON calculée par le moteur (analyse statique, sans
+ * simulation chargée). OLT : ONT autorisés et découverts par port ; ONT : état
+ * et étapes. Comme la console d'un équipement réel, on n'y lit que des
+ * symptômes (puissance, numéro de série), jamais la panne.
+ */
+export function showPon(doc: NfgDocument, deviceId: string): string[] {
+  const report = analyzePon(doc);
+  const p = messages.optics.pon;
+  const technology = messages.optics.technology;
+  const c = t.columns;
+  const name = (id: string) => doc.topology.devices.find((device) => device.id === id)?.name ?? id;
+  const ont = report.onts.find((item) => item.ontId === deviceId);
+  if (ont) {
+    return [
+      fill(p.ont, { name: name(ont.ontId), technology: technology[ont.technology], serial: ont.serial ?? p.noSerial }),
+      ontStateText(ont.state),
+      ont.state === "O5" && ont.olt && ont.onuId !== null ? fill(p.onuId, { onuId: ont.onuId, olt: name(ont.olt.deviceId), port: ont.olt.portId }) : blockText(ont, true),
+      "",
+      ...table(
+        [c.step, c.outcome],
+        ont.steps.map(({ step, outcome }) => [p.steps[ont.technology][step], p.outcome[outcome]]),
+      ),
+    ];
+  }
+  const ports = report.ports.filter((port) => port.oltId === deviceId);
+  if (ports.length === 0) return [t.ponNoPort];
+  return ports.flatMap((port, index) => [
+    ...(index > 0 ? [""] : []),
+    fill(p.port, { olt: name(port.oltId), port: port.portId, technology: technology[port.technology] }),
+    ...table(
+      [c.serial, c.onuId, c.ont, c.state],
+      [
+        ...port.authorizations.map((entry) => [entry.serial, String(entry.onuId), entry.ontId ? name(entry.ontId) : "—", entry.state ? ontStateText(entry.state) : p.absent]),
+        ...port.discovered.map((item) => [item.serial, "—", name(item.ontId), p.blocks[item.block]]),
+      ],
+    ),
+  ]);
 }
 
 /** « show vrrp » : groupes VRRP, état, priorité, maître connu et échéances calculés par le moteur. */

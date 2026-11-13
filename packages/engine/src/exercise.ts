@@ -1,6 +1,7 @@
 import { idSchema, parseIpv4Input, parseNfgValue, type Issue, type NfgDocument } from "@netforge/project";
 import { z } from "zod";
 import { analyzeOptics, CONFORMITY_TOLERANCE_DB, type OpticalStatus, type PowerMeasurement } from "./optics.js";
+import { analyzePon, type OntActivation } from "./pon.js";
 import { createSimulation } from "./simulation.js";
 import type { PingView } from "./views.js";
 
@@ -15,9 +16,12 @@ import type { PingView } from "./views.js";
  * notation vérifiée côté serveur arrive en phase 6).
  * Version 2 (phase 4) : mesures optiques (photomètre, réponses en dB) et
  * critère de service optique. Un exercice version 1 reste valide tel quel.
+ * Version 3 (phase 9) : critère « ONT en fonctionnement » (activation PON
+ * achevée, état O5) et fonction autorisée « pon » (autorisations des OLT,
+ * numéros de série des ONT). Les versions 1 et 2 restent valides telles quelles.
  */
 export const EXERCISE_FORMAT = "netforge-exercise";
-export const EXERCISE_VERSION = 2;
+export const EXERCISE_VERSION = 3;
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const identifier = z.string().regex(/^[a-z0-9-]{1,64}$/);
@@ -30,6 +34,7 @@ export const criterionSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("ping-fails"), from: deviceRef, to: ipv4 }),
   /** Le bilan optique (pannes comprises) de chaque chemin vers cet ONT est dans les limites de réception. */
   z.strictObject({ kind: z.literal("optical-service"), ont: deviceRef }),
+  z.strictObject({ kind: z.literal("ont-operational"), ont: deviceRef }),
 ]);
 export type Criterion = z.infer<typeof criterionSchema>;
 
@@ -90,7 +95,7 @@ export type ExerciseStep = z.infer<typeof stepSchema>;
 
 export const exerciseSchema = z.strictObject({
   format: z.literal(EXERCISE_FORMAT),
-  version: z.union([z.literal(1), z.literal(EXERCISE_VERSION)]),
+  version: z.union([z.literal(1), z.literal(2), z.literal(EXERCISE_VERSION)]),
   id: identifier,
   revision: z.int().min(1),
   title: text(120),
@@ -99,7 +104,7 @@ export const exerciseSchema = z.strictObject({
   objective: text(1000),
   statement: text(2000),
   /** Fonctions utiles à l'exercice (indicatif en phase 3). */
-  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics", "switching"])).max(7),
+  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics", "switching", "pon"])).max(8),
   project: z.unknown(),
   steps: z.array(stepSchema).min(1).max(12),
   hints: z.array(text(600)).max(5),
@@ -182,6 +187,8 @@ export interface CriterionResult {
   readonly replies: number;
   /** Critère optique : état le plus défavorable des chemins vers l'ONT (null s'il n'est atteint par aucun OLT). */
   readonly opticalStatus: OpticalStatus | null;
+  /** Critère PON : état et cause d'arrêt de l'activation de l'ONT (null pour les autres critères). */
+  readonly activation: Pick<OntActivation, "state" | "block"> | null;
 }
 
 const IN_SERVICE: ReadonlySet<OpticalStatus> = new Set<OpticalStatus>(["ok", "low-margin"]);
@@ -198,12 +205,18 @@ export function evaluateCriteria(doc: NfgDocument, criteria: readonly Criterion[
   const results: CriterionResult[] = [];
   let optics: ReturnType<typeof analyzeOptics> | null = null;
   for (const criterion of criteria) {
+    if (criterion.kind === "ont-operational") {
+      optics ??= analyzeOptics(doc);
+      const activation = analyzePon(doc, optics).onts.find((ont) => ont.ontId === criterion.ont);
+      results.push({ criterion, passed: activation?.state === "O5", sent: 0, replies: 0, opticalStatus: null, activation: activation ? { state: activation.state, block: activation.block } : null });
+      continue;
+    }
     if (criterion.kind === "optical-service") {
       optics ??= analyzeOptics(doc);
       const paths = optics.paths.filter((path) => path.ont.deviceId === criterion.ont);
       const statuses = paths.map((path) => path.status);
       const worst = statuses.length === 0 ? null : (statuses.find((status) => !IN_SERVICE.has(status)) ?? statuses[0] ?? null);
-      results.push({ criterion, passed: paths.length > 0 && statuses.every((status) => IN_SERVICE.has(status)), sent: 0, replies: 0, opticalStatus: worst });
+      results.push({ criterion, passed: paths.length > 0 && statuses.every((status) => IN_SERVICE.has(status)), sent: 0, replies: 0, opticalStatus: worst, activation: null });
       continue;
     }
     const created = createSimulation(doc, { seed: 1, parameters: { limits: { maxEvents: EVALUATION_MAX_EVENTS } } });
@@ -212,7 +225,7 @@ export function evaluateCriteria(doc: NfgDocument, criteria: readonly Criterion[
     sim.run({ stopWhenIdle: true, maxEvents: EVALUATION_MAX_EVENTS });
     const outcome = sim.enqueue({ type: "ping", deviceId: criterion.from, destination: criterion.to, count: EVALUATION_ECHOES });
     if (!outcome.ok) {
-      results.push({ criterion, passed: false, sent: 0, replies: 0, opticalStatus: null });
+      results.push({ criterion, passed: false, sent: 0, replies: 0, opticalStatus: null, activation: null });
       continue;
     }
     sim.run({ stopWhenIdle: true, maxEvents: EVALUATION_MAX_EVENTS });
@@ -221,7 +234,7 @@ export function evaluateCriteria(doc: NfgDocument, criteria: readonly Criterion[
     const sent = view?.attempts.length ?? 0;
     const succeeded = view?.done === true && sent > 0 && replies === sent;
     const failed = view?.done === true && replies === 0;
-    results.push({ criterion, passed: criterion.kind === "ping-succeeds" ? succeeded : failed, sent, replies, opticalStatus: null });
+    results.push({ criterion, passed: criterion.kind === "ping-succeeds" ? succeeded : failed, sent, replies, opticalStatus: null, activation: null });
   }
   return { ok: true, results };
 }

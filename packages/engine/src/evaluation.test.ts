@@ -1,8 +1,8 @@
-import { addDevice, addStaticRoute, moveDevice, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setBgpAs, setOspfInterface, setRipInterface, setVrrpGroup, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, setOntSerial, setPonAuthorization, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setBgpAs, setOspfInterface, setRipInterface, setVrrpGroup, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
-import { dhcpScenario, dnsScenario, ftthScenario, bgpScenario, ospfScenario, ripScenario, vrrpScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
+import { dhcpScenario, dnsScenario, ftthScenario, xgsPonScenario, bgpScenario, ospfScenario, ripScenario, vrrpScenario, performanceScenario, switchLoopScenario, twoRoutersScenario, vlanScenario } from "./scenarios.js";
 
 function ok(result: CommandResult): NfgDocument {
   if (!result.ok) throw new Error(result.errors.map((issue) => issue.code).join(", "));
@@ -255,6 +255,29 @@ describe("fonctions autorisées", () => {
     const withoutRip = ripScenario({ rip: false });
     const blocked = exerciseOn(withoutRip, { allowed: ["simulation"], steps: [{ kind: "fix", title: "Joindre PC3", instruction: "Vérifiez le routage.", criteria: [{ kind: "ping-succeeds", from: "pc1", to: "10.3.0.10" }], points: 10 }], hints: [] });
     expect(gradeSubmission(blocked, withoutRip, [], 0)).toMatchObject({ ok: true, score: 0 });
+  });
+
+  it("protègent les autorisations des OLT et le numéro de série des ONT par « pon » ; un ONT ajouté n'est pas une modification PON", () => {
+    const initial = xgsPonScenario();
+    const authorized = ok(setPonAuthorization(initial, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000002", present: true }));
+    expect(forbiddenChanges(initial, authorized, ["optics", "topology"])).toEqual(["pon"]);
+    expect(forbiddenChanges(initial, authorized, ["pon"])).toEqual([]);
+    const relabelled = ok(setOntSerial(initial, { deviceId: "ont1", serial: "ABCD00000001" }));
+    expect(forbiddenChanges(initial, relabelled, ["optics"])).toEqual(["pon"]);
+    const added = ok(addDevice(initial, { id: "ont9", model: "ONT-10G", position: { x: 0, y: 0 } }));
+    expect(forbiddenChanges(initial, added, ["topology"])).toEqual([]);
+  });
+
+  it("notent le critère « ONT en fonctionnement » : un chemin optique conforme ne suffit pas sans autorisation", () => {
+    const initial = xgsPonScenario();
+    const steps = [{ kind: "fix" as const, title: "Raccorder ONT2", instruction: "Mettez l'ONT2 en service.", criteria: [{ kind: "optical-service" as const, ont: "ont2" }, { kind: "ont-operational" as const, ont: "ont2" }], points: 10 }];
+    const exercise = exerciseOn(initial, { version: 3, allowed: ["optics", "pon"], steps, hints: [] });
+    expect(gradeSubmission(exercise, initial, [], 0)).toMatchObject({ ok: true, score: 0, max: 10 });
+    expect(gradeSubmission(exercise, xgsPonScenario({ authorizeOnt2: true }), [], 0)).toMatchObject({ ok: true, score: 10, max: 10 });
+    // L'ONT GPON raccordé à l'OLT XGS-PON ne fonctionne jamais.
+    const mismatch = exerciseOn(initial, { version: 3, allowed: ["pon"], steps: [{ ...steps[0], criteria: [{ kind: "ont-operational" as const, ont: "ont3" }] }], hints: [] });
+    expect(gradeSubmission(mismatch, ok(setPonAuthorization(initial, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000003", present: true })), [], 0)).toMatchObject({ ok: true, score: 0 });
+    expect(EVALUATOR_VERSION).toBe(10);
   });
 
   it("n'autorisent le retrait d'une panne optique qu'avec « optics », et jamais son ajout ou sa modification", () => {

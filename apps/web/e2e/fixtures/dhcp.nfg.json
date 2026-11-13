@@ -1,8 +1,8 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 12,
+  "schemaVersion": 13,
   "models": {
-    "catalog": 2
+    "catalog": 3
   },
   "metadata": {
     "id": "dhcp",
@@ -116,7 +116,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "pc2": {
       "interfaces": {
@@ -135,7 +137,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "sw1": {
       "interfaces": {},
@@ -152,7 +156,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "r1": {
       "interfaces": {
@@ -188,7 +194,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "pc3": {
       "interfaces": {
@@ -210,7 +218,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     }
   },
   "faults": [],

@@ -24,9 +24,15 @@ export function ConsolePanel({ projectId, project }: { projectId: string; projec
   const inputId = useId();
   const outputRef = useRef<HTMLDivElement>(null);
   const doc = project.document;
-  // Les équipements optiques n'ont pas de console en phase 4 (aucune configuration IP).
+  // Équipements passifs du réseau optique : pas de console. OLT et ONT en ont une (configuration PON).
   const devices = useMemo(
-    () => doc.topology.devices.filter((item) => !isOptical(getModel(item.model).kind)).sort((a, b) => compareNames(a.name, b.name)),
+    () =>
+      doc.topology.devices
+        .filter((item) => {
+          const kind = getModel(item.model).kind;
+          return !isOptical(kind) || kind === "olt" || kind === "ont";
+        })
+        .sort((a, b) => compareNames(a.name, b.name)),
     [doc.topology.devices],
   );
   const selected = project.selection?.kind === "device" ? project.selection.id : null;

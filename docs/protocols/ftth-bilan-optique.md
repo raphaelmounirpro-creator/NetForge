@@ -1,6 +1,6 @@
 # Réseau optique FTTH : bilan, mesures et pannes
 
-Niveau : pédagogique simplifié — calcul statique du bilan optique, sans simulation des trames PON (enregistrement des ONT, allocation dynamique de bande et services : phase 9).
+Niveau : pédagogique simplifié — calcul statique du bilan optique, sans simulation des trames PON. Profils GPON (phase 4) et XGS-PON (phase 9) ; enregistrement des ONT : [pon.md](pon.md).
 
 ## Références
 
@@ -17,6 +17,9 @@ Consultées le 2026-11-11 (textes publics de l'UIT-T, téléchargés depuis itu.
   - §6.7.1, connecteur monofibre : 0,5 dB au plus ;
   - §6.14.2, épissure par fusion (alignement actif) : 0,30 dB au plus.
 
+- UIT-T G.9807.1 (02/2023) (XGS-PON, classe N1, consultée le 2026-11-13) : tableaux B.6.1, B.9.3 et B.9.4, détaillés dans [pon.md](pon.md).
+- UIT-T G.652 (08/2024), tableau 2, note 2 (consultée le 2026-11-13) : extension jusqu'à 1 260 nm en ajoutant 0,07 dB/km à la valeur de 1 310 nm.
+
 Aucune conformité normative n'est revendiquée : ces valeurs servent de paramètres pédagogiques documentés.
 
 ## Comportement pris en charge
@@ -26,16 +29,18 @@ Aucune conformité normative n'est revendiquée : ces valeurs servent de paramè
 | Modèle | Rôle | Ports |
 |---|---|---|
 | OLT-16 | Terminal de ligne optique, profil GPON classe B+ | pon1–pon16, connecteur SC/UPC |
+| OLT-XGS-8 | Terminal de ligne optique, profil XGS-PON classe N1 (catalogue 3) | pon1–pon8, connecteur SC/UPC |
 | ODF-12 | Tiroir optique | r1–r12 entrées de câble épissurées, f1–f12 connecteurs SC/APC ; chemin r*n* ↔ f*n* |
 | SPL-2 à SPL-64 | Coupleur 1:N | com et o1–o*N*, amorces épissurées ; chemin com ↔ o*n* |
 | PBO-8 | Point de branchement optique | in1–in8 et out1–out8, une épissure par abonné |
 | PTO | Prise terminale optique | in (câble de raccordement épissuré), out (connecteur SC/APC) |
 | BPE-12 | Boîtier d'épissure | a1–a12 ↔ b1–b12 |
 | ONT-1G | Terminal d'abonné, profil GPON classe B+ | pon, connecteur SC/APC |
+| ONT-10G | Terminal d'abonné, profil XGS-PON classe N1 (catalogue 3) | pon, connecteur SC/APC |
 
 Un câble ne relie que deux ports de même nature (cuivre RJ45 ou fibre) : sinon la commande est refusée (`link.incompatible-media`). Un lien fibre porte sa longueur (0,1 m à 100 km), son type (G.652.D ou G.657.A2) et sa catégorie de câble : « transport ou distribution » (0,40 dB/km) ou « câble court » — jarretière, câble intérieur, raccordement — (1,0 dB/km, valeur d'exemple de la note 1 retenue pour tous les câbles courts). Nouveau lien fibre : jarretière G.657.A2 de 2 m.
 
-Les caractéristiques physiques (ports, fibres), l'état du raccordement (liens, pannes) et le service PON (non simulé en phase 4) sont séparés. Le réseau optique ne transporte aucune trame dans le moteur à événements : il est exclu de la simulation Ethernet et de son empreinte (une modification optique n'impose pas de réinitialiser la simulation).
+Les caractéristiques physiques (ports, fibres), l'état du raccordement (liens, pannes) et le service PON (activation des ONT, [pon.md](pon.md)) sont séparés. Le réseau optique ne transporte aucune trame dans le moteur à événements : il est exclu de la simulation Ethernet et de son empreinte (une modification optique n'impose pas de réinitialiser la simulation).
 
 ### Chemins et comptage des pertes
 
@@ -50,7 +55,7 @@ Règle de comptage, sans double comptage possible :
 
 ### Bilan par sens
 
-Pour chaque chemin : descendant (OLT → ONT, 1 490 nm) et montant (ONT → OLT, 1 310 nm), avec les valeurs de G.984.2 B+.
+Pour chaque chemin : descendant (OLT → ONT) et montant (ONT → OLT), avec le profil de chaque extrémité : GPON B+ (1 490 et 1 310 nm, G.984.2) ou XGS-PON N1 (1 577 et 1 270 nm, G.9807.1). Pénalité de trajet : 0,5 dB par sens en GPON ; 1,0 dB en XGS-PON, 2,0 dB pour le récepteur de l'ONU au-delà de 20 km de fibre (DD40). Fibre : 0,07 dB/km de plus sous 1 310 nm (XGS-PON montant).
 
 | Grandeur | Calcul |
 |---|---|
@@ -59,9 +64,9 @@ Pour chaque chemin : descendant (OLT → ONT, 1 490 nm) et montant (ONT → OLT,
 | Puissance reçue au pire cas | émission minimale − pertes maximales |
 | Marge | puissance reçue au pire cas − (sensibilité + pénalité de trajet) |
 | Marge avant surcharge | surcharge − (émission maximale − pertes minimales) |
-| Budget disponible | émission minimale − sensibilité − pénalité (28 dB dans les deux sens, cohérent avec la classe B+) |
+| Budget disponible | émission minimale − sensibilité − pénalité (28 dB en GPON B+, 29 dB en XGS-PON N1, dans les deux sens, cohérents avec les classes) |
 
-État : coupure, raccordement incompatible, signal trop faible (marge < 0), surcharge, marge faible (marge inférieure à la réserve d'ingénierie), conforme. La **réserve d'ingénierie de 3 dB** est un choix pédagogique, non normatif, réglable dans le moteur. Les valeurs sont conservées en précision complète ; l'affichage arrondit à 0,01 dB (0,001 dB pour les contributions).
+État : coupure, technologies PON incompatibles (OLT et ONT de technologies différentes, dès la conception), raccordement incompatible, signal trop faible (marge < 0), surcharge, marge faible (marge inférieure à la réserve d'ingénierie), conforme. La **réserve d'ingénierie de 3 dB** est un choix pédagogique, non normatif, réglable dans le moteur. Les valeurs sont conservées en précision complète ; l'affichage arrondit à 0,01 dB (0,001 dB pour les contributions).
 
 ### Pannes et mesures
 
@@ -84,9 +89,9 @@ Le formateur voit et injecte les pannes. Pendant un exercice, l'élève ne voit 
 ## Simplifications et limites
 
 - Mesures déterministes au pire cas : aucune valeur « typique » ni dispersion aléatoire n'est inventée.
-- Affaiblissement identique à 1 310 et 1 490 nm (la valeur maximale de G.652 couvre 1 310–1 625 nm) ; pas d'effet Raman, de vidéo superposée ni de filtre WDM.
+- Affaiblissement identique de 1 310 à 1 625 nm (valeur maximale de G.652), majoré de 0,07 dB/km sous 1 310 nm ; calcul à la longueur d'onde nominale de l'émetteur ; pas d'effet Raman, de vidéo superposée ni de filtre WDM.
 - Épissures par fusion à alignement actif uniquement ; pas d'épissure mécanique.
-- Pas de réflectance, d'OTDR, d'atténuateur, ni de numéro de série ou d'enregistrement d'ONT (phase 9).
+- Pas de réflectance, d'OTDR ni d'atténuateur (OTDR : tranche 3 de la phase 9).
 - Un point éclairé par plusieurs OLT (erreur de câblage) est mesuré depuis le premier dans l'ordre des identifiants.
 
 ## Correspondance OSI (pédagogique)
@@ -95,6 +100,7 @@ Couche 1 (physique) : puissance optique, affaiblissement, connectique. Aucune un
 
 ## Tests de référence
 
+- `packages/engine/src/pon.test.ts` : chemin XGS-PON calculé à la main dans les deux sens, majoration sous 1 310 nm, pénalité DD40, technologies incompatibles, photomètre à 1 577 et 1 270 nm.
 - `packages/engine/src/optics.test.ts` : chemin ONT1 calculé à la main (24,974 dB, marge 3,026 dB dans les deux sens), contributions dans l'ordre de chaque sens, comptage (4 connexions, 7 épissures, 2 coupleurs, 6 fibres), trois branches, réserve, marge faible, ONT non atteint, sensibilité insuffisante (cascade 1:64 + 1:8), surcharge, panne distincte de la perte nominale, courbure, épissure, coupure, incompatibilité, photomètre (deux sens), inspection, cohabitation avec la simulation Ethernet.
 - `packages/engine/src/exercise-optics.test.ts` : critère de service optique, réponses en dB, observations du photomètre, format d'exercice v2.
 - `packages/project/src/ftth.test.ts` : connectiques, fibre par défaut, raccordement automatique d'une chaîne FTTH, pannes (cibles, pertes, doublons, limites), suppression en cascade, interventions.

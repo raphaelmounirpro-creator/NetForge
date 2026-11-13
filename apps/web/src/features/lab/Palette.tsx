@@ -24,6 +24,7 @@ const IP_ENTRIES: readonly Entry[] = [
 /** Ordre de la chaîne FTTH, du central à l'abonné ; le coupleur a son propre sélecteur de rapport. */
 const FTTH_BEFORE: readonly Entry[] = [
   { model: "OLT-16", label: t.olt, hint: t.oltHint, icon: Server },
+  { model: "OLT-XGS-8", label: t.oltXgs, hint: t.oltXgsHint, icon: Server },
   { model: "ODF-12", label: t.odf, hint: t.odfHint, icon: SquareStack },
 ];
 const FTTH_AFTER: readonly Entry[] = [
@@ -31,6 +32,7 @@ const FTTH_AFTER: readonly Entry[] = [
   { model: "PBO-8", label: t.pbo, hint: t.pboHint, icon: Box },
   { model: "PTO", label: t.pto, hint: t.ptoHint, icon: Plug },
   { model: "ONT-1G", label: t.ont, hint: t.ontHint, icon: Wifi },
+  { model: "ONT-10G", label: t.ontXgs, hint: t.ontXgsHint, icon: Wifi },
 ];
 const RATIOS = [2, 4, 8, 16, 32, 64] as const;
 const splitterModel = (ratio: (typeof RATIOS)[number]): DeviceModelId => `SPL-${String(ratio)}` as DeviceModelId;

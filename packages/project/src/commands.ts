@@ -2,6 +2,7 @@ import { CATALOG_VERSION, findPort, getModel, type DeviceModelId } from "./catal
 import { DHCP_LEASE_MAX, DHCP_LEASE_MIN, isDhcpLease, type DhcpPool } from "./dhcp.js";
 import { DNS_MAX_RECORDS, isDnsAddress, normalizeDnsName } from "./dns.js";
 import { OSPF_COST_MAX, OSPF_COST_MIN, OSPF_PRIORITY_MAX, isOspfCost, isOspfPriority, parseOspfArea, type OspfInterface } from "./ospf.js";
+import { PON_MAX_AUTHORIZATIONS, isOnuId, lowestFreeOnuId, nextPonSerial, normalizePonSerial, ONU_ID_MAX, ponTechnologyOf } from "./pon.js";
 import type { RipMode } from "./rip.js";
 import { BGP_AS_MAX, BGP_AS_MIN, BGP_MAX_NEIGHBORS, BGP_MAX_NETWORKS, isBgpAs } from "./bgp.js";
 import { VRID_MAX, VRID_MIN, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN, isVrid, isVrrpPriority, type VrrpGroup } from "./vrrp.js";
@@ -56,7 +57,7 @@ function commit(before: NfgDocument, after: NfgDocument): CommandResult {
 }
 
 function emptyConfig(): DeviceConfig {
-  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {}, vrrpGroups: {}, bgp: null };
+  return { interfaces: {}, defaultGateway: null, staticRoutes: [], switchports: {}, stp: null, dhcpPools: {}, dnsServer: null, dnsRecords: null, ripInterfaces: {}, ospfInterfaces: {}, vrrpGroups: {}, bgp: null, ponAuthorizations: {}, serialNumber: null };
 }
 
 function findDevice(doc: NfgDocument, deviceId: string): Device | undefined {
@@ -125,8 +126,15 @@ export function addDevice(
   const name = params.name ?? nextDeviceName(doc, getModel(params.model).namePrefix);
   if (!DEVICE_NAME_PATTERN.test(name)) return fail(error("device.invalid-name", { name }));
   const device: Device = { id: params.id, model: params.model, name };
-  // Un switch neuf a STP activé (comme un équipement réel sorti d'usine).
-  const config = getModel(params.model).kind === "switch" ? { ...emptyConfig(), stp: { enabled: true, priority: STP_DEFAULT_PRIORITY } } : emptyConfig();
+  // Un switch neuf a STP activé (comme un équipement réel sorti d'usine) ;
+  // un ONT neuf porte un numéro de série d'usine, distinct de ceux du projet.
+  const kind = getModel(params.model).kind;
+  const config =
+    kind === "switch"
+      ? { ...emptyConfig(), stp: { enabled: true, priority: STP_DEFAULT_PRIORITY } }
+      : kind === "ont"
+        ? { ...emptyConfig(), serialNumber: nextPonSerial(Object.values(doc.configurations).flatMap((item) => (item.serialNumber === null ? [] : [item.serialNumber]))) }
+        : emptyConfig();
   return commit(doc, {
     ...doc,
     topology: { ...doc.topology, devices: [...doc.topology.devices, device] },
@@ -811,4 +819,55 @@ export function setBgpNetwork(doc: NfgDocument, params: { deviceId: string; netw
   if (bgp.networks.length >= BGP_MAX_NETWORKS) return fail(error("bgp.too-many", { ...base, max: BGP_MAX_NETWORKS }));
   const networks = [...bgp.networks, { address, prefixLength }].sort((a, b) => (parseIpv4(a.address) ?? 0) - (parseIpv4(b.address) ?? 0) || a.prefixLength - b.prefixLength);
   return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, bgp: { ...bgp, networks } } } });
+}
+
+// ---------------------------------------------------------------- PON (v13)
+
+/** Remplace le numéro de série d'un ONT (ONT changé, saisie de l'étiquette). */
+export function setOntSerial(doc: NfgDocument, params: { deviceId: string; serial: string }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  if (getModel(device.model).kind !== "ont") return fail(error("pon.not-ont", { deviceId: device.id, deviceName: device.name }));
+  const serial = normalizePonSerial(params.serial);
+  if (serial === null) return fail(error("pon.invalid-serial", { value: params.serial.trim() }));
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, serialNumber: serial } } });
+}
+
+/**
+ * Autorise un ONT sur un port d'OLT par son numéro de série, avec un
+ * identifiant d'ONU choisi ou, à défaut, le plus petit libre ; ou retire
+ * l'autorisation (present faux).
+ */
+export function setPonAuthorization(
+  doc: NfgDocument,
+  params: { deviceId: string; portId: string; serial: string; present: boolean; onuId?: number },
+): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  const base = { deviceId: device.id, deviceName: device.name };
+  const technology = ponTechnologyOf(device.model);
+  if (getModel(device.model).kind !== "olt" || technology === null) return fail(error("pon.not-olt", base));
+  if (!findPort(device.model, params.portId)) return fail(error("pon.not-pon-port", { ...base, portId: params.portId }));
+  const serial = normalizePonSerial(params.serial);
+  if (serial === null) return fail(error("pon.invalid-serial", { value: params.serial.trim() }));
+  const config = doc.configurations[device.id] ?? emptyConfig();
+  const current = config.ponAuthorizations[params.portId] ?? [];
+  const others = current.filter((entry) => entry.serial !== serial);
+  const write = (entries: readonly { serial: string; onuId: number }[]) => {
+    const { [params.portId]: _removed, ...rest } = config.ponAuthorizations;
+    const ponAuthorizations = entries.length === 0 ? rest : { ...rest, [params.portId]: [...entries].sort((a, b) => a.onuId - b.onuId) };
+    return commit(doc, { ...doc, configurations: { ...doc.configurations, [device.id]: { ...config, ponAuthorizations } } });
+  };
+  if (!params.present) {
+    if (others.length === current.length) return fail(error("pon.not-authorized", { ...base, portId: params.portId, serial }));
+    return write(others);
+  }
+  if (others.length !== current.length) return fail(error("pon.duplicate-serial", { ...base, portId: params.portId, serial }));
+  if (current.length >= PON_MAX_AUTHORIZATIONS) return fail(error("pon.too-many", { ...base, portId: params.portId, max: PON_MAX_AUTHORIZATIONS }));
+  const onuId = params.onuId ?? lowestFreeOnuId(technology, current);
+  if (onuId === null) return fail(error("pon.no-free-onu-id", { ...base, portId: params.portId }));
+  if (!isOnuId(technology, onuId)) return fail(error("pon.invalid-onu-id", { ...base, portId: params.portId, value: String(onuId), max: ONU_ID_MAX[technology] }));
+  if (current.some((entry) => entry.onuId === onuId)) return fail(error("pon.duplicate-onu-id", { ...base, portId: params.portId, onuId }));
+  return write([...current, { serial, onuId }]);
 }

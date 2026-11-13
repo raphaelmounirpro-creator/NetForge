@@ -6,7 +6,7 @@ import { create } from "zustand";
  * du photomètre et journal des mesures (jamais exporté ; il sert aussi aux
  * vérifications d'un exercice).
  */
-export type OpticsTab = "budget" | "measure" | "interventions" | "faults";
+export type OpticsTab = "budget" | "pon" | "measure" | "interventions" | "faults";
 
 export type OpticsLogEntry =
   | { readonly id: number; readonly kind: "power"; readonly measurement: PowerMeasurement }

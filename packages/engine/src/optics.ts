@@ -1,6 +1,7 @@
 import {
   findPort,
   getModel,
+  ponTechnologyOf,
   type Device,
   type Fault,
   type FaultKind,
@@ -8,10 +9,11 @@ import {
   type FiberConnector,
   type NfgDocument,
   type OpticalProfileId,
+  type PonTechnology,
 } from "@netforge/project";
 
 /**
- * Bilan optique d'un réseau PON (phase 4).
+ * Bilan optique d'un réseau PON (phase 4 ; XGS-PON en phase 9).
  *
  * Calcul statique, sans événement : pour chaque chemin OLT → ONT, liste des
  * éléments réellement traversés (connexions, fibres, épissures, coupleurs),
@@ -25,25 +27,52 @@ export type Direction = "downstream" | "upstream";
 
 export interface TransceiverProfile {
   readonly id: OpticalProfileId;
+  readonly technology: PonTechnology;
+  /** Longueur d'onde nominale d'émission, utilisée pour l'affaiblissement de la fibre. */
   readonly txWavelengthNm: number;
+  /** Bande d'émission autorisée par la recommandation. */
+  readonly txBandNm: readonly [number, number];
   readonly txMinDbm: number;
   readonly txMaxDbm: number;
   readonly rxWavelengthNm: number;
   readonly rxSensitivityDbm: number;
   readonly rxOverloadDbm: number;
+  /** Pénalité de trajet optique admise par ce récepteur. */
+  readonly rxPathPenaltyDb: number;
+  /** Pénalité au-delà de 20 km de fibre (catégorie DD40), ou null si la recommandation n'en distingue pas. */
+  readonly rxPathPenaltyLongReachDb: number | null;
 }
 
-/** UIT-T G.984.2 (08/2019), annexe A, tableau A.1, classe B+. */
+/**
+ * GPON classe B+ : UIT-T G.984.2 (08/2019), §8.2.5 et annexe A, tableau A.1.
+ * XGS-PON classe N1 : UIT-T G.9807.1 (02/2023), tableaux B.9.3 (sens
+ * descendant : OLT, puis récepteur de l'ONU) et B.9.4 (sens montant).
+ */
 export const TRANSCEIVER_PROFILES: Readonly<Record<OpticalProfileId, TransceiverProfile>> = {
-  "gpon-b+-olt": { id: "gpon-b+-olt", txWavelengthNm: 1490, txMinDbm: 1.5, txMaxDbm: 5, rxWavelengthNm: 1310, rxSensitivityDbm: -28, rxOverloadDbm: -8 },
-  "gpon-b+-ont": { id: "gpon-b+-ont", txWavelengthNm: 1310, txMinDbm: 0.5, txMaxDbm: 5, rxWavelengthNm: 1490, rxSensitivityDbm: -27, rxOverloadDbm: -8 },
+  "gpon-b+-olt": { id: "gpon-b+-olt", technology: "gpon", txWavelengthNm: 1490, txBandNm: [1480, 1500], txMinDbm: 1.5, txMaxDbm: 5, rxWavelengthNm: 1310, rxSensitivityDbm: -28, rxOverloadDbm: -8, rxPathPenaltyDb: 0.5, rxPathPenaltyLongReachDb: null },
+  "gpon-b+-ont": { id: "gpon-b+-ont", technology: "gpon", txWavelengthNm: 1310, txBandNm: [1260, 1360], txMinDbm: 0.5, txMaxDbm: 5, rxWavelengthNm: 1490, rxSensitivityDbm: -27, rxOverloadDbm: -8, rxPathPenaltyDb: 0.5, rxPathPenaltyLongReachDb: null },
+  "xgs-pon-n1-olt": { id: "xgs-pon-n1-olt", technology: "xgs-pon", txWavelengthNm: 1577, txBandNm: [1575, 1580], txMinDbm: 2, txMaxDbm: 5, rxWavelengthNm: 1270, rxSensitivityDbm: -26, rxOverloadDbm: -5, rxPathPenaltyDb: 1, rxPathPenaltyLongReachDb: 1 },
+  "xgs-pon-n1-ont": { id: "xgs-pon-n1-ont", technology: "xgs-pon", txWavelengthNm: 1270, txBandNm: [1260, 1280], txMinDbm: 4, txMaxDbm: 9, rxWavelengthNm: 1577, rxSensitivityDbm: -28, rxOverloadDbm: -9, rxPathPenaltyDb: 1, rxPathPenaltyLongReachDb: 2 },
 };
 
-/** Pénalité de trajet optique par sens (G.984.2 annexe A, classe B+). */
-export const OPTICAL_PATH_PENALTY_DB: Readonly<Record<Direction, number>> = { downstream: 0.5, upstream: 0.5 };
+/** Fibre au-delà de laquelle s'applique la pénalité DD40 (G.9807.1, tableau B.9.3, note 9). */
+export const LONG_REACH_THRESHOLD_M = 20_000;
 
-/** Plage d'affaiblissement du réseau de distribution, classe B+ (G.984.2 annexe A, tableau A.2). */
-export const ODN_CLASS_B_PLUS = { minLossDb: 13, maxLossDb: 28 } as const;
+export interface OdnClass {
+  readonly id: "B+" | "N1";
+  readonly minLossDb: number;
+  readonly maxLossDb: number;
+}
+
+/**
+ * Plage d'affaiblissement du réseau de distribution : classe B+ (G.984.2
+ * annexe A, tableau A.2) et classe N1 (G.9807.1, tableau B.6.1).
+ */
+export const ODN_CLASSES: Readonly<Record<PonTechnology, OdnClass>> = {
+  gpon: { id: "B+", minLossDb: 13, maxLossDb: 28 },
+  "xgs-pon": { id: "N1", minLossDb: 14, maxLossDb: 29 },
+};
+export const ODN_CLASS_B_PLUS = ODN_CLASSES.gpon;
 
 /**
  * Pertes nominales. Maximums : G.652 (08/2024) tableau 2 (câble, 1 310–1 625 nm ;
@@ -53,8 +82,15 @@ export const ODN_CLASS_B_PLUS = { minLossDb: 13, maxLossDb: 28 } as const;
  * prudent pour la vérification de surcharge.
  */
 export const OPTICAL_LOSSES = {
-  /** Câble de transport ou de distribution : maximum du tableau 2 de G.652. */
+  /** Câble de transport ou de distribution : maximum du tableau 2 de G.652 (1 310 à 1 625 nm). */
   fiberDistributionDbPerKm: 0.4,
+  /**
+   * Note 2 du tableau 2 de G.652 : la plage s'étend jusqu'à 1 260 nm en
+   * ajoutant 0,07 dB/km (diffusion de Rayleigh) à la valeur de 1 310 nm.
+   * Appliqué sous 1 310 nm (XGS-PON montant, 1 270 nm), aussi aux câbles
+   * courts par analogie (choix NetForge).
+   */
+  below1310ExtraDbPerKm: 0.07,
   /**
    * Câble court (jarretière, intérieur, raccordement) : la note 1 du tableau 2
    * de G.652 exclut ces câbles du tableau et cite 1,0 dB/km pour un câble
@@ -107,9 +143,10 @@ export interface PathElement {
   readonly faults: readonly AppliedFault[];
 }
 
-export type OpticalStatus = "ok" | "low-margin" | "overload" | "below-sensitivity" | "incompatible" | "cut";
+/** « technology-mismatch » : OLT et ONT de technologies PON différentes (longueurs d'onde et débits incompatibles). */
+export type OpticalStatus = "ok" | "low-margin" | "overload" | "below-sensitivity" | "incompatible" | "technology-mismatch" | "cut";
 
-const SEVERITY: Readonly<Record<OpticalStatus, number>> = { ok: 0, "low-margin": 1, overload: 2, "below-sensitivity": 3, incompatible: 4, cut: 5 };
+const SEVERITY: Readonly<Record<OpticalStatus, number>> = { ok: 0, "low-margin": 1, overload: 2, "below-sensitivity": 3, incompatible: 4, "technology-mismatch": 5, cut: 6 };
 
 export function worstStatus(statuses: readonly OpticalStatus[]): OpticalStatus {
   return statuses.reduce<OpticalStatus>((worst, status) => (SEVERITY[status] > SEVERITY[worst] ? status : worst), "ok");
@@ -141,6 +178,11 @@ export interface BudgetFigures {
 export interface DirectionBudget {
   readonly direction: Direction;
   readonly wavelengthNm: number;
+  /** Profils de l'émetteur et du récepteur de ce sens. */
+  readonly transmitterProfile: OpticalProfileId;
+  readonly receiverProfile: OpticalProfileId;
+  /** Classe d'affaiblissement du réseau de distribution, d'après la technologie de l'OLT. */
+  readonly odnClass: OdnClass;
   readonly transmitter: OpticalPortRef;
   readonly receiver: OpticalPortRef;
   readonly txMinDbm: number;
@@ -162,6 +204,10 @@ export interface OpticalPath {
   readonly id: string;
   readonly olt: OpticalPortRef;
   readonly ont: OpticalPortRef;
+  readonly oltTechnology: PonTechnology;
+  readonly ontTechnology: PonTechnology;
+  /** Longueur totale de fibre traversée (m). */
+  readonly fiberLengthM: number;
   readonly elements: readonly PathElement[];
   readonly downstream: DirectionBudget;
   readonly upstream: DirectionBudget;
@@ -279,7 +325,7 @@ function explore(doc: NfgDocument, graph: Graph): Exploration {
       record({ olt, point: link.peer, elements: current });
     }
     const model = getModel(next.model);
-    if (model.optical === "gpon-b+-ont") {
+    if (model.kind === "ont") {
       result.paths.push({ olt, ont: { ...link.peer }, elements: current });
       return;
     }
@@ -305,7 +351,7 @@ function explore(doc: NfgDocument, graph: Graph): Exploration {
 
   for (const device of sorted) {
     const model = getModel(device.model);
-    if (model.optical !== "gpon-b+-olt") continue;
+    if (model.kind !== "olt") continue;
     for (const port of model.ports) {
       const olt = { deviceId: device.id, portId: port.id };
       leave(olt, device, port.id, [], new Set([key(device.id, port.id)]));
@@ -316,11 +362,18 @@ function explore(doc: NfgDocument, graph: Graph): Exploration {
 
 // ---------------------------------------------------------------- Bilan
 
+/** Affaiblissement maximal d'une fibre (dB/km) à une longueur d'onde nominale. */
+export function fiberDbPerKm(cable: Fiber["cable"], wavelengthNm: number): number {
+  const base = cable === "short" ? OPTICAL_LOSSES.fiberShortDbPerKm : OPTICAL_LOSSES.fiberDistributionDbPerKm;
+  return wavelengthNm < 1310 ? base + OPTICAL_LOSSES.below1310ExtraDbPerKm : base;
+}
+
 /**
- * Perte nominale d'un élément. Les valeurs retenues sont identiques à 1 310 et
- * 1 490 nm (maximum de câble G.652 valable de 1 310 à 1 625 nm).
+ * Perte nominale d'un élément à une longueur d'onde. Connecteurs, épissures
+ * et coupleurs : mêmes maximums de 1 260 à 1 360 nm et de 1 480 à 1 580 nm
+ * (G.671, plages de fonctionnement) ; fibre : voir fiberDbPerKm.
  */
-export function elementLoss(element: OpticalElement): { minDb: number; maxDb: number } {
+export function elementLoss(element: OpticalElement, wavelengthNm: number): { minDb: number; maxDb: number } {
   switch (element.kind) {
     case "connection":
       return { minDb: 0, maxDb: OPTICAL_LOSSES.connectionMaxDb };
@@ -332,8 +385,7 @@ export function elementLoss(element: OpticalElement): { minDb: number; maxDb: nu
       return loss;
     }
     case "fiber": {
-      const perKm = element.fiber.cable === "short" ? OPTICAL_LOSSES.fiberShortDbPerKm : OPTICAL_LOSSES.fiberDistributionDbPerKm;
-      return { minDb: 0, maxDb: (element.fiber.length / 1000) * perKm };
+      return { minDb: 0, maxDb: (element.fiber.length / 1000) * fiberDbPerKm(element.fiber.cable, wavelengthNm) };
     }
   }
 }
@@ -347,7 +399,7 @@ function figures(
   rx: { sensitivity: number; overload: number },
   penalty: number,
   loss: { min: number; max: number },
-  blocked: "cut" | "incompatible" | null,
+  blocked: "cut" | "incompatible" | "technology-mismatch" | null,
   reserve: number,
 ): BudgetFigures {
   const receivedMinDbm = tx.min - loss.max;
@@ -359,15 +411,24 @@ function figures(
   return { lossMinDb: loss.min, lossMaxDb: loss.max, receivedMinDbm, receivedMaxDbm, marginDb, overloadMarginDb, status };
 }
 
-function budget(direction: Direction, elements: readonly PathElement[], olt: OpticalPortRef, ont: OpticalPortRef, reserve: number): DirectionBudget {
-  const transmitterProfile = TRANSCEIVER_PROFILES[direction === "downstream" ? "gpon-b+-olt" : "gpon-b+-ont"];
-  const receiverProfile = TRANSCEIVER_PROFILES[direction === "downstream" ? "gpon-b+-ont" : "gpon-b+-olt"];
+interface PathEnds {
+  readonly olt: OpticalPortRef;
+  readonly ont: OpticalPortRef;
+  readonly oltProfile: TransceiverProfile;
+  readonly ontProfile: TransceiverProfile;
+  readonly fiberLengthM: number;
+}
+
+function budget(direction: Direction, elements: readonly PathElement[], ends: PathEnds, reserve: number): DirectionBudget {
+  const { olt, ont } = ends;
+  const transmitterProfile = direction === "downstream" ? ends.oltProfile : ends.ontProfile;
+  const receiverProfile = direction === "downstream" ? ends.ontProfile : ends.oltProfile;
   const wavelengthNm = transmitterProfile.txWavelengthNm;
   const order = elements.map((_, index) => index);
   if (direction === "upstream") order.reverse();
   const contributions = order.map((index) => {
     const item = elements[index] as PathElement;
-    return { index, ...elementLoss(item.element), faultDb: faultLoss(item) };
+    return { index, ...elementLoss(item.element, wavelengthNm), faultDb: faultLoss(item) };
   });
   const nominalLoss = { min: 0, max: 0 };
   for (const item of contributions) {
@@ -375,13 +436,19 @@ function budget(direction: Direction, elements: readonly PathElement[], olt: Opt
     nominalLoss.max += item.maxDb;
   }
   const extra = contributions.reduce((sum, item) => sum + item.faultDb, 0);
-  const blocked = elements.some(isCut) ? "cut" : elements.some(isIncompatible) ? "incompatible" : null;
+  // Technologies différentes : le récepteur ne fonctionne pas à la longueur d'onde reçue (défaut de conception, pas une panne).
+  const mismatch = transmitterProfile.technology !== receiverProfile.technology ? "technology-mismatch" : null;
+  const blocked = elements.some(isCut) ? "cut" : (mismatch ?? (elements.some(isIncompatible) ? "incompatible" : null));
   const tx = { min: transmitterProfile.txMinDbm, max: transmitterProfile.txMaxDbm };
   const rx = { sensitivity: receiverProfile.rxSensitivityDbm, overload: receiverProfile.rxOverloadDbm };
-  const penaltyDb = OPTICAL_PATH_PENALTY_DB[direction];
+  const longReach = ends.fiberLengthM > LONG_REACH_THRESHOLD_M ? receiverProfile.rxPathPenaltyLongReachDb : null;
+  const penaltyDb = longReach ?? receiverProfile.rxPathPenaltyDb;
   return {
     direction,
     wavelengthNm,
+    transmitterProfile: transmitterProfile.id,
+    receiverProfile: receiverProfile.id,
+    odnClass: ODN_CLASSES[ends.oltProfile.technology],
     transmitter: direction === "downstream" ? olt : ont,
     receiver: direction === "downstream" ? ont : olt,
     txMinDbm: tx.min,
@@ -391,9 +458,25 @@ function budget(direction: Direction, elements: readonly PathElement[], olt: Opt
     penaltyDb,
     availableDb: tx.min - rx.sensitivity - penaltyDb,
     contributions,
-    nominal: figures(tx, rx, penaltyDb, nominalLoss, null, reserve),
+    nominal: figures(tx, rx, penaltyDb, nominalLoss, mismatch, reserve),
     actual: figures(tx, rx, penaltyDb, { min: nominalLoss.min + extra, max: nominalLoss.max + extra }, blocked, reserve),
   };
+}
+
+/** Profil d'émetteur-récepteur d'un OLT ou d'un ONT du graphe. */
+function profileOf(graph: Graph, deviceId: string): TransceiverProfile {
+  const device = graph.devices.get(deviceId);
+  const optical = device ? getModel(device.model).optical : undefined;
+  if (!optical) throw new Error(`équipement sans émetteur optique : ${deviceId}`);
+  return TRANSCEIVER_PROFILES[optical];
+}
+
+const fiberLength = (elements: readonly PathElement[]) => elements.reduce((sum, item) => sum + (item.element.kind === "fiber" ? item.element.fiber.length : 0), 0);
+
+/** Technologie PON d'un équipement du projet (OLT ou ONT), ou null. */
+export function deviceTechnology(doc: NfgDocument, deviceId: string): PonTechnology | null {
+  const device = doc.topology.devices.find((item) => item.id === deviceId);
+  return device ? ponTechnologyOf(device.model) : null;
 }
 
 /** Analyse optique complète d'un projet (document validé). */
@@ -402,12 +485,16 @@ export function analyzeOptics(doc: NfgDocument, options: { reserveDb?: number } 
   const graph = buildGraph(doc);
   const exploration = explore(doc, graph);
   const paths = exploration.paths.map(({ olt, ont, elements }): OpticalPath => {
-    const downstream = budget("downstream", elements, olt, ont, reserveDb);
-    const upstream = budget("upstream", elements, olt, ont, reserveDb);
+    const ends: PathEnds = { olt, ont, oltProfile: profileOf(graph, olt.deviceId), ontProfile: profileOf(graph, ont.deviceId), fiberLengthM: fiberLength(elements) };
+    const downstream = budget("downstream", elements, ends, reserveDb);
+    const upstream = budget("upstream", elements, ends, reserveDb);
     return {
       id: `${key(olt.deviceId, olt.portId)}>${key(ont.deviceId, ont.portId)}`,
       olt,
       ont,
+      oltTechnology: ends.oltProfile.technology,
+      ontTechnology: ends.ontProfile.technology,
+      fiberLengthM: ends.fiberLengthM,
       elements,
       downstream,
       upstream,
@@ -417,7 +504,7 @@ export function analyzeOptics(doc: NfgDocument, options: { reserveDb?: number } 
   });
   const reached = new Set(paths.map((path) => path.ont.deviceId));
   const unreachedOnts = doc.topology.devices
-    .filter((device) => getModel(device.model).optical === "gpon-b+-ont" && !reached.has(device.id))
+    .filter((device) => getModel(device.model).kind === "ont" && !reached.has(device.id))
     .map((device) => device.id)
     .sort();
   return { paths, unreachedOnts, loops: exploration.loops, truncated: exploration.truncated, reserveDb };
@@ -446,9 +533,8 @@ export type MeasurementRequest =
   | { readonly direction: "downstream"; readonly point: OpticalPortRef }
   | { readonly direction: "upstream"; readonly point: OpticalPortRef; readonly ontId: string };
 
-function reading(request: MeasurementRequest, source: OpticalPortRef, elements: readonly PathElement[]): PowerMeasurement {
-  const profile = TRANSCEIVER_PROFILES[request.direction === "downstream" ? "gpon-b+-olt" : "gpon-b+-ont"];
-  const nominal = elements.reduce((sum, item) => sum + elementLoss(item.element).maxDb, 0);
+function reading(request: MeasurementRequest, source: OpticalPortRef, profile: TransceiverProfile, elements: readonly PathElement[]): PowerMeasurement {
+  const nominal = elements.reduce((sum, item) => sum + elementLoss(item.element, profile.txWavelengthNm).maxDb, 0);
   const extra = elements.reduce((sum, item) => sum + faultLoss(item), 0);
   const expectedDbm = profile.txMinDbm - nominal;
   const base = { point: request.point, direction: request.direction, wavelengthNm: profile.txWavelengthNm, source, expectedDbm };
@@ -476,12 +562,12 @@ export function measurePower(doc: NfgDocument, request: MeasurementRequest): Pow
   const at = (item: PathElement) => item.element.kind === "connection" && item.element.deviceId === request.point.deviceId && item.element.portId === request.point.portId;
   if (request.direction === "downstream") {
     const hit = exploration.reach.find((point) => point.point.deviceId === request.point.deviceId && point.point.portId === request.point.portId);
-    return hit ? reading(request, hit.olt, hit.elements) : { ...empty, wavelengthNm, outcome: "no-source" };
+    return hit ? reading(request, hit.olt, profileOf(graph, hit.olt.deviceId), hit.elements) : { ...empty, wavelengthNm, outcome: "no-source" };
   }
   const path = exploration.paths.find((item) => item.ont.deviceId === request.ontId && item.elements.some(at));
   if (!path) return { ...empty, wavelengthNm, outcome: "no-source" };
   const index = path.elements.findIndex(at);
-  return reading(request, path.ont, path.elements.slice(index).reverse());
+  return reading(request, path.ont, profileOf(graph, path.ont.deviceId), path.elements.slice(index).reverse());
 }
 
 export type InspectionOutcome = "inspected" | "not-a-connector" | "unknown-port";

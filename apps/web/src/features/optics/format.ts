@@ -1,4 +1,4 @@
-import type { ConnectorInspection, OpticalElement, OpticalPath, OpticalPortRef, OpticalStatus, PowerMeasurement } from "@netforge/engine";
+import type { ConnectorInspection, OntActivation, OpticalElement, OpticalPath, OpticalPortRef, OpticalStatus, PowerMeasurement } from "@netforge/engine";
 import type { NfgDocument } from "@netforge/project";
 import { fill, messages } from "../../i18n";
 
@@ -38,6 +38,18 @@ export function pathLabel(doc: NfgDocument, path: OpticalPath): string {
 /** État d'un chemin : diagnostic complet (formateur) ou symptôme seul (exercice). */
 export function statusText(status: OpticalStatus, exercise: boolean): string {
   return `${t.symbol[status]} ${exercise ? t.symptom[status] : t.status[status]}`;
+}
+
+/** État d'activation d'un ONT : symbole et texte, jamais la couleur seule. */
+export function ontStateText(state: OntActivation["state"]): string {
+  return `${t.pon.stateSymbol[state]} ${t.pon.state[state]}`;
+}
+
+/** Cause d'arrêt de l'activation ; en exercice, l'état optique est donné comme symptôme. */
+export function blockText(ont: OntActivation, exercise: boolean): string {
+  if (!ont.block) return "";
+  const status = ont.block === "upstream-not-received" ? ont.upstream : ont.downstream;
+  return fill(t.pon.blocks[ont.block], { status: status ? statusText(status, exercise) : "" });
 }
 
 export function elementLabel(doc: NfgDocument, element: OpticalElement): string {

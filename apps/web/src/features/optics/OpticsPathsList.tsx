@@ -48,8 +48,13 @@ export function OpticsPathsList({ projectId, project }: { projectId: string; pro
                       }`}
                     >
                       <span className="font-medium text-text">{pathLabel(doc, path)}</span>
+                      <span className="text-xs text-text-muted">
+                        {path.oltTechnology === path.ontTechnology
+                          ? t.technology[path.oltTechnology]
+                          : fill(t.pathMismatch, { olt: t.technology[path.oltTechnology], ont: t.technology[path.ontTechnology] })}
+                      </span>
                       <span className={`text-xs font-semibold ${tone}`}>{statusText(status, exercise)}</span>
-                      {path.status !== "cut" && path.status !== "incompatible" && (
+                      {path.status !== "cut" && path.status !== "incompatible" && path.status !== "technology-mismatch" && (
                         <span className="text-xs text-text-muted">{fill(exercise ? t.pathDesignMargin : t.pathMargin, { margin: formatDb(margin) })}</span>
                       )}
                     </button>

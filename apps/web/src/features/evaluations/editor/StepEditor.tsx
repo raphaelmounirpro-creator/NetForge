@@ -145,14 +145,15 @@ function CriteriaEditor({ criteria, project, onChange }: { criteria: readonly Cr
             label={fill(t.criterion, { n: index + 1 })}
             value={criterion.kind}
             className="w-48"
-            options={(["ping-succeeds", "ping-fails", "optical-service"] as const).map((value) => ({ value, label: t.criterionKinds[value] }))}
+            options={(["ping-succeeds", "ping-fails", "optical-service", "ont-operational"] as const).map((value) => ({ value, label: t.criterionKinds[value] }))}
             onChange={(event) => {
               const kind = event.target.value;
-              if (kind === "optical-service") replace(index, { kind, ont: defaults.ont });
-              else if (kind === "ping-succeeds" || kind === "ping-fails") replace(index, { kind, from: criterion.kind === "optical-service" ? defaults.from : criterion.from, to: criterion.kind === "optical-service" ? defaults.to : criterion.to });
+              const onOnt = criterion.kind === "optical-service" || criterion.kind === "ont-operational";
+              if (kind === "optical-service" || kind === "ont-operational") replace(index, { kind, ont: onOnt ? criterion.ont : defaults.ont });
+              else if (kind === "ping-succeeds" || kind === "ping-fails") replace(index, { kind, from: onOnt ? defaults.from : criterion.from, to: onOnt ? defaults.to : criterion.to });
             }}
           />
-          {criterion.kind === "optical-service" ? (
+          {criterion.kind === "optical-service" || criterion.kind === "ont-operational" ? (
             <SelectField
               label={t.ont}
               value={criterion.ont}

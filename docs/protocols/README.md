@@ -1,6 +1,6 @@
 # Protocoles et modèles physiques
 
-Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2), VLAN, STP, DHCP et DNS (phase 7), RIP, OSPF, BGP et VRRP (phase 8) et calcule le bilan optique d'un réseau FTTH (phase 4). Chaque fiche indique le niveau de modélisation, les références publiques effectivement consultées, les simplifications et les tests qui vérifient le comportement.
+Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2), VLAN, STP, DHCP et DNS (phase 7), RIP, OSPF, BGP et VRRP (phase 8). Il calcule aussi le bilan optique d'un réseau FTTH (phase 4, XGS-PON en phase 9) et l'activation des ONT (phase 9). Chaque fiche indique le niveau de modélisation, les références publiques effectivement consultées, les simplifications et les tests qui vérifient le comportement.
 
 | Fiche | Niveau |
 |---|---|
@@ -19,6 +19,7 @@ Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2), VLAN, STP, DHCP et DNS (
 | [VRRP version 3 (IPv4)](vrrp.md) | Pédagogique simplifié — un groupe par interface, Accept_Mode faux |
 | [ICMP et ping](icmp-ping.md) | Pédagogique simplifié (sous-ensemble) |
 | [Réseau optique FTTH : bilan, mesures et pannes](ftth-bilan-optique.md) | Pédagogique simplifié — calcul statique |
+| [PON : GPON et XGS-PON, enregistrement des ONT](pon.md) | Pédagogique simplifié — activation déduite, sans messages PLOAM |
 
 Chaque protocole ou modèle ajouté reçoit un fichier `docs/protocols/<nom>.md` selon ce gabarit :
 

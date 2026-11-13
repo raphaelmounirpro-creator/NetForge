@@ -81,10 +81,11 @@ describe("format des exercices, version 2", () => {
     hintPenalty: 5,
   });
 
-  it("accepte les mesures optiques et reste compatible avec la version 1", () => {
+  it("accepte les mesures optiques et reste compatible avec la version 1 ; la version 3 (PON) les accepte aussi, la 4 n'existe pas", () => {
     expect(parseExercise(exercise(2)).ok).toBe(true);
     expect(parseExercise(exercise(1)).ok).toBe(true);
-    expect(parseExercise(exercise(3)).ok).toBe(false);
+    expect(parseExercise(exercise(3)).ok).toBe(true);
+    expect(parseExercise(exercise(4)).ok).toBe(false);
   });
 
   it("refuse une tolérance nulle ou une mesure sans sens", () => {

@@ -1,0 +1,408 @@
+{
+  "format": "netforge-project",
+  "schemaVersion": 13,
+  "models": {
+    "catalog": 3
+  },
+  "metadata": {
+    "id": "scenario-xgs-pon",
+    "name": "Réseau XGS-PON",
+    "description": "",
+    "createdAt": "2026-11-11T08:00:00.000Z",
+    "updatedAt": "2026-11-11T08:00:00.000Z"
+  },
+  "topology": {
+    "devices": [
+      {
+        "id": "olt1",
+        "model": "OLT-XGS-8",
+        "name": "OLT1"
+      },
+      {
+        "id": "odf1",
+        "model": "ODF-12",
+        "name": "ODF1"
+      },
+      {
+        "id": "cpl1",
+        "model": "SPL-64",
+        "name": "CPL1"
+      },
+      {
+        "id": "pto1",
+        "model": "PTO",
+        "name": "PTO1"
+      },
+      {
+        "id": "pto2",
+        "model": "PTO",
+        "name": "PTO2"
+      },
+      {
+        "id": "pto3",
+        "model": "PTO",
+        "name": "PTO3"
+      },
+      {
+        "id": "ont1",
+        "model": "ONT-10G",
+        "name": "ONT1"
+      },
+      {
+        "id": "ont2",
+        "model": "ONT-10G",
+        "name": "ONT2"
+      },
+      {
+        "id": "ont3",
+        "model": "ONT-1G",
+        "name": "ONT3"
+      }
+    ],
+    "links": [
+      {
+        "id": "l1",
+        "endpoints": [
+          {
+            "deviceId": "olt1",
+            "portId": "pon1"
+          },
+          {
+            "deviceId": "odf1",
+            "portId": "f1"
+          }
+        ],
+        "fiber": {
+          "length": 2,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l2",
+        "endpoints": [
+          {
+            "deviceId": "odf1",
+            "portId": "r1"
+          },
+          {
+            "deviceId": "cpl1",
+            "portId": "com"
+          }
+        ],
+        "fiber": {
+          "length": 2000,
+          "type": "G.652.D",
+          "cable": "distribution"
+        }
+      },
+      {
+        "id": "l3",
+        "endpoints": [
+          {
+            "deviceId": "cpl1",
+            "portId": "o1"
+          },
+          {
+            "deviceId": "pto1",
+            "portId": "in"
+          }
+        ],
+        "fiber": {
+          "length": 300,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l4",
+        "endpoints": [
+          {
+            "deviceId": "cpl1",
+            "portId": "o2"
+          },
+          {
+            "deviceId": "pto2",
+            "portId": "in"
+          }
+        ],
+        "fiber": {
+          "length": 300,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l5",
+        "endpoints": [
+          {
+            "deviceId": "cpl1",
+            "portId": "o3"
+          },
+          {
+            "deviceId": "pto3",
+            "portId": "in"
+          }
+        ],
+        "fiber": {
+          "length": 300,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l6",
+        "endpoints": [
+          {
+            "deviceId": "pto1",
+            "portId": "out"
+          },
+          {
+            "deviceId": "ont1",
+            "portId": "pon"
+          }
+        ],
+        "fiber": {
+          "length": 2,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l7",
+        "endpoints": [
+          {
+            "deviceId": "pto2",
+            "portId": "out"
+          },
+          {
+            "deviceId": "ont2",
+            "portId": "pon"
+          }
+        ],
+        "fiber": {
+          "length": 2,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      },
+      {
+        "id": "l8",
+        "endpoints": [
+          {
+            "deviceId": "pto3",
+            "portId": "out"
+          },
+          {
+            "deviceId": "ont3",
+            "portId": "pon"
+          }
+        ],
+        "fiber": {
+          "length": 2,
+          "type": "G.657.A2",
+          "cable": "short"
+        }
+      }
+    ]
+  },
+  "configurations": {
+    "olt1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {},
+      "vrrpGroups": {},
+      "bgp": null,
+      "ponAuthorizations": {
+        "pon1": [
+          {
+            "serial": "NFGE00000001",
+            "onuId": 0
+          },
+          {
+            "serial": "NFGE000000FF",
+            "onuId": 5
+          }
+        ]
+      },
+      "serialNumber": null
+    },
+    "odf1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {},
+      "vrrpGroups": {},
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
+    },
+    "cpl1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {},
+      "vrrpGroups": {},
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
+    },
+    "pto1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {},
+      "vrrpGroups": {},
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
+    },
+    "pto2": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {},
+      "vrrpGroups": {},
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
+    },
+    "pto3": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {},
+      "vrrpGroups": {},
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
+    },
+    "ont1": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {},
+      "vrrpGroups": {},
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": "NFGE00000001"
+    },
+    "ont2": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {},
+      "vrrpGroups": {},
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": "NFGE00000002"
+    },
+    "ont3": {
+      "interfaces": {},
+      "defaultGateway": null,
+      "staticRoutes": [],
+      "switchports": {},
+      "stp": null,
+      "dhcpPools": {},
+      "dnsServer": null,
+      "dnsRecords": null,
+      "ripInterfaces": {},
+      "ospfInterfaces": {},
+      "vrrpGroups": {},
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": "NFGE00000003"
+    }
+  },
+  "faults": [],
+  "layout": {
+    "devices": {
+      "olt1": {
+        "x": 80,
+        "y": 260
+      },
+      "odf1": {
+        "x": 260,
+        "y": 260
+      },
+      "cpl1": {
+        "x": 440,
+        "y": 260
+      },
+      "pto1": {
+        "x": 640,
+        "y": 120
+      },
+      "pto2": {
+        "x": 640,
+        "y": 260
+      },
+      "pto3": {
+        "x": 640,
+        "y": 400
+      },
+      "ont1": {
+        "x": 840,
+        "y": 120
+      },
+      "ont2": {
+        "x": 840,
+        "y": 260
+      },
+      "ont3": {
+        "x": 840,
+        "y": 400
+      }
+    },
+    "annotations": []
+  }
+}

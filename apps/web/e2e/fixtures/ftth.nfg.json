@@ -1,8 +1,8 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 12,
+  "schemaVersion": 13,
   "models": {
-    "catalog": 2
+    "catalog": 3
   },
   "metadata": {
     "id": "scenario-ftth",
@@ -301,7 +301,24 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {
+        "pon1": [
+          {
+            "serial": "NFGE00000001",
+            "onuId": 0
+          },
+          {
+            "serial": "NFGE00000002",
+            "onuId": 1
+          },
+          {
+            "serial": "NFGE00000003",
+            "onuId": 2
+          }
+        ]
+      },
+      "serialNumber": null
     },
     "odf1": {
       "interfaces": {},
@@ -315,7 +332,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "cpl1": {
       "interfaces": {},
@@ -329,7 +348,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "cpl2": {
       "interfaces": {},
@@ -343,7 +364,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "pbo1": {
       "interfaces": {},
@@ -357,7 +380,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "pto1": {
       "interfaces": {},
@@ -371,7 +396,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "pto2": {
       "interfaces": {},
@@ -385,7 +412,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "pto3": {
       "interfaces": {},
@@ -399,7 +428,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "ont1": {
       "interfaces": {},
@@ -413,7 +444,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": "NFGE00000001"
     },
     "ont2": {
       "interfaces": {},
@@ -427,7 +460,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": "NFGE00000002"
     },
     "ont3": {
       "interfaces": {},
@@ -441,7 +476,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": "NFGE00000003"
     }
   },
   "faults": [],

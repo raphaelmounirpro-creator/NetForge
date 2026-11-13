@@ -2,6 +2,7 @@ import { parseNfgValue, type Issue, type NfgDocument } from "@netforge/project";
 import { z } from "zod";
 import { sameDecibel, sameNetwork, measurementConformity, type Criterion, type Exercise, type ExerciseStep, type ObservationCheck } from "./exercise.js";
 import { analyzeOptics, measurePower, type OpticalStatus } from "./optics.js";
+import { analyzePon } from "./pon.js";
 import { createSimulation } from "./simulation.js";
 
 /**
@@ -28,8 +29,10 @@ import { createSimulation } from "./simulation.js";
  * zones OSPF (format v11), zone des interfaces protégée par « routes ».
  * Version 9 : BGP (format v12), AS, voisins et réseaux annoncés protégés par
  * « routes » ; contrôles après l'établissement des sessions.
+ * Version 10 : PON (format v13), autorisations des OLT et numéros de série des
+ * ONT protégés par la fonction « pon » ; critère « ONT en fonctionnement ».
  */
-export const EVALUATOR_VERSION = 9;
+export const EVALUATOR_VERSION = 10;
 
 export const EVALUATION_LIMITS = {
   /** Équipements et liens du projet soumis. */
@@ -42,7 +45,7 @@ export const EVALUATION_LIMITS = {
 } as const;
 
 /** Fonctions autorisées qui correspondent à des modifications du projet (les autres sont des moyens d'agir). */
-export const GUARDED_FUNCTIONS = ["topology", "addressing", "routes", "optics", "switching"] as const;
+export const GUARDED_FUNCTIONS = ["topology", "addressing", "routes", "optics", "switching", "pon"] as const;
 export type GuardedFunction = (typeof GUARDED_FUNCTIONS)[number];
 /** Modification refusée : une fonction non autorisée, ou des pannes ajoutées ou modifiées (jamais permis). */
 export type ForbiddenChange = GuardedFunction | "faults";
@@ -132,7 +135,7 @@ const publicExerciseSchema = z.strictObject({
   level: z.enum(["beginner", "intermediate", "advanced"]),
   objective: shortText,
   statement: shortText,
-  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics", "switching"])).max(7),
+  allowed: z.array(z.enum(["simulation", "addressing", "routes", "console", "topology", "optics", "switching", "pon"])).max(8),
   project: z.unknown(),
   steps: z.array(publicStepSchema).min(1).max(12),
   hintCount: z.int().min(0).max(5),
@@ -232,6 +235,28 @@ function routesOf(doc: NfgDocument): string {
   );
 }
 
+/** ONT autorisés par port d'OLT (seuls les ports qui en portent). */
+function authorizationsOf(doc: NfgDocument): string {
+  return stable(
+    sortedEntries(doc.configurations)
+      .filter(([, config]) => Object.keys(config.ponAuthorizations).length > 0)
+      .map(([id, config]) => [id, sortedEntries(config.ponAuthorizations)]),
+  );
+}
+
+/**
+ * Configuration PON modifiée : autorisations des OLT, ou numéro de série d'un
+ * ONT du projet initial. Un ONT ajouté (topologie) porte un numéro d'usine :
+ * ce n'est pas une modification PON.
+ */
+function ponChanged(initial: NfgDocument, submitted: NfgDocument): boolean {
+  if (authorizationsOf(initial) !== authorizationsOf(submitted)) return true;
+  return Object.entries(initial.configurations).some(([id, config]) => {
+    const after = submitted.configurations[id];
+    return config.serialNumber !== null && after !== undefined && after.serialNumber !== config.serialNumber;
+  });
+}
+
 /**
  * Modifications du projet soumis qui dépassent les fonctions autorisées.
  * Noms, disposition, notes et métadonnées restent libres. Les sous-interfaces,
@@ -244,6 +269,7 @@ export function forbiddenChanges(initial: NfgDocument, submitted: NfgDocument, a
   if (!allowed.includes("addressing") && addressingOf(initial) !== addressingOf(submitted)) violations.push("addressing");
   if (!allowed.includes("routes") && routesOf(initial) !== routesOf(submitted)) violations.push("routes");
   if (!allowed.includes("switching") && switchingOf(initial) !== switchingOf(submitted)) violations.push("switching");
+  if (!allowed.includes("pon") && ponChanged(initial, submitted)) violations.push("pon");
   const initialFaults = new Map(initial.faults.map((fault) => [fault.id, stable(fault)]));
   if (submitted.faults.some((fault) => initialFaults.get(fault.id) !== stable(fault))) violations.push("faults");
   else if (submitted.faults.length !== initial.faults.length && !allowed.includes("optics")) violations.push("optics");
@@ -313,6 +339,9 @@ function pingCheck(doc: NfgDocument, from: string, to: string): { ok: true; sent
 }
 
 function criterionCheck(doc: NfgDocument, criterion: Criterion, optics: () => ReturnType<typeof analyzeOptics>): CheckOutcome {
+  if (criterion.kind === "ont-operational") {
+    return { ok: true, passed: analyzePon(doc, optics()).onts.some((ont) => ont.ontId === criterion.ont && ont.state === "O5") };
+  }
   if (criterion.kind === "optical-service") {
     const statuses = optics()
       .paths.filter((path) => path.ont.deviceId === criterion.ont)

@@ -26,7 +26,7 @@ function linkedProject(attemptId: string): string | null {
  * si la tentative est reprise, sinon une copie de la topologie initiale.
  */
 export async function openAttempt(code: string, attemptId: string, exercise: PublicExercise): Promise<boolean> {
-  const view = exercise.allowed.includes("optics") ? "optics" : "simulation";
+  const view = exercise.allowed.includes("optics") || exercise.allowed.includes("pon") ? "optics" : "simulation";
   const existing = linkedProject(attemptId);
   if (existing) {
     const opened = await projectService.openStored(existing);

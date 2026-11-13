@@ -34,13 +34,13 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 12", () => {
+describe("migration du format version 1 → 13", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(12);
-    expect(result.document.models).toEqual({ catalog: 2 });
+    expect(result.document.schemaVersion).toBe(13);
+    expect(result.document.models).toEqual({ catalog: 3 });
     expect(result.document.faults).toEqual([]);
     // Routes (v2), ports de switch, STP (v5), DHCP (v6), DNS (v7), RIP (v8) et OSPF (v9) : tous les ports en accès dans
     // le VLAN 1, aucun STP hors switch, adressage manuel conservé, aucun serveur DHCP, ni résolveur ni service DNS,
@@ -58,6 +58,8 @@ describe("migration du format version 1 → 12", () => {
       ospfInterfaces: {},
       vrrpGroups: {},
       bgp: null,
+      ponAuthorizations: {},
+      serialNumber: null,
     });
     expect(result.document.configurations["r1"]).toEqual({
       ...versionOne.configurations.r1,
@@ -72,6 +74,8 @@ describe("migration du format version 1 → 12", () => {
       ospfInterfaces: {},
       vrrpGroups: {},
       bgp: null,
+      ponAuthorizations: {},
+      serialNumber: null,
     });
     // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre.
     expect(result.document.topology).toEqual({
@@ -131,8 +135,8 @@ describe("migration du format version 1 → 12", () => {
     const result = parseNfgValue(versionThree);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(12);
-    expect(result.document.models.catalog).toBe(2);
+    expect(result.document.schemaVersion).toBe(13);
+    expect(result.document.models.catalog).toBe(3);
     expect(result.document.topology.links[0]?.fiber).toBeNull();
     expect(result.document.faults).toEqual([]);
   });
@@ -209,6 +213,24 @@ describe("migration du format version 1 → 12", () => {
     expect(result.ok && result.document.configurations["r1"]?.ripInterfaces).toEqual({ ge0: "active" });
     // Un fichier v9 doit porter la table OSPF de chaque configuration.
     expect(errorCodes({ ...old, schemaVersion: 9 })).toEqual(["import.schema", "import.schema"]);
+  });
+
+  it("migre les anciens fichiers v12 : catalogue 3, numéro de série NetForge par ONT dans l'ordre des équipements, aucun ONT autorisé", () => {
+    const current = projectWith(["olt1", "OLT-16"], ["ont1", "ONT-1G"], ["pc1", "PC"], ["ont2", "ONT-1G"]);
+    const old = {
+      ...current,
+      schemaVersion: 12,
+      models: { catalog: 2 },
+      configurations: Object.fromEntries(Object.entries(current.configurations).map(([id, { ponAuthorizations: _pon, serialNumber: _serial, ...config }]) => [id, config])),
+    };
+    const result = parseNfgValue(old);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.models.catalog).toBe(3);
+    expect(Object.fromEntries(Object.entries(result.document.configurations).map(([id, config]) => [id, config.serialNumber]))).toEqual({ olt1: null, ont1: "NFGE00000001", pc1: null, ont2: "NFGE00000002" });
+    expect(result.document.configurations["olt1"]?.ponAuthorizations).toEqual({});
+    // Un fichier v13 doit porter les deux champs PON de chaque configuration.
+    expect(errorCodes({ ...old, schemaVersion: 13, models: { catalog: 3 } })).toContain("import.schema");
   });
 
   it("migre les anciens fichiers v11 sans faire participer de routeur à BGP", () => {

@@ -60,7 +60,7 @@ export async function startExercise(exercise: Exercise): Promise<boolean> {
   const outcome = await projectService.createFrom(exercise.project, exercise.project.metadata.name);
   if (outcome.kind !== "imported") return false;
   useExerciseStore.getState().save(outcome.id, newProgress(exercise));
-  useLabStore.getState().setView(outcome.id, exercise.allowed.includes("optics") ? "optics" : "simulation");
+  useLabStore.getState().setView(outcome.id, exercise.allowed.includes("optics") || exercise.allowed.includes("pon") ? "optics" : "simulation");
   navigate("/laboratoire");
   return true;
 }

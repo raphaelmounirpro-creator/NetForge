@@ -1,8 +1,8 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 12,
+  "schemaVersion": 13,
   "models": {
-    "catalog": 2
+    "catalog": 3
   },
   "metadata": {
     "id": "scenario-loop",
@@ -128,7 +128,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "sw1": {
       "interfaces": {},
@@ -145,7 +147,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "pc2": {
       "interfaces": {
@@ -167,7 +171,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "sw2": {
       "interfaces": {},
@@ -184,7 +190,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     }
   },
   "faults": [],

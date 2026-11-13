@@ -310,3 +310,23 @@ Décision du propriétaire : 15 caractères minimum est jugé trop contraignant 
 - **Évaluations** : BGP relève de la fonction « routes » ; `EVALUATOR_VERSION` 9.
 - **Interface** : section « Routage entre systèmes autonomes BGP » de l'onglet Routes, `bgp as|disable|neighbor|network`, `show bgp`, sections BGP et table BGP du panneau d'exécution, inspecteur TCP et BGP, catégorie « Routage dynamique », paquets animés « BGP » ou « TCP ».
 - **Disposition** : un poste placé juste au-dessus de son routeur voyait son nom couvert par l'étiquette de port ; placé à droite de R2, il passait ensuite sous la mini-carte de la vue Simulation ; dans les scénarios OSPF et BGP, PC2 est placé à gauche de R2, comme le poste du routeur du haut dans le scénario RIP.
+
+## D-061 — XGS-PON, enregistrement des ONT, format v13, exercices v3 et correcteur v10 (phase 9)
+
+- **Découpage de la phase 9** (spécification §17) : technologies PON et enregistrement des ONT ; services et partage de bande passante ; OTDR pédagogique ; vue arborescente et implantation ; exports CSV et PDF. Chaque tranche est livrée complète avant la suivante.
+- **Catalogue 3** : OLT-XGS-8 et ONT-10G (XGS-PON, classe N1) ; aucun modèle existant modifié. La classe N1 est retenue parce qu'elle a la même portée de budget que GPON B+ (29 dB contre 28) : on compare deux technologies, pas deux réseaux de distribution.
+- **Bilan** :
+  - profils par équipement (longueur d'onde nominale, bande, émission, sensibilité, surcharge, pénalité) ;
+  - affaiblissement de la fibre majoré de 0,07 dB/km sous 1 310 nm (G.652, note 2) ;
+  - pénalité DD40 au-delà de 20 km en XGS-PON ;
+  - état « technologies PON incompatibles », traité comme un défaut de conception (bilan nominal compris), et non comme une panne.
+  - Les valeurs GPON de la phase 4 sont inchangées : le calcul reste à la longueur d'onde nominale (1 310 nm). Le bas de la bande GPON montante (1 260 nm) est une limite documentée, pas une révision de la phase 4.
+- **Activation** (moteur, `pon.ts`) : calcul statique, comme le bilan, plutôt que des messages PLOAM dans le moteur à événements. Le réseau optique n'y circule pas (phase 4), et la distinction demandée — chemin conforme ou ONT enregistré — se déduit sans chronologie. États et étapes nommés selon chaque recommandation (O3 en GPON, O2-3 en XGS-PON). Numéro de série en double sur un port : aucun identifiant attribué (choix NetForge).
+- **Format v13** :
+  - `serialNumber` par configuration (ONT seulement) et `ponAuthorizations` par port d'OLT (numéro de série, identifiant d'ONU) ;
+  - numéros NetForge « NFGE » + 8 chiffres hexadécimaux, code fabricant fictif ;
+  - migration v12 → v13 : numéros attribués dans l'ordre des équipements, aucune autorisation. Les ONT des anciens projets sont donc découverts mais pas enregistrés, tant que le formateur ne les autorise pas.
+  - Le scénario FTTH de référence autorise ses trois ONT.
+- **Console** : l'OLT et l'ONT ont désormais une console (`ont add|delete`, `serial-number`, `show pon`). Les équipements passifs n'en ont toujours pas. `show pon` ne montre que des symptômes, comme la console d'un équipement réel.
+- **Exercices v3** : critère « ONT en fonctionnement » (O5) et fonction autorisée « pon » ; les versions 1 et 2 restent valides telles quelles.
+- **Correcteur v10** : autorisations et numéros de série des ONT existants protégés par « pon ». Un ONT ajouté, qui relève de la topologie, n'est pas une modification PON. `ENGINE_VERSION` 0.11.0.

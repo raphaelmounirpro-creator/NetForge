@@ -1,8 +1,8 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 12,
+  "schemaVersion": 13,
   "models": {
-    "catalog": 2
+    "catalog": 3
   },
   "metadata": {
     "id": "rip",
@@ -152,7 +152,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "r1": {
       "interfaces": {
@@ -192,7 +194,9 @@
       },
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "r2": {
       "interfaces": {
@@ -232,7 +236,9 @@
       },
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "pc2": {
       "interfaces": {
@@ -254,7 +260,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "r3": {
       "interfaces": {
@@ -294,7 +302,9 @@
       },
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     },
     "pc3": {
       "interfaces": {
@@ -316,7 +326,9 @@
       "ripInterfaces": {},
       "ospfInterfaces": {},
       "vrrpGroups": {},
-      "bgp": null
+      "bgp": null,
+      "ponAuthorizations": {},
+      "serialNumber": null
     }
   },
   "faults": [],

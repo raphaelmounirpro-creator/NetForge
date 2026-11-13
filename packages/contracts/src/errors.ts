@@ -62,7 +62,7 @@ export const apiErrorSchema = z.strictObject({
   /** Étape concernée (null : soumission entière). */
   step: z.int().min(0).nullable().optional(),
   /** Évaluation : modifications du projet hors des fonctions autorisées. */
-  changes: z.array(z.enum(["topology", "addressing", "routes", "optics", "switching", "faults"])).max(6).optional(),
+  changes: z.array(z.enum(["topology", "addressing", "routes", "optics", "switching", "pon", "faults"])).max(7).optional(),
   /** Publication impossible : raison. */
   reason: z.enum(["no-graded-points", "too-many-checks"]).optional(),
 });

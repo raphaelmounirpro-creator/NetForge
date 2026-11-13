@@ -175,14 +175,16 @@ function FixStep({ project, step, succeed, fail }: StepProps<"fix">) {
     }
     fail([
       t.fixFailed,
-      ...failing.map(({ criterion, opticalStatus, replies, sent }) =>
+      ...failing.map(({ criterion, opticalStatus, activation, replies, sent }) =>
         criterion.kind === "optical-service"
           ? fill(t.criteria["optical-service"], {
               ont: nameOf(criterion.ont),
               // Symptôme seulement : le guide ne révèle pas la panne.
               status: opticalStatus ? statusText(opticalStatus, true) : t.opticalUnreached,
             })
-          : fill(t.criteria[criterion.kind], { from: nameOf(criterion.from), to: criterion.to, replies, sent }),
+          : criterion.kind === "ont-operational"
+            ? fill(t.criteria["ont-operational"], { ont: nameOf(criterion.ont), state: activation ? messages.optics.pon.state[activation.state] : t.opticalUnreached })
+            : fill(t.criteria[criterion.kind], { from: nameOf(criterion.from), to: criterion.to, replies, sent }),
       ),
     ]);
   };

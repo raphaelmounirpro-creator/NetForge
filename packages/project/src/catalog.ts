@@ -5,8 +5,9 @@
  * l'identifiant du modèle. Toute modification des ports d'un modèle existant
  * impose d'incrémenter CATALOG_VERSION et d'écrire une migration.
  * Version 2 : ajout des équipements FTTH (aucun modèle existant modifié).
+ * Version 3 : ajout de l'OLT et de l'ONT XGS-PON (aucun modèle existant modifié).
  */
-export const CATALOG_VERSION = 2;
+export const CATALOG_VERSION = 3;
 
 export type DeviceKind = "pc" | "switch" | "router" | "olt" | "ont" | "odf" | "splitter" | "pbo" | "pto" | "splice-box";
 
@@ -38,7 +39,8 @@ export interface ChannelSpec {
   readonly elements: readonly OpticalElementSpec[];
 }
 
-export type OpticalProfileId = "gpon-b+-olt" | "gpon-b+-ont";
+/** Profils d'émetteur-récepteur : GPON classe B+ (UIT-T G.984.2) et XGS-PON classe N1 (UIT-T G.9807.1). */
+export type OpticalProfileId = "gpon-b+-olt" | "gpon-b+-ont" | "xgs-pon-n1-olt" | "xgs-pon-n1-ont";
 
 export interface DeviceModelSpec {
   kind: DeviceKind;
@@ -99,7 +101,9 @@ export const DEVICE_MODELS = {
   "S-24": { kind: "switch", namePrefix: "SW", ipCapable: false, ports: rj45Ports("ge", 1, 24) },
   "R-200": { kind: "router", namePrefix: "R", ipCapable: true, ports: rj45Ports("ge", 0, 3) },
   "OLT-16": { kind: "olt", namePrefix: "OLT", ipCapable: false, ports: fiberPorts("pon", 16, "SC/UPC"), optical: "gpon-b+-olt" },
+  "OLT-XGS-8": { kind: "olt", namePrefix: "OLT", ipCapable: false, ports: fiberPorts("pon", 8, "SC/UPC"), optical: "xgs-pon-n1-olt" },
   "ONT-1G": { kind: "ont", namePrefix: "ONT", ipCapable: false, ports: [{ id: "pon", medium: "fiber", speedMbps: 0, connector: "SC/APC" }], optical: "gpon-b+-ont" },
+  "ONT-10G": { kind: "ont", namePrefix: "ONT", ipCapable: false, ports: [{ id: "pon", medium: "fiber", speedMbps: 0, connector: "SC/APC" }], optical: "xgs-pon-n1-ont" },
   "ODF-12": {
     kind: "odf",
     namePrefix: "ODF",

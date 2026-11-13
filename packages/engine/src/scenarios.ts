@@ -18,6 +18,8 @@ import {
   setBgpAs,
   setBgpNeighbor,
   setBgpNetwork,
+  setOntSerial,
+  setPonAuthorization,
   setSwitchport,
   type CommandResult,
   type DeviceModelId,
@@ -365,6 +367,19 @@ export class ScenarioBuilder {
     return this;
   }
 
+  /** Numéro de série d'un ONT (un ONT neuf reçoit NFGE00000001, NFGE00000002…). */
+  serial(ontId: string, serial: string): this {
+    this.doc = ok(setOntSerial(this.doc, { deviceId: ontId, serial }));
+    return this;
+  }
+
+  /** Autorise sur un port d'OLT le numéro de série d'un ONT du projet, ou un numéro donné (12 caractères). */
+  authorize(oltId: string, portId: string, ontOrSerial: string, onuId?: number): this {
+    const serial = this.doc.configurations[ontOrSerial]?.serialNumber ?? ontOrSerial;
+    this.doc = ok(setPonAuthorization(this.doc, { deviceId: oltId, portId, serial, present: true, ...(onuId === undefined ? {} : { onuId }) }));
+    return this;
+  }
+
   fault(id: string, kind: FaultKind, target: FaultTarget, extraLoss: number | null = null): this {
     this.doc = ok(addFault(this.doc, { id, kind, target, extraLoss }));
     return this;
@@ -605,6 +620,7 @@ export const FTTH_DROPS = [150, 60, 120] as const;
  * —1 km— CPL2 (1:4) o1..o3 —distribution 800 m— PBO1 in1..in3 | out1..out3
  * —raccordement (FTTH_DROPS, G.657.A2, câble court)— PTO1..3 | out —jarretière 2 m— ONT1..3.
  * Liens : l1 à l3 (tronc), l4 à l6 (distribution), l7 à l9 (raccordement), l10 à l12 (jarretières).
+ * ONT1 à ONT3 (NFGE00000001 à 3) autorisés sur OLT1 pon1, identifiants d'ONU 0 à 2.
  * Option dirtyPto3 : connecteur de sortie de PTO3 sale (+4,5 dB), exercice de dépannage.
  */
 export function ftthScenario(options: { dirtyPto3?: boolean } = {}): NfgDocument {
@@ -628,7 +644,36 @@ export function ftthScenario(options: { dirtyPto3?: boolean } = {}): NfgDocument
   });
   for (let index = 1; index <= 3; index += 1) {
     builder.device(`ont${String(index)}`, "ONT-1G", 1040, 120 + (index - 1) * 140).link(`pto${String(index)}`, "out", `ont${String(index)}`, "pon");
+    builder.authorize("olt1", "pon1", `ont${String(index)}`);
   }
   if (options.dirtyPto3) builder.fault("panne-1", "dirty-connector", { kind: "port", deviceId: "pto3", portId: "out" }, 4.5);
+  return builder.build();
+}
+
+/**
+ * Réseau XGS-PON de référence (classe N1), calculable à la main :
+ * OLT1 (OLT-XGS-8) pon1 —jarretière 2 m— ODF1 f1 | r1 —transport 2 km— CPL1 (1:64)
+ * o1..o3 —raccordement 300 m (G.657.A2, câble court)— PTO1..3 | out —jarretière 2 m— ONT1..3.
+ * ONT1 et ONT2 : ONT-10G (NFGE00000001 et 2) ; ONT3 : ONT-1G GPON (NFGE00000003), technologie incompatible.
+ * Autorisations sur pon1 : ONT1 (identifiant 0) et un numéro absent du réseau, NFGE000000FF (identifiant 5) ;
+ * ONT2 est découvert mais pas autorisé (option authorizeOnt2 : autorisé, identifiant 1).
+ * Liens : l1 (jarretière OLT), l2 (transport), l3 à l5 (raccordement), l6 à l8 (jarretières ONT).
+ */
+export function xgsPonScenario(options: { authorizeOnt2?: boolean } = {}): NfgDocument {
+  const builder = new ScenarioBuilder("scenario-xgs-pon", "Réseau XGS-PON")
+    .device("olt1", "OLT-XGS-8", 80, 260)
+    .device("odf1", "ODF-12", 260, 260)
+    .device("cpl1", "SPL-64", 440, 260)
+    .link("olt1", "pon1", "odf1", "f1")
+    .link("odf1", "r1", "cpl1", "com")
+    .fiber(2000);
+  for (let index = 1; index <= 3; index += 1) {
+    builder.device(`pto${String(index)}`, "PTO", 640, 120 + (index - 1) * 140).link("cpl1", `o${String(index)}`, `pto${String(index)}`, "in").fiber(300, "G.657.A2", "short");
+  }
+  for (let index = 1; index <= 3; index += 1) {
+    builder.device(`ont${String(index)}`, index === 3 ? "ONT-1G" : "ONT-10G", 840, 120 + (index - 1) * 140).link(`pto${String(index)}`, "out", `ont${String(index)}`, "pon");
+  }
+  builder.authorize("olt1", "pon1", "ont1", 0).authorize("olt1", "pon1", "NFGE000000FF", 5);
+  if (options.authorizeOnt2) builder.authorize("olt1", "pon1", "ont2", 1);
   return builder.build();
 }

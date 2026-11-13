@@ -21,9 +21,49 @@ Détail des preuves : commits `6b49de3` à `aff43fc`. Limites restantes : Docker
 
 Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests unitaires seulement ; éditeur prévu pour ≥ 1 024 px.
 
-## Phase active : 8 — Routage dynamique et redondance
+## Phase active : 9 — FTTH/PON avancé et OTDR
 
-**État : terminée et vérifiée le 2026-11-13, en attente de la validation du propriétaire.** Les quatre tranches sont livrées : RIP, OSPF (zone unique puis multi-zone), VRRP et BGP simplifié ; le propriétaire avait décidé le 2026-11-13 de réaliser la tranche 4 dans la phase 8 (« la faire dans la phase 8 »). Tous les critères d'acceptation du tableau sont atteints.
+**État : en cours.** Phase 8 validée le 2026-11-13 (« lance 9 »). Tranche 1 (technologies PON et enregistrement des ONT) terminée et vérifiée le 2026-11-13.
+
+### Périmètre retenu
+
+La ligne « phase 9 » de la feuille de route (F-08 à F-12 ; spécification §12 et module C) couvre plusieurs fonctions : elle est découpée (spécification §17). Chaque tranche est livrée complète (format, moteur, interface, documentation, tests) avant la suivante.
+
+- Dépend de : phase 4 (bilan optique, photomètre, pannes), phase 7 (VLAN 802.1Q, pour les VLAN de service), phase 6 (exercices et évaluations).
+- Inclus, dans l'ordre :
+  1. **Technologies PON et enregistrement des ONT** : profils GPON (UIT-T G.984) et XGS-PON (UIT-T G.9807.1) avec leurs longueurs d'onde et leurs classes de budget ; numéro de série des ONT ; ONT autorisés par port d'OLT ; activation (lumière, numéro de série, identifiant d'ONU, fonctionnement) distincte du bilan optique ; ONT inconnu détecté ; technologies incompatibles.
+  2. **Services et partage de bande passante** : VLAN de service Internet, VoIP et IPTV par ONT ; débits garantis et maximaux ; partage descendant et montant de la capacité d'un port PON, expliqué.
+  3. **OTDR pédagogique** : trace approximative depuis un port à connecteur, événements positionnés (connexions, épissures, coupleurs, courbure, coupure, fin de fibre) et lecture des pertes ; limites documentées au-delà d'un coupleur.
+  4. **Vue arborescente et implantation** : arbre OLT → coupleurs → PBO → ONT coloré par état, doublé d'une alternative textuelle ; implantation rue, immeuble, PBO.
+  5. **Exports des bilans** en CSV et PDF.
+- Exclus (restent dans la feuille de route) : trames PON dans le moteur à événements (GEM/XGEM, allocation dynamique de bande réelle, chiffrement), NG-PON2 et 50G-PON, coexistence GPON/XGS-PON par filtre WDM, réflectance et zones mortes mesurées de l'OTDR, vidéo RF superposée, raccordement de l'ONT au réseau IP simulé.
+- Données : aucune donnée personnelle ; numéros de série fictifs ; configuration PON ajoutée au format du projet (nouvelle version, migration explicite).
+
+### Scénarios d'acceptation
+
+| Tranche | Critère | État |
+|---|---|---|
+| PON | Un ONT au chemin optique conforme mais au numéro de série non autorisé n'est pas enregistré ; une fois autorisé, il l'est ; un ONT XGS-PON sur un port GPON ne s'enregistre pas ; console et formulaires équivalents | atteint : `engine/pon.test.ts` (ONT2 conforme mais en O2-3 « non autorisé », O5 avec l'identifiant 1 une fois autorisé ; ONT GPON sur l'OLT XGS-PON en O1 « technologies incompatibles » ; salve montante perdue, coupure, numéro en double, ONT changé, ONT isolé), `project/pon.test.ts` (documents identiques par console et formulaires, configuration rejouable), `pon.spec.ts` (onglet PON, `ont add` puis `show pon`, formulaire de l'OLT, numéro de série de l'ONT) |
+| PON | Bilan d'un chemin XGS-PON avec ses longueurs d'onde et sa classe, retrouvé par un calcul à la main | atteint : `engine/pon.test.ts` (25,204 dB et marge 3,796 dB à 1 577 nm ; 25,36528 dB et marge 3,63472 dB à 1 270 nm ; budget 29 dB, classe N1 ; DD40), `pon.spec.ts` (mêmes valeurs dans le bilan affiché) |
+| Services | Débits partagés expliqués : garanties accordées dans la capacité, reste réparti, dépassement signalé | à faire |
+| OTDR | Événements à leur distance avec leurs pertes ; coupure localisée ; trace approximative documentée | à faire |
+| Vue | Arbre lisible sans couleur, avec alternative textuelle ; implantation affichée | à faire |
+| Exports | Fichiers CSV et PDF ouverts et cohérents avec le bilan affiché | à faire |
+
+### Vérifications de la tranche PON (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- État de départ : phase 8 commitée et poussée (`d14cb63`).
+- Sources consultées le 2026-11-13 et téléchargées depuis itu.int : G.9807.1 (02/2023), G.984.3 (01/2014), G.652 (08/2024), G.671 (11/2025) ; sections listées dans [protocols/pon.md](protocols/pon.md).
+- `pnpm check` réussi (lint, typecheck, **581 tests** : format 205, moteur 223, interface 98, contrats 2, API 53 sur PostgreSQL réel ; builds). Bundle principal 1 335 kB (388 kB gzip), Worker 251 kB.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **41 parcours** réussis, dont les 2 de `pon.spec.ts` ; `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e:accounts` : **5 parcours** réussis (« correcteur version 10 ») ; aucun port de test resté en écoute.
+- Inspection visuelle réelle (Edge, 1 440 px) : vue Optique (chemins avec technologie, états sous les ONT, onglet PON et étapes), console de l'OLT et de l'ONT, onglet PON de l'OLT. Défaut corrigé : libellé du champ d'identifiant d'ONU sur deux lignes.
+- Défauts trouvés par les vérifications et corrigés : contrat d'API des modifications refusées sans « pon » (typage de l'API) ; test de format d'exercice qui refusait la version 3, devenue courante ; deux tests PON dont l'assertion ne vérifiait pas leur titre (ONT isolé, projet sans réseau optique), réécrits.
+- Format **v13** (catalogue 3), moteur **0.11.0**, exercices **v3**, correcteur **v10**.
+- Limites connues : activation déduite sans messages PLOAM ni chronologie, classe N1 seule, pas de coexistence WDM, portée non vérifiée, ONT non relié au réseau IP simulé (détail dans [protocols/pon.md](protocols/pon.md) et D-061). Mini-carte qui masque le coin supérieur droit du canevas en vue Simulation (existant, non lié à la tranche).
+
+## Phase 8 — Routage dynamique et redondance : validée par le propriétaire (2026-11-13)
+
+**État : terminée, vérifiée et validée par le propriétaire le 2026-11-13 (« lance 9 ») ; poussée sur GitHub (`d14cb63`), non déployée.** Les quatre tranches sont livrées : RIP, OSPF (zone unique puis multi-zone), VRRP et BGP simplifié ; le propriétaire avait décidé le 2026-11-13 de réaliser la tranche 4 dans la phase 8 (« la faire dans la phase 8 »). Tous les critères d'acceptation du tableau sont atteints.
 
 ### Périmètre retenu
 

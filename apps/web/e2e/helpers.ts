@@ -11,7 +11,7 @@ export async function createProject(page: Page, name: string): Promise<void> {
   await expect(page.getByRole("navigation", { name: "Projets ouverts" }).getByRole("button", { name, exact: true })).toBeVisible();
 }
 
-const PALETTE_LABELS = { PC: "PC", "S-24": "Switch S-24", "R-200": "Routeur R-200", "OLT-16": "OLT-16", "ONT-1G": "ONT-1G" } as const;
+const PALETTE_LABELS = { PC: "PC", "S-24": "Switch S-24", "R-200": "Routeur R-200", "OLT-16": "OLT-16", "OLT-XGS-8": "OLT-XGS-8", "ONT-1G": "ONT-1G", "ONT-10G": "ONT-10G" } as const;
 
 export async function addDevice(page: Page, model: keyof typeof PALETTE_LABELS): Promise<void> {
   await page.getByRole("region", { name: "Ajouter un équipement" }).getByRole("button", { name: new RegExp(`^${PALETTE_LABELS[model]} `) }).click();

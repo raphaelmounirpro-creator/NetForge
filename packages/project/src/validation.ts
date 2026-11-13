@@ -1,5 +1,6 @@
 import { findPort, getModel } from "./catalog.js";
 import { isDnsAddress } from "./dns.js";
+import { ONU_ID_MAX, isOnuId, ponTechnologyOf } from "./pon.js";
 import { error, warning, type Issue } from "./issues.js";
 import {
   broadcastAddress,
@@ -26,7 +27,55 @@ import { parseSubinterface, switchportOf } from "./vlan.js";
  * passerelle erronée ou une adresse en double.
  */
 export function validateDocument(doc: NfgDocument): Issue[] {
-  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkDhcp(doc), ...checkVrrp(doc), ...checkOspfAreas(doc), ...checkBgp(doc), ...checkFaults(doc)];
+  return [...checkIntegrity(doc), ...checkAddressing(doc), ...checkRoutes(doc), ...checkSwitchLoops(doc), ...checkVlans(doc), ...checkDhcp(doc), ...checkVrrp(doc), ...checkOspfAreas(doc), ...checkBgp(doc), ...checkPon(doc), ...checkFaults(doc)];
+}
+
+/**
+ * PON (v13) : autorisations sur les ports d'un OLT seulement, identifiant
+ * d'ONU dans la plage de la technologie, numéros de série et identifiants
+ * uniques par port (erreurs) ; numéro de série réservé aux ONT. ONT sans
+ * numéro de série, ou deux ONT au même numéro : avertissements (un
+ * laboratoire de dépannage peut les contenir).
+ */
+function checkPon(doc: NfgDocument): Issue[] {
+  const issues: Issue[] = [];
+  const owners = new Map<string, Device[]>();
+  for (const device of doc.topology.devices) {
+    const config = doc.configurations[device.id];
+    const model = getModel(device.model);
+    const base = { deviceId: device.id, deviceName: device.name };
+    if (model.kind === "ont") {
+      const serial = config?.serialNumber ?? null;
+      if (serial === null) issues.push(warning("pon.missing-serial", base));
+      else owners.set(serial, [...(owners.get(serial) ?? []), device]);
+    } else if (config && config.serialNumber !== null) {
+      issues.push(error("pon.not-ont", base));
+    }
+    if (!config) continue;
+    const ports = Object.entries(config.ponAuthorizations);
+    if (ports.length === 0) continue;
+    const technology = ponTechnologyOf(device.model);
+    if (model.kind !== "olt" || technology === null) {
+      issues.push(error("pon.not-olt", base));
+      continue;
+    }
+    for (const [portId, entries] of ports) {
+      if (!findPort(device.model, portId)) issues.push(error("pon.not-pon-port", { ...base, portId }));
+      const serials = new Set<string>();
+      const ids = new Set<number>();
+      for (const entry of entries) {
+        if (!isOnuId(technology, entry.onuId)) issues.push(error("pon.invalid-onu-id", { ...base, portId, value: String(entry.onuId), max: ONU_ID_MAX[technology] }));
+        if (serials.has(entry.serial)) issues.push(error("pon.duplicate-serial", { ...base, portId, serial: entry.serial }));
+        if (ids.has(entry.onuId)) issues.push(error("pon.duplicate-onu-id", { ...base, portId, onuId: entry.onuId }));
+        serials.add(entry.serial);
+        ids.add(entry.onuId);
+      }
+    }
+  }
+  for (const [serial, devices] of owners) {
+    if (devices.length > 1) issues.push(warning("pon.duplicate-ont-serial", { serial, deviceNames: devices.map((device) => device.name).join(", ") }));
+  }
+  return issues;
 }
 
 /**
