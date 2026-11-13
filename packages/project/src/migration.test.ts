@@ -34,12 +34,12 @@ const errorCodes = (value: unknown) => {
   return result.ok ? [] : result.errors.map((issue) => issue.code);
 };
 
-describe("migration du format version 1 → 15", () => {
+describe("migration du format version 1 → 16", () => {
   it("migre un fichier version 1 sans perte et ajoute des routes vides", () => {
     const result = parseNfgText(JSON.stringify(versionOne));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(15);
+    expect(result.document.schemaVersion).toBe(16);
     expect(result.document.models).toEqual({ catalog: 3 });
     expect(result.document.faults).toEqual([]);
     // Routes (v2), ports de switch, STP (v5), DHCP (v6), DNS (v7), RIP (v8) et OSPF (v9) : tous les ports en accès dans
@@ -79,9 +79,9 @@ describe("migration du format version 1 → 15", () => {
       serialNumber: null,
       ponServices: {},
     });
-    // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre.
+    // Tous les liens d'une version antérieure sont en cuivre : aucune propriété de fibre ; aucune implantation (v16).
     expect(result.document.topology).toEqual({
-      ...versionOne.topology,
+      devices: versionOne.topology.devices.map((device) => ({ ...device, location: null })),
       links: versionOne.topology.links.map((link) => ({ ...link, fiber: null })),
     });
     expect(result.document.layout).toEqual({ ...versionOne.layout, annotations: [] });
@@ -137,7 +137,7 @@ describe("migration du format version 1 → 15", () => {
     const result = parseNfgValue(versionThree);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.document.schemaVersion).toBe(15);
+    expect(result.document.schemaVersion).toBe(16);
     expect(result.document.models.catalog).toBe(3);
     expect(result.document.topology.links[0]?.fiber).toBeNull();
     expect(result.document.faults).toEqual([]);

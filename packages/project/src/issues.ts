@@ -23,6 +23,7 @@ export const ISSUE_CODES = [
   "device.duplicate-id",
   "device.invalid-name",
   "device.duplicate-name",
+  "device.invalid-location",
   // Liens
   "link.not-found",
   "link.duplicate-id",

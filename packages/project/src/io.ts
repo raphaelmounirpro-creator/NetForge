@@ -244,6 +244,14 @@ function migrateV14toV15(doc: Record<string, unknown>): Record<string, unknown> 
   };
 }
 
+/** Version 15 → 16 : aucun équipement n'a d'implantation renseignée. */
+function migrateV15toV16(doc: Record<string, unknown>): Record<string, unknown> {
+  const topology = doc["topology"];
+  if (!isRecord(topology) || !Array.isArray(topology["devices"])) return { ...doc, schemaVersion: 16 };
+  const devices = (topology["devices"] as unknown[]).map((device) => (isRecord(device) ? { ...device, location: null } : device));
+  return { ...doc, schemaVersion: 16, topology: { ...topology, devices } };
+}
+
 /**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
@@ -263,6 +271,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   12: migrateV12toV13,
   13: migrateV13toV14,
   14: migrateV14toV15,
+  15: migrateV15toV16,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

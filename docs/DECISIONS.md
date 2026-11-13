@@ -354,3 +354,10 @@ Décision du propriétaire : 15 caractères minimum est jugé trop contraignant 
 - **Une branche** est suivie après un coupleur ; la superposition réelle est documentée, pas simulée.
 - **Onglets** : la barre d'onglets passe à la ligne quand elle est trop longue (panneau Optique à sept onglets), plutôt que de faire défiler la page horizontalement.
 - `ENGINE_VERSION` 0.13.0 ; correcteur inchangé (v11) : aucune note ne dépend de l'OTDR.
+
+## D-064 — Arbre du réseau et implantation des équipements, format v16 (phase 9)
+
+- **Arbre construit par le moteur** à partir des chemins du bilan, regroupé par équipement (un PBO à trois entrées reste un seul nœud) : l'interface n'en déduit rien elle-même.
+- **Présentation** : une liste imbriquée dans la colonne de gauche de la vue Optique (onglets Chemins, Arbre, Implantation), plutôt qu'un deuxième dessin. Elle donne en texte l'état de chaque branche et sert d'alternative au canevas ; la couleur double le symbole et le texte.
+- **Format v16** : `location` (rue, immeuble ou site, logement) sur l'équipement, chaque champ de 80 caractères au plus, implantation vide interdite (null). Migration v15 → v16 : aucune implantation. Elle est libre en évaluation, comme le nom. Formulaire seulement : les équipements passifs n'ont pas de console, et l'implantation ne change pas le comportement du réseau.
+- `ENGINE_VERSION` 0.14.0 ; correcteur inchangé (v11).

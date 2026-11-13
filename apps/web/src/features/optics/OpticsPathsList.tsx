@@ -1,14 +1,52 @@
 import { getModel } from "@netforge/project";
+import { useState } from "react";
+import { Tabs } from "../../components/ui/Tabs";
 import { fill, messages } from "../../i18n";
 import type { OpenProject } from "../lab/store";
 import { deviceName, formatDb, pathLabel, statusText } from "./format";
-import { useIsExercise, useOpticalReport } from "./hooks";
+import { useIsExercise, useOpticalReport, usePonReport } from "./hooks";
+import { OpticsSitesView, OpticsTreeView } from "./OpticsTree";
 import { useOpticsSession, useOpticsStore } from "./store";
 
 const t = messages.optics;
 
-/** Colonne de gauche de la vue Optique : chemins OLT → ONT avec leur état (symbole et texte, jamais la couleur seule). */
+type LeftView = "paths" | "tree" | "sites";
+
+/** Colonne de gauche de la vue Optique : chemins, arbre du réseau ou implantation. */
 export function OpticsPathsList({ projectId, project }: { projectId: string; project: OpenProject }) {
+  const [view, setView] = useState<LeftView>("paths");
+  const doc = project.document;
+  const exercise = useIsExercise(projectId);
+  const report = useOpticalReport(doc);
+  const pon = usePonReport(doc, report);
+  return (
+    <Tabs
+      label={t.leftTabs}
+      size="sm"
+      tabs={[
+        { id: "paths", label: t.leftPaths },
+        { id: "tree", label: t.leftTree },
+        { id: "sites", label: t.leftSites },
+      ]}
+      selected={view}
+      onSelect={setView}
+      className="h-full min-h-0"
+    >
+      <div className="h-full min-h-0 overflow-y-auto p-4">
+        {view === "paths" ? (
+          <PathsList projectId={projectId} project={project} />
+        ) : view === "tree" ? (
+          <OpticsTreeView doc={doc} report={report} pon={pon} exercise={exercise} />
+        ) : (
+          <OpticsSitesView doc={doc} pon={pon} />
+        )}
+      </div>
+    </Tabs>
+  );
+}
+
+/** Chemins OLT → ONT avec leur état (symbole et texte, jamais la couleur seule). */
+function PathsList({ projectId, project }: { projectId: string; project: OpenProject }) {
   const doc = project.document;
   const exercise = useIsExercise(projectId);
   const report = useOpticalReport(doc);
@@ -16,7 +54,7 @@ export function OpticsPathsList({ projectId, project }: { projectId: string; pro
   const hasOlt = doc.topology.devices.some((device) => getModel(device.model).kind === "olt");
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4">
+    <div className="flex flex-col gap-3">
       <h2 className="text-xs font-semibold tracking-[0.12em] text-text-muted uppercase">{t.pathsTitle}</h2>
       {!hasOlt ? (
         <p className="text-sm text-text-muted">{t.noOlt}</p>

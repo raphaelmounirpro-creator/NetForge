@@ -9,6 +9,7 @@ import {
   renameDevice,
   renameProject,
   setDefaultGateway,
+  setDeviceLocation,
   setOntSerial,
   switchportOf,
   validateDocument,
@@ -33,6 +34,7 @@ import { PonTab } from "./PonTab";
 import { RoutesTab } from "./RoutesTab";
 import { SingleFieldForm } from "./SingleFieldForm";
 import { StpForm } from "./StpForm";
+import { LocationForm } from "./LocationForm";
 
 const t = messages.properties;
 type DeviceTab = "general" | "interfaces" | "routes" | "pon";
@@ -113,6 +115,14 @@ function GeneralTab({ projectId, project, device }: { projectId: string; project
           </>
         )}
       </dl>
+      {isOptical(model.kind) && (
+        <LocationForm
+          key={JSON.stringify(device.location)}
+          location={device.location}
+          disabled={!editable}
+          onApply={(location) => useLabStore.getState().apply(projectId, (doc) => setDeviceLocation(doc, { deviceId: device.id, location }))}
+        />
+      )}
       {model.kind === "ont" && (
         <SingleFieldForm
           key={serial}

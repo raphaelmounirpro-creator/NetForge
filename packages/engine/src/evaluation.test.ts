@@ -1,4 +1,4 @@
-import { addDevice, addStaticRoute, moveDevice, setOntSerial, setOntServices, setPonAuthorization, setPonService, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setBgpAs, setOspfInterface, setRipInterface, setVrrpGroup, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
+import { addDevice, addStaticRoute, moveDevice, setDeviceLocation, setOntSerial, setOntServices, setPonAuthorization, setPonService, renameDevice, removeFault, setDhcpPool, setDnsEnabled, setDnsRecord, setDnsServer, setInterfaceDhcp, setBgpAs, setOspfInterface, setRipInterface, setVrrpGroup, setInterfaceIpv4, setStp, setSwitchport, type CommandResult, type NfgDocument } from "@netforge/project";
 import { describe, expect, it } from "vitest";
 import { EVALUATION_LIMITS, EVALUATOR_VERSION, evaluationMaxScore, evaluationReadiness, forbiddenChanges, gradeSubmission, parsePublicExercise, publicExercise, type EvaluationAnswer } from "./evaluation.js";
 import { parseExercise, type Exercise } from "./exercise.js";
@@ -287,6 +287,9 @@ describe("fonctions autorisées", () => {
     const offer = ok(setOntServices(initial, { deviceId: "olt1", portId: "pon1", serial: "NFGE00000002", services: ["internet"] }));
     expect(forbiddenChanges(initial, offer, ["optics"])).toEqual(["pon"]);
     expect(forbiddenChanges(initial, offer, ["pon"])).toEqual([]);
+    // L'implantation est descriptive, comme le nom : toujours libre.
+    const moved = ok(setDeviceLocation(initial, { deviceId: "pbo1", location: { street: "Rue des Érables", building: "", unit: "" } }));
+    expect(forbiddenChanges(initial, moved, [])).toEqual([]);
   });
 
   it("n'autorisent le retrait d'une panne optique qu'avec « optics », et jamais son ajout ou sa modification", () => {

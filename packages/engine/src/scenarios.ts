@@ -18,6 +18,7 @@ import {
   setBgpAs,
   setBgpNeighbor,
   setBgpNetwork,
+  setDeviceLocation,
   setOntSerial,
   setOntServices,
   setPonAuthorization,
@@ -370,6 +371,12 @@ export class ScenarioBuilder {
     return this;
   }
 
+  /** Implantation d'un équipement : rue, immeuble, logement ou étage (chaîne vide : non renseigné). */
+  location(deviceId: string, street: string, building: string, unit: string): this {
+    this.doc = ok(setDeviceLocation(this.doc, { deviceId, location: { street, building, unit } }));
+    return this;
+  }
+
   /** Numéro de série d'un ONT (un ONT neuf reçoit NFGE00000001, NFGE00000002…). */
   serial(ontId: string, serial: string): this {
     this.doc = ok(setOntSerial(this.doc, { deviceId: ontId, serial }));
@@ -641,6 +648,8 @@ export const FTTH_DROPS = [150, 60, 120] as const;
  * Services de l'OLT : Internet (VLAN 100, descendant 100/1 000 Mbit/s, montant 20/500),
  * VoIP (VLAN 200, 0,2/0,2 dans les deux sens), IPTV (VLAN 300, descendant 20/20, multicast).
  * Offres : ONT1 Internet, VoIP, IPTV ; ONT2 Internet, VoIP ; ONT3 Internet, IPTV.
+ * Implantation (adresses fictives) : central optique (OLT1, ODF1), armoire de rue (CPL1),
+ * Résidence Les Lilas, bâtiment A (CPL2 et PBO1 au local technique, PTO et ONT par appartement).
  * Option dirtyPto3 : connecteur de sortie de PTO3 sale (+4,5 dB), exercice de dépannage.
  */
 export function ftthScenario(options: { dirtyPto3?: boolean } = {}): NfgDocument {
@@ -672,7 +681,15 @@ export function ftthScenario(options: { dirtyPto3?: boolean } = {}): NfgDocument
     .service("olt1", "iptv", 300, [20, 20], null)
     .offer("olt1", "pon1", "ont1", ["internet", "voip", "iptv"])
     .offer("olt1", "pon1", "ont2", ["internet", "voip"])
-    .offer("olt1", "pon1", "ont3", ["internet", "iptv"]);
+    .offer("olt1", "pon1", "ont3", ["internet", "iptv"])
+    .location("olt1", "Avenue des Tilleuls", "Central optique", "Salle de transmission")
+    .location("odf1", "Avenue des Tilleuls", "Central optique", "Salle de transmission")
+    .location("cpl1", "Avenue des Tilleuls", "", "Armoire de rue n° 3")
+    .location("cpl2", "Rue des Lilas", "Résidence Les Lilas, bâtiment A", "Local technique")
+    .location("pbo1", "Rue des Lilas", "Résidence Les Lilas, bâtiment A", "Local technique");
+  ["Appartement 11", "Appartement 12", "Appartement 21"].forEach((unit, offset) => {
+    for (const kind of ["pto", "ont"]) builder.location(`${kind}${String(offset + 1)}`, "Rue des Lilas", "Résidence Les Lilas, bâtiment A", unit);
+  });
   if (options.dirtyPto3) builder.fault("panne-1", "dirty-connector", { kind: "port", deviceId: "pto3", portId: "out" }, 4.5);
   return builder.build();
 }

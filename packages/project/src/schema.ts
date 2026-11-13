@@ -12,20 +12,20 @@ import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
 import { VRID_MAX, VRID_MIN, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN } from "./vrrp.js";
 
 /**
- * Format d'échange .nfg.json, version 15 (v2 : routes statiques ; v3 : annotations ;
+ * Format d'échange .nfg.json, version 16 (v2 : routes statiques ; v3 : annotations ;
  * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces —,
  * STP par switch ; v6 : DHCP — plages des routeurs, adressage automatique des postes ;
  * v7 : DNS ; v8 : RIP ; v9 : OSPF en zone unique ; v10 : VRRP ; v11 : zones OSPF ; v12 : BGP ; v13 : catalogue 3 — XGS-PON —, numéros de série
  * des ONT et ONT autorisés par port d'OLT ; v14 : profils de service des OLT et
  * services souscrits par ONT ; v15 : position d'une coupure ou d'une courbure le
- * long de sa fibre).
+ * long de sa fibre ; v16 : implantation des équipements — rue, immeuble, logement).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 15;
+export const CURRENT_SCHEMA_VERSION = 16;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -40,6 +40,8 @@ export const LIMITS = {
   maxStaticRoutes: 64,
   maxAnnotations: 200,
   maxAnnotationLength: 280,
+  /** Rue, immeuble ou logement d'une implantation (v16). */
+  maxLocationLength: 80,
   maxFaults: 100,
   /** Longueur d'une fibre, en mètres. */
   minFiberLength: 0.1,
@@ -197,10 +199,21 @@ const deviceConfigSchema = z.strictObject({
   serialNumber: ponSerialSchema.nullable(),
 });
 
+const locationPart = z.string().trim().min(1).max(LIMITS.maxLocationLength).nullable();
+
 const deviceSchema = z.strictObject({
   id: idSchema,
   model: z.enum(DEVICE_MODEL_IDS),
   name: deviceNameSchema,
+  /**
+   * Implantation (v16) : rue, immeuble et logement ou étage, renseignés
+   * librement ; null si rien n'est renseigné. Purement descriptive : sans
+   * effet sur le réseau.
+   */
+  location: z
+    .strictObject({ street: locationPart, building: locationPart, unit: locationPart })
+    .refine((location) => location.street !== null || location.building !== null || location.unit !== null, "implantation vide")
+    .nullable(),
 });
 
 const endpointSchema = z.strictObject({
@@ -290,6 +303,7 @@ export const nfgDocumentSchema = z.strictObject({
 
 export type NfgDocument = z.infer<typeof nfgDocumentSchema>;
 export type Device = NfgDocument["topology"]["devices"][number];
+export type DeviceLocation = NonNullable<Device["location"]>;
 export type Link = NfgDocument["topology"]["links"][number];
 export type LinkEndpoint = Link["endpoints"][number];
 export type DeviceConfig = NfgDocument["configurations"][string];

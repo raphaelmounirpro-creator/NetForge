@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "models": {
     "catalog": 3
   },
@@ -16,502 +16,602 @@
       {
         "id": "sw0",
         "model": "S-24",
-        "name": "SW0"
+        "name": "SW0",
+        "location": null
       },
       {
         "id": "sw1",
         "model": "S-24",
-        "name": "SW1"
+        "name": "SW1",
+        "location": null
       },
       {
         "id": "pc1",
         "model": "PC",
-        "name": "PC1"
+        "name": "PC1",
+        "location": null
       },
       {
         "id": "pc2",
         "model": "PC",
-        "name": "PC2"
+        "name": "PC2",
+        "location": null
       },
       {
         "id": "pc3",
         "model": "PC",
-        "name": "PC3"
+        "name": "PC3",
+        "location": null
       },
       {
         "id": "pc4",
         "model": "PC",
-        "name": "PC4"
+        "name": "PC4",
+        "location": null
       },
       {
         "id": "pc5",
         "model": "PC",
-        "name": "PC5"
+        "name": "PC5",
+        "location": null
       },
       {
         "id": "pc6",
         "model": "PC",
-        "name": "PC6"
+        "name": "PC6",
+        "location": null
       },
       {
         "id": "pc7",
         "model": "PC",
-        "name": "PC7"
+        "name": "PC7",
+        "location": null
       },
       {
         "id": "pc8",
         "model": "PC",
-        "name": "PC8"
+        "name": "PC8",
+        "location": null
       },
       {
         "id": "pc9",
         "model": "PC",
-        "name": "PC9"
+        "name": "PC9",
+        "location": null
       },
       {
         "id": "pc10",
         "model": "PC",
-        "name": "PC10"
+        "name": "PC10",
+        "location": null
       },
       {
         "id": "sw2",
         "model": "S-24",
-        "name": "SW2"
+        "name": "SW2",
+        "location": null
       },
       {
         "id": "pc11",
         "model": "PC",
-        "name": "PC11"
+        "name": "PC11",
+        "location": null
       },
       {
         "id": "pc12",
         "model": "PC",
-        "name": "PC12"
+        "name": "PC12",
+        "location": null
       },
       {
         "id": "pc13",
         "model": "PC",
-        "name": "PC13"
+        "name": "PC13",
+        "location": null
       },
       {
         "id": "pc14",
         "model": "PC",
-        "name": "PC14"
+        "name": "PC14",
+        "location": null
       },
       {
         "id": "pc15",
         "model": "PC",
-        "name": "PC15"
+        "name": "PC15",
+        "location": null
       },
       {
         "id": "pc16",
         "model": "PC",
-        "name": "PC16"
+        "name": "PC16",
+        "location": null
       },
       {
         "id": "pc17",
         "model": "PC",
-        "name": "PC17"
+        "name": "PC17",
+        "location": null
       },
       {
         "id": "pc18",
         "model": "PC",
-        "name": "PC18"
+        "name": "PC18",
+        "location": null
       },
       {
         "id": "pc19",
         "model": "PC",
-        "name": "PC19"
+        "name": "PC19",
+        "location": null
       },
       {
         "id": "pc20",
         "model": "PC",
-        "name": "PC20"
+        "name": "PC20",
+        "location": null
       },
       {
         "id": "sw3",
         "model": "S-24",
-        "name": "SW3"
+        "name": "SW3",
+        "location": null
       },
       {
         "id": "pc21",
         "model": "PC",
-        "name": "PC21"
+        "name": "PC21",
+        "location": null
       },
       {
         "id": "pc22",
         "model": "PC",
-        "name": "PC22"
+        "name": "PC22",
+        "location": null
       },
       {
         "id": "pc23",
         "model": "PC",
-        "name": "PC23"
+        "name": "PC23",
+        "location": null
       },
       {
         "id": "pc24",
         "model": "PC",
-        "name": "PC24"
+        "name": "PC24",
+        "location": null
       },
       {
         "id": "pc25",
         "model": "PC",
-        "name": "PC25"
+        "name": "PC25",
+        "location": null
       },
       {
         "id": "pc26",
         "model": "PC",
-        "name": "PC26"
+        "name": "PC26",
+        "location": null
       },
       {
         "id": "pc27",
         "model": "PC",
-        "name": "PC27"
+        "name": "PC27",
+        "location": null
       },
       {
         "id": "pc28",
         "model": "PC",
-        "name": "PC28"
+        "name": "PC28",
+        "location": null
       },
       {
         "id": "pc29",
         "model": "PC",
-        "name": "PC29"
+        "name": "PC29",
+        "location": null
       },
       {
         "id": "pc30",
         "model": "PC",
-        "name": "PC30"
+        "name": "PC30",
+        "location": null
       },
       {
         "id": "sw4",
         "model": "S-24",
-        "name": "SW4"
+        "name": "SW4",
+        "location": null
       },
       {
         "id": "pc31",
         "model": "PC",
-        "name": "PC31"
+        "name": "PC31",
+        "location": null
       },
       {
         "id": "pc32",
         "model": "PC",
-        "name": "PC32"
+        "name": "PC32",
+        "location": null
       },
       {
         "id": "pc33",
         "model": "PC",
-        "name": "PC33"
+        "name": "PC33",
+        "location": null
       },
       {
         "id": "pc34",
         "model": "PC",
-        "name": "PC34"
+        "name": "PC34",
+        "location": null
       },
       {
         "id": "pc35",
         "model": "PC",
-        "name": "PC35"
+        "name": "PC35",
+        "location": null
       },
       {
         "id": "pc36",
         "model": "PC",
-        "name": "PC36"
+        "name": "PC36",
+        "location": null
       },
       {
         "id": "pc37",
         "model": "PC",
-        "name": "PC37"
+        "name": "PC37",
+        "location": null
       },
       {
         "id": "pc38",
         "model": "PC",
-        "name": "PC38"
+        "name": "PC38",
+        "location": null
       },
       {
         "id": "pc39",
         "model": "PC",
-        "name": "PC39"
+        "name": "PC39",
+        "location": null
       },
       {
         "id": "pc40",
         "model": "PC",
-        "name": "PC40"
+        "name": "PC40",
+        "location": null
       },
       {
         "id": "sw5",
         "model": "S-24",
-        "name": "SW5"
+        "name": "SW5",
+        "location": null
       },
       {
         "id": "pc41",
         "model": "PC",
-        "name": "PC41"
+        "name": "PC41",
+        "location": null
       },
       {
         "id": "pc42",
         "model": "PC",
-        "name": "PC42"
+        "name": "PC42",
+        "location": null
       },
       {
         "id": "pc43",
         "model": "PC",
-        "name": "PC43"
+        "name": "PC43",
+        "location": null
       },
       {
         "id": "pc44",
         "model": "PC",
-        "name": "PC44"
+        "name": "PC44",
+        "location": null
       },
       {
         "id": "pc45",
         "model": "PC",
-        "name": "PC45"
+        "name": "PC45",
+        "location": null
       },
       {
         "id": "pc46",
         "model": "PC",
-        "name": "PC46"
+        "name": "PC46",
+        "location": null
       },
       {
         "id": "pc47",
         "model": "PC",
-        "name": "PC47"
+        "name": "PC47",
+        "location": null
       },
       {
         "id": "pc48",
         "model": "PC",
-        "name": "PC48"
+        "name": "PC48",
+        "location": null
       },
       {
         "id": "pc49",
         "model": "PC",
-        "name": "PC49"
+        "name": "PC49",
+        "location": null
       },
       {
         "id": "pc50",
         "model": "PC",
-        "name": "PC50"
+        "name": "PC50",
+        "location": null
       },
       {
         "id": "sw6",
         "model": "S-24",
-        "name": "SW6"
+        "name": "SW6",
+        "location": null
       },
       {
         "id": "pc51",
         "model": "PC",
-        "name": "PC51"
+        "name": "PC51",
+        "location": null
       },
       {
         "id": "pc52",
         "model": "PC",
-        "name": "PC52"
+        "name": "PC52",
+        "location": null
       },
       {
         "id": "pc53",
         "model": "PC",
-        "name": "PC53"
+        "name": "PC53",
+        "location": null
       },
       {
         "id": "pc54",
         "model": "PC",
-        "name": "PC54"
+        "name": "PC54",
+        "location": null
       },
       {
         "id": "pc55",
         "model": "PC",
-        "name": "PC55"
+        "name": "PC55",
+        "location": null
       },
       {
         "id": "pc56",
         "model": "PC",
-        "name": "PC56"
+        "name": "PC56",
+        "location": null
       },
       {
         "id": "pc57",
         "model": "PC",
-        "name": "PC57"
+        "name": "PC57",
+        "location": null
       },
       {
         "id": "pc58",
         "model": "PC",
-        "name": "PC58"
+        "name": "PC58",
+        "location": null
       },
       {
         "id": "pc59",
         "model": "PC",
-        "name": "PC59"
+        "name": "PC59",
+        "location": null
       },
       {
         "id": "pc60",
         "model": "PC",
-        "name": "PC60"
+        "name": "PC60",
+        "location": null
       },
       {
         "id": "sw7",
         "model": "S-24",
-        "name": "SW7"
+        "name": "SW7",
+        "location": null
       },
       {
         "id": "pc61",
         "model": "PC",
-        "name": "PC61"
+        "name": "PC61",
+        "location": null
       },
       {
         "id": "pc62",
         "model": "PC",
-        "name": "PC62"
+        "name": "PC62",
+        "location": null
       },
       {
         "id": "pc63",
         "model": "PC",
-        "name": "PC63"
+        "name": "PC63",
+        "location": null
       },
       {
         "id": "pc64",
         "model": "PC",
-        "name": "PC64"
+        "name": "PC64",
+        "location": null
       },
       {
         "id": "pc65",
         "model": "PC",
-        "name": "PC65"
+        "name": "PC65",
+        "location": null
       },
       {
         "id": "pc66",
         "model": "PC",
-        "name": "PC66"
+        "name": "PC66",
+        "location": null
       },
       {
         "id": "pc67",
         "model": "PC",
-        "name": "PC67"
+        "name": "PC67",
+        "location": null
       },
       {
         "id": "pc68",
         "model": "PC",
-        "name": "PC68"
+        "name": "PC68",
+        "location": null
       },
       {
         "id": "pc69",
         "model": "PC",
-        "name": "PC69"
+        "name": "PC69",
+        "location": null
       },
       {
         "id": "pc70",
         "model": "PC",
-        "name": "PC70"
+        "name": "PC70",
+        "location": null
       },
       {
         "id": "sw8",
         "model": "S-24",
-        "name": "SW8"
+        "name": "SW8",
+        "location": null
       },
       {
         "id": "pc71",
         "model": "PC",
-        "name": "PC71"
+        "name": "PC71",
+        "location": null
       },
       {
         "id": "pc72",
         "model": "PC",
-        "name": "PC72"
+        "name": "PC72",
+        "location": null
       },
       {
         "id": "pc73",
         "model": "PC",
-        "name": "PC73"
+        "name": "PC73",
+        "location": null
       },
       {
         "id": "pc74",
         "model": "PC",
-        "name": "PC74"
+        "name": "PC74",
+        "location": null
       },
       {
         "id": "pc75",
         "model": "PC",
-        "name": "PC75"
+        "name": "PC75",
+        "location": null
       },
       {
         "id": "pc76",
         "model": "PC",
-        "name": "PC76"
+        "name": "PC76",
+        "location": null
       },
       {
         "id": "pc77",
         "model": "PC",
-        "name": "PC77"
+        "name": "PC77",
+        "location": null
       },
       {
         "id": "pc78",
         "model": "PC",
-        "name": "PC78"
+        "name": "PC78",
+        "location": null
       },
       {
         "id": "pc79",
         "model": "PC",
-        "name": "PC79"
+        "name": "PC79",
+        "location": null
       },
       {
         "id": "pc80",
         "model": "PC",
-        "name": "PC80"
+        "name": "PC80",
+        "location": null
       },
       {
         "id": "sw9",
         "model": "S-24",
-        "name": "SW9"
+        "name": "SW9",
+        "location": null
       },
       {
         "id": "pc81",
         "model": "PC",
-        "name": "PC81"
+        "name": "PC81",
+        "location": null
       },
       {
         "id": "pc82",
         "model": "PC",
-        "name": "PC82"
+        "name": "PC82",
+        "location": null
       },
       {
         "id": "pc83",
         "model": "PC",
-        "name": "PC83"
+        "name": "PC83",
+        "location": null
       },
       {
         "id": "pc84",
         "model": "PC",
-        "name": "PC84"
+        "name": "PC84",
+        "location": null
       },
       {
         "id": "pc85",
         "model": "PC",
-        "name": "PC85"
+        "name": "PC85",
+        "location": null
       },
       {
         "id": "pc86",
         "model": "PC",
-        "name": "PC86"
+        "name": "PC86",
+        "location": null
       },
       {
         "id": "pc87",
         "model": "PC",
-        "name": "PC87"
+        "name": "PC87",
+        "location": null
       },
       {
         "id": "pc88",
         "model": "PC",
-        "name": "PC88"
+        "name": "PC88",
+        "location": null
       },
       {
         "id": "pc89",
         "model": "PC",
-        "name": "PC89"
+        "name": "PC89",
+        "location": null
       },
       {
         "id": "pc90",
         "model": "PC",
-        "name": "PC90"
+        "name": "PC90",
+        "location": null
       }
     ],
     "links": [

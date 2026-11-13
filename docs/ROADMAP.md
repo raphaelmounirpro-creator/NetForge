@@ -103,7 +103,7 @@ Statuts : **prévu**, **en cours**, **disponible**, **disponible avec limites**,
 | F-08 | GPON/XGS-PON pédagogiques, enregistrement par numéro de série | 9 | disponible avec limites | F-04 | Chemin optique OK distinct d'un ONT enregistré (pon.test.ts, pon.spec.ts, [pon.md](protocols/pon.md)) ; activation déduite, sans messages PLOAM ni allocation de bande |
 | F-09 | VLAN de service Internet/VoIP/IPTV, partage de bande passante | 9 | disponible avec limites | F-08, P-01 | Débits partagés expliqués (pon.test.ts, pon.spec.ts, [pon.md](protocols/pon.md)) ; partage max-min à l'heure de pointe, sans DBA ni trames |
 | F-10 | OTDR pédagogique (événements, pertes, limites documentées) | 9 | disponible avec limites | F-02 | Trace approximative documentée (otdr.test.ts, otdr.spec.ts, [otdr.md](protocols/otdr.md)) ; une branche après un coupleur, sans bruit ni zone morte |
-| F-11 | Vue arborescente colorée + alternative textuelle, implantation rue/immeuble/PBO | 9 | prévu | F-01 | Lisible sans couleur |
+| F-11 | Vue arborescente colorée + alternative textuelle, implantation rue/immeuble/PBO | 9 | disponible | F-01 | Lisible sans couleur (tree.test.ts, tree.spec.ts, [fiche](protocols/ftth-bilan-optique.md)) |
 | F-12 | Export des bilans CSV/PDF | 9 | prévu | F-02 | Fichiers ouverts et cohérents |
 
 ### Comptes, sécurité, déploiement (phase 5)

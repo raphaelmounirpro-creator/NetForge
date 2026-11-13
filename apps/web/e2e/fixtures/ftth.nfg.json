@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "models": {
     "catalog": 3
   },
@@ -16,57 +16,112 @@
       {
         "id": "olt1",
         "model": "OLT-16",
-        "name": "OLT1"
+        "name": "OLT1",
+        "location": {
+          "street": "Avenue des Tilleuls",
+          "building": "Central optique",
+          "unit": "Salle de transmission"
+        }
       },
       {
         "id": "odf1",
         "model": "ODF-12",
-        "name": "ODF1"
+        "name": "ODF1",
+        "location": {
+          "street": "Avenue des Tilleuls",
+          "building": "Central optique",
+          "unit": "Salle de transmission"
+        }
       },
       {
         "id": "cpl1",
         "model": "SPL-8",
-        "name": "CPL1"
+        "name": "CPL1",
+        "location": {
+          "street": "Avenue des Tilleuls",
+          "building": null,
+          "unit": "Armoire de rue n° 3"
+        }
       },
       {
         "id": "cpl2",
         "model": "SPL-4",
-        "name": "CPL2"
+        "name": "CPL2",
+        "location": {
+          "street": "Rue des Lilas",
+          "building": "Résidence Les Lilas, bâtiment A",
+          "unit": "Local technique"
+        }
       },
       {
         "id": "pbo1",
         "model": "PBO-8",
-        "name": "PBO1"
+        "name": "PBO1",
+        "location": {
+          "street": "Rue des Lilas",
+          "building": "Résidence Les Lilas, bâtiment A",
+          "unit": "Local technique"
+        }
       },
       {
         "id": "pto1",
         "model": "PTO",
-        "name": "PTO1"
+        "name": "PTO1",
+        "location": {
+          "street": "Rue des Lilas",
+          "building": "Résidence Les Lilas, bâtiment A",
+          "unit": "Appartement 11"
+        }
       },
       {
         "id": "pto2",
         "model": "PTO",
-        "name": "PTO2"
+        "name": "PTO2",
+        "location": {
+          "street": "Rue des Lilas",
+          "building": "Résidence Les Lilas, bâtiment A",
+          "unit": "Appartement 12"
+        }
       },
       {
         "id": "pto3",
         "model": "PTO",
-        "name": "PTO3"
+        "name": "PTO3",
+        "location": {
+          "street": "Rue des Lilas",
+          "building": "Résidence Les Lilas, bâtiment A",
+          "unit": "Appartement 21"
+        }
       },
       {
         "id": "ont1",
         "model": "ONT-1G",
-        "name": "ONT1"
+        "name": "ONT1",
+        "location": {
+          "street": "Rue des Lilas",
+          "building": "Résidence Les Lilas, bâtiment A",
+          "unit": "Appartement 11"
+        }
       },
       {
         "id": "ont2",
         "model": "ONT-1G",
-        "name": "ONT2"
+        "name": "ONT2",
+        "location": {
+          "street": "Rue des Lilas",
+          "building": "Résidence Les Lilas, bâtiment A",
+          "unit": "Appartement 12"
+        }
       },
       {
         "id": "ont3",
         "model": "ONT-1G",
-        "name": "ONT3"
+        "name": "ONT3",
+        "location": {
+          "street": "Rue des Lilas",
+          "building": "Résidence Les Lilas, bâtiment A",
+          "unit": "Appartement 21"
+        }
       }
     ],
     "links": [

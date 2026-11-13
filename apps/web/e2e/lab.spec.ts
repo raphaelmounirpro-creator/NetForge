@@ -65,11 +65,11 @@ test("import invalide : refus expliqué et projet courant conservé", async ({ p
   await page.getByTestId("import-input").setInputFiles({
     name: "futur.nfg.json",
     mimeType: "application/json",
-    buffer: Buffer.from(JSON.stringify({ format: "netforge-project", schemaVersion: 16 })),
+    buffer: Buffer.from(JSON.stringify({ format: "netforge-project", schemaVersion: 17 })),
   });
   const alert = page.getByRole("alert");
   await expect(alert).toContainText("Import refusé");
-  await expect(alert).toContainText("version 16 du format");
+  await expect(alert).toContainText("version 17 du format");
   await expect(page.getByRole("row")).toHaveCount(2); // en-tête + projet existant
 
   await page.getByRole("link", { name: "Laboratoire", exact: true }).click();

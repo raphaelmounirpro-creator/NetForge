@@ -8,6 +8,7 @@ import {
   removeDevice,
   removeFault,
   repair,
+  setDeviceLocation,
   setFiber,
   type CommandResult,
 } from "./commands.js";
@@ -91,6 +92,26 @@ describe("liens optiques et compatibilité des connectiques", () => {
     const mixed = projectWith(["pc1", "PC"], ["ont1", "ONT-1G"]);
     const mixedLink = { id: "l1", endpoints: [{ deviceId: "pc1", portId: "eth0" }, { deviceId: "ont1", portId: "pon" }], fiber: null };
     expect(codes({ ...mixed, topology: { ...mixed.topology, links: [mixedLink] } })).toEqual(["link.incompatible-media"]);
+  });
+});
+
+describe("implantation des équipements (v16)", () => {
+  it("renseigne rue, immeuble et logement, ignore les champs vides et efface une implantation toute vide", () => {
+    let doc = expectOk(setDeviceLocation(ftthChain(), { deviceId: "pbo1", location: { street: " Rue des Lilas ", building: "Bâtiment A", unit: "" } }));
+    expect(doc.topology.devices.find((device) => device.id === "pbo1")?.location).toEqual({ street: "Rue des Lilas", building: "Bâtiment A", unit: null });
+    doc = expectOk(setDeviceLocation(doc, { deviceId: "pbo1", location: { street: " ", building: "", unit: "" } }));
+    expect(doc.topology.devices.find((device) => device.id === "pbo1")?.location).toBeNull();
+    expect(errorCodes(setDeviceLocation(doc, { deviceId: "pbo1", location: { street: "x".repeat(81), building: "", unit: "" } }))).toEqual(["device.invalid-location"]);
+    expect(errorCodes(setDeviceLocation(doc, { deviceId: "absent", location: { street: "a", building: "", unit: "" } }))).toEqual(["device.not-found"]);
+  });
+
+  it("migre un fichier v15 sans implantation, et refuse à l'import une implantation vide", () => {
+    const doc = expectOk(setDeviceLocation(ftthChain(), { deviceId: "pto1", location: { street: "", building: "Bâtiment A", unit: "Appartement 11" } }));
+    const old = { ...doc, schemaVersion: 15, topology: { ...doc.topology, devices: doc.topology.devices.map(({ location: _location, ...device }) => device) } };
+    const migrated = parseNfgValue(old);
+    expect(migrated.ok && migrated.document.topology.devices.every((device) => device.location === null)).toBe(true);
+    const empty = parseNfgValue({ ...doc, topology: { ...doc.topology, devices: doc.topology.devices.map((device) => ({ ...device, location: device.id === "pto1" ? { street: null, building: null, unit: null } : device.location })) } });
+    expect(empty.ok ? [] : empty.errors.map((issue) => issue.code)).toEqual(["import.schema"]);
   });
 });
 

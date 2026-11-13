@@ -86,6 +86,18 @@ La perte de panne reste distincte de la perte nominale (colonnes séparées). Au
 
 Le formateur voit et injecte les pannes. Pendant un exercice, l'élève ne voit que les symptômes (état constaté par l'ONT, bilan de conception, mesures et inspections) ; la panne reste présente dans le fichier du projet (entraînement local, D-033).
 
+### Arbre du réseau et implantation (phase 9)
+
+- **Arbre** (colonne de gauche de la vue Optique, onglet Arbre) : de chaque port d'OLT aux ONT, équipement par équipement, avec les ports d'entrée. Il est construit par le moteur (`tree.ts`) à partir des chemins du bilan, et regroupé par équipement.
+  - Chaque branche indique combien d'ONT sont en fonctionnement (O5) ou hors service.
+  - Chaque ONT indique son état optique et son état d'activation.
+  - Ces états sont écrits en symbole et en texte, et la couleur ne fait que les doubler : la liste imbriquée sert d'alternative textuelle au canevas.
+- **Implantation** (format v16) :
+  - rue, immeuble ou site, logement, étage ou local, renseignés librement dans l'onglet Général des équipements optiques ;
+  - descriptive, sans effet sur le réseau, et libre en évaluation, comme le nom ;
+  - l'onglet Implantation range les équipements par rue puis par immeuble, avec l'état des ONT ; les équipements sans implantation sont listés à part.
+- Le scénario FTTH de référence porte des adresses fictives : central optique, armoire de rue, résidence avec trois appartements.
+
 ## Simplifications et limites
 
 - Mesures déterministes au pire cas : aucune valeur « typique » ni dispersion aléatoire n'est inventée.
@@ -100,6 +112,8 @@ Couche 1 (physique) : puissance optique, affaiblissement, connectique. Aucune un
 
 ## Tests de référence
 
+- `packages/engine/src/tree.test.ts` : arbre du réseau de référence (ODF, coupleurs, PBO à trois entrées, PTO, ONT), ONT d'une autre technologie, projet sans OLT.
+- `apps/web/e2e/tree.spec.ts` : arbre et états par branche, panne visible dans l'arbre, implantation par rue et immeuble, formulaire d'implantation.
 - `packages/engine/src/pon.test.ts` : chemin XGS-PON calculé à la main dans les deux sens, majoration sous 1 310 nm, pénalité DD40, technologies incompatibles, photomètre à 1 577 et 1 270 nm.
 - `packages/engine/src/optics.test.ts` : chemin ONT1 calculé à la main (24,974 dB, marge 3,026 dB dans les deux sens), contributions dans l'ordre de chaque sens, comptage (4 connexions, 7 épissures, 2 coupleurs, 6 fibres), trois branches, réserve, marge faible, ONT non atteint, sensibilité insuffisante (cascade 1:64 + 1:8), surcharge, panne distincte de la perte nominale, courbure, épissure, coupure, incompatibilité, photomètre (deux sens), inspection, cohabitation avec la simulation Ethernet.
 - `packages/engine/src/exercise-optics.test.ts` : critère de service optique, réponses en dB, observations du photomètre, format d'exercice v2.

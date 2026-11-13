@@ -15,6 +15,7 @@ import {
   NFG_FORMAT,
   type Device,
   type DeviceConfig,
+  type DeviceLocation,
   type LinkEndpoint,
   type NfgDocument,
   type Position,
@@ -125,7 +126,7 @@ export function addDevice(
   }
   const name = params.name ?? nextDeviceName(doc, getModel(params.model).namePrefix);
   if (!DEVICE_NAME_PATTERN.test(name)) return fail(error("device.invalid-name", { name }));
-  const device: Device = { id: params.id, model: params.model, name };
+  const device: Device = { id: params.id, model: params.model, name, location: null };
   // Un switch neuf a STP activé (comme un équipement réel sorti d'usine) ;
   // un ONT neuf porte un numéro de série d'usine, distinct de ceux du projet.
   const kind = getModel(params.model).kind;
@@ -158,6 +159,25 @@ export function renameDevice(doc: NfgDocument, params: { deviceId: string; name:
 }
 
 /** Déplacement : modifie la disposition uniquement, jamais le réseau. */
+/**
+ * Implantation d'un équipement (rue, immeuble, logement ou étage) : champs
+ * vides ignorés ; tout vide efface l'implantation.
+ */
+export function setDeviceLocation(doc: NfgDocument, params: { deviceId: string; location: { street: string; building: string; unit: string } }): CommandResult {
+  const device = findDevice(doc, params.deviceId);
+  if (!device) return deviceNotFound(params.deviceId);
+  const part = (value: string) => {
+    const trimmed = value.trim();
+    return trimmed === "" ? null : trimmed;
+  };
+  const parts = { street: part(params.location.street), building: part(params.location.building), unit: part(params.location.unit) };
+  if (Object.values(parts).some((value) => value !== null && value.length > LIMITS.maxLocationLength)) {
+    return fail(error("device.invalid-location", { deviceId: device.id, deviceName: device.name, max: LIMITS.maxLocationLength }));
+  }
+  const location: DeviceLocation | null = parts.street === null && parts.building === null && parts.unit === null ? null : parts;
+  return commit(doc, { ...doc, topology: { ...doc.topology, devices: doc.topology.devices.map((item) => (item.id === device.id ? { ...item, location } : item)) } });
+}
+
 export function moveDevice(doc: NfgDocument, params: { deviceId: string; position: Position }): CommandResult {
   if (!findDevice(doc, params.deviceId)) return deviceNotFound(params.deviceId);
   return commit(doc, {

@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "models": {
     "catalog": 3
   },
@@ -16,47 +16,56 @@
       {
         "id": "olt1",
         "model": "OLT-XGS-8",
-        "name": "OLT1"
+        "name": "OLT1",
+        "location": null
       },
       {
         "id": "odf1",
         "model": "ODF-12",
-        "name": "ODF1"
+        "name": "ODF1",
+        "location": null
       },
       {
         "id": "cpl1",
         "model": "SPL-64",
-        "name": "CPL1"
+        "name": "CPL1",
+        "location": null
       },
       {
         "id": "pto1",
         "model": "PTO",
-        "name": "PTO1"
+        "name": "PTO1",
+        "location": null
       },
       {
         "id": "pto2",
         "model": "PTO",
-        "name": "PTO2"
+        "name": "PTO2",
+        "location": null
       },
       {
         "id": "pto3",
         "model": "PTO",
-        "name": "PTO3"
+        "name": "PTO3",
+        "location": null
       },
       {
         "id": "ont1",
         "model": "ONT-10G",
-        "name": "ONT1"
+        "name": "ONT1",
+        "location": null
       },
       {
         "id": "ont2",
         "model": "ONT-10G",
-        "name": "ONT2"
+        "name": "ONT2",
+        "location": null
       },
       {
         "id": "ont3",
         "model": "ONT-1G",
-        "name": "ONT3"
+        "name": "ONT3",
+        "location": null
       }
     ],
     "links": [

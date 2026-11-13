@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "models": {
     "catalog": 3
   },
@@ -16,32 +16,38 @@
       {
         "id": "pc1",
         "model": "PC",
-        "name": "PC1"
+        "name": "PC1",
+        "location": null
       },
       {
         "id": "r1",
         "model": "R-200",
-        "name": "R1"
+        "name": "R1",
+        "location": null
       },
       {
         "id": "r2",
         "model": "R-200",
-        "name": "R2"
+        "name": "R2",
+        "location": null
       },
       {
         "id": "pc2",
         "model": "PC",
-        "name": "PC2"
+        "name": "PC2",
+        "location": null
       },
       {
         "id": "r3",
         "model": "R-200",
-        "name": "R3"
+        "name": "R3",
+        "location": null
       },
       {
         "id": "pc3",
         "model": "PC",
-        "name": "PC3"
+        "name": "PC3",
+        "location": null
       }
     ],
     "links": [
