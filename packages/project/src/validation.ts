@@ -339,8 +339,12 @@ function checkFaults(doc: NfgDocument): Issue[] {
       const link = doc.topology.links.find((item) => item.id === target.linkId);
       if (!link) issues.push(error("fault.unknown-target", base));
       else if (link.fiber === null || (fault.kind !== "cut" && fault.kind !== "bend")) issues.push(error("fault.invalid-target", base));
+      else if (fault.positionM !== null && fault.positionM > link.fiber.length) {
+        issues.push(error("fault.position-out-of-range", { ...base, position: fault.positionM, length: link.fiber.length }));
+      }
       continue;
     }
+    if (fault.positionM !== null) issues.push(error("fault.position-not-supported", base));
     const device = doc.topology.devices.find((item) => item.id === target.deviceId);
     const port = device ? findPort(device.model, target.portId) : undefined;
     if (!device || !port) {

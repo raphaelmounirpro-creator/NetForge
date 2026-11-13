@@ -19,7 +19,8 @@ Le moteur simule Ethernet, ARP, IPv4 et ICMP (phase 2), VLAN, STP, DHCP et DNS (
 | [VRRP version 3 (IPv4)](vrrp.md) | Pédagogique simplifié — un groupe par interface, Accept_Mode faux |
 | [ICMP et ping](icmp-ping.md) | Pédagogique simplifié (sous-ensemble) |
 | [Réseau optique FTTH : bilan, mesures et pannes](ftth-bilan-optique.md) | Pédagogique simplifié — calcul statique |
-| [PON : GPON et XGS-PON, enregistrement des ONT](pon.md) | Pédagogique simplifié — activation déduite, sans messages PLOAM |
+| [PON : GPON et XGS-PON, enregistrement des ONT, services et débits](pon.md) | Pédagogique simplifié — activation déduite, sans messages PLOAM ; partage max-min |
+| [Réflectomètre (OTDR)](otdr.md) | Pédagogique simplifié — trace calculée, une branche, sans bruit ni zone morte |
 
 Chaque protocole ou modèle ajouté reçoit un fichier `docs/protocols/<nom>.md` selon ce gabarit :
 

@@ -6,6 +6,7 @@ import { OpticsBandwidth } from "./OpticsBandwidth";
 import { OpticsBudget } from "./OpticsBudget";
 import { OpticsFaults, OpticsInterventions } from "./OpticsFaults";
 import { OpticsMeasure } from "./OpticsMeasure";
+import { OpticsOtdr } from "./OpticsOtdr";
 import { OpticsPon } from "./OpticsPon";
 import { useOpticsSession, useOpticsStore, type OpticsTab } from "./store";
 
@@ -29,6 +30,7 @@ export function OpticsSidePanel({ projectId, project }: { projectId: string; pro
     { id: "pon", label: t.tabPon },
     { id: "bandwidth", label: t.tabBandwidth },
     { id: "measure", label: t.tabMeasure },
+    { id: "otdr", label: t.tabOtdr },
     { id: "interventions", label: t.tabInterventions },
     ...(exercise ? [] : [{ id: "faults" as const, label: t.tabFaults }]),
   ];
@@ -54,6 +56,8 @@ export function OpticsSidePanel({ projectId, project }: { projectId: string; pro
           <OpticsBandwidth doc={project.document} ports={bandwidth} />
         ) : tab === "measure" ? (
           <OpticsMeasure projectId={projectId} doc={project.document} selection={project.selection} />
+        ) : tab === "otdr" ? (
+          <OpticsOtdr projectId={projectId} doc={project.document} />
         ) : tab === "interventions" ? (
           <OpticsInterventions projectId={projectId} doc={project.document} editable={editable} />
         ) : (

@@ -133,6 +133,8 @@ export const ISSUE_CODES = [
   "fault.invalid-target",
   "fault.invalid-loss",
   "fault.duplicate",
+  "fault.position-not-supported",
+  "fault.position-out-of-range",
   "repair.nothing-found",
   // IPv4
   "ipv4.invalid-address",

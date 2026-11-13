@@ -78,7 +78,7 @@ Pour chaque chemin : descendant (OLT → ONT) et montant (ONT → OLT), avec le 
 | Épissure défectueuse | port épissuré | perte supplémentaire saisie |
 | Polissage incompatible (APC/UPC) | port à connecteur | raccordement déclaré incompatible ; **aucune pénalité chiffrée n'est inventée** |
 
-La perte de panne reste distincte de la perte nominale (colonnes séparées). Aucune panne n'est placée à une distance arbitraire le long d'une fibre : elle porte sur la fibre entière ou sur un port.
+La perte de panne reste distincte de la perte nominale (colonnes séparées). Aucune panne n'est placée à une distance arbitraire le long d'une fibre : elle porte sur la fibre entière ou sur un port. Depuis le format v15, le formateur peut donner la position d'une coupure ou d'une courbure (distance depuis la première extrémité du lien), utilisée par l'[OTDR](otdr.md) ; le bilan, lui, n'en dépend pas.
 
 - **Photomètre** : raccordé à la place de la jarretière sur un port à connecteur. Il affiche la puissance au pire cas (émission minimale garantie, pertes maximales, pannes comprises) et la compare au bilan de conception : l'écart est exactement la perte ajoutée par les pannes en amont. Descendant : lumière de l'OLT ; montant : lumière d'un ONT choisi. Une entrée de câble épissurée n'est pas mesurable.
 - **Inspection** : face du connecteur (propre ou sale) et polissage de la jarretière raccordée (adapté ou non).
@@ -91,7 +91,7 @@ Le formateur voit et injecte les pannes. Pendant un exercice, l'élève ne voit 
 - Mesures déterministes au pire cas : aucune valeur « typique » ni dispersion aléatoire n'est inventée.
 - Affaiblissement identique de 1 310 à 1 625 nm (valeur maximale de G.652), majoré de 0,07 dB/km sous 1 310 nm ; calcul à la longueur d'onde nominale de l'émetteur ; pas d'effet Raman, de vidéo superposée ni de filtre WDM.
 - Épissures par fusion à alignement actif uniquement ; pas d'épissure mécanique.
-- Pas de réflectance, d'OTDR ni d'atténuateur (OTDR : tranche 3 de la phase 9).
+- Pas de réflectance chiffrée ni d'atténuateur ; OTDR pédagogique décrit dans [otdr.md](otdr.md).
 - Un point éclairé par plusieurs OLT (erreur de câblage) est mesuré depuis le premier dans l'ordre des identifiants.
 
 ## Correspondance OSI (pédagogique)

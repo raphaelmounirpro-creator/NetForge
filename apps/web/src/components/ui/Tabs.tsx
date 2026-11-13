@@ -49,7 +49,7 @@ export function Tabs<T extends string>({ label, tabs, selected, onSelect, childr
   return (
     <div className={`flex min-h-0 flex-col ${className}`}>
       <div className="flex shrink-0 flex-wrap items-center gap-x-2 border-b border-border">
-      <div ref={listRef} role="tablist" aria-label={label} onKeyDown={onKeyDown} className="flex shrink-0 gap-1">
+      <div ref={listRef} role="tablist" aria-label={label} onKeyDown={onKeyDown} className="flex min-w-0 flex-wrap gap-x-1">
         {tabs.map((tab) => {
           const isSelected = tab.id === selected;
           return (

@@ -234,6 +234,16 @@ function migrateV13toV14(doc: Record<string, unknown>): Record<string, unknown> 
   };
 }
 
+/** Version 14 → 15 : aucune panne n'a de position le long de sa fibre. */
+function migrateV14toV15(doc: Record<string, unknown>): Record<string, unknown> {
+  const faults = doc["faults"];
+  return {
+    ...doc,
+    schemaVersion: 15,
+    faults: Array.isArray(faults) ? faults.map((fault: unknown) => (isRecord(fault) ? { ...fault, positionM: null } : fault)) : faults,
+  };
+}
+
 /**
  * Migrations explicites : MIGRATIONS[v] transforme un document de la version
  * v en version v + 1. Chaque nouvelle version ajoute ici une étape testée.
@@ -252,6 +262,7 @@ const MIGRATIONS: Readonly<Record<number, (doc: Record<string, unknown>) => Reco
   11: migrateV11toV12,
   12: migrateV12toV13,
   13: migrateV13toV14,
+  14: migrateV14toV15,
 };
 
 /** Clés qui modifieraient le prototype des objets reconstruits : toujours refusées. */

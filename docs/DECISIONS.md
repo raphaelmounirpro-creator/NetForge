@@ -344,3 +344,13 @@ Décision du propriétaire : 15 caractères minimum est jugé trop contraignant 
 - **IPTV multicast** : comptée une fois par port.
 - **Correcteur v11** : profils et offres protégés par « pon ». `ENGINE_VERSION` 0.12.0.
 - **Ordre des clés** : une configuration neuve suit l'ordre du schéma, pour que l'aller-retour export/import reste identique octet par octet.
+
+## D-063 — OTDR pédagogique calculé, position des pannes de fibre, format v15 (phase 9)
+
+- **Trace calculée** à partir du chemin optique (événements, distances, pertes nominales maximales et pertes de panne), plutôt qu'une simulation de la rétrodiffusion. C'est déterministe, vérifiable à la main et cohérent avec le bilan. Aucune valeur d'instrument (dynamique, impulsion, zone morte, réflectance) n'est inventée.
+- **Longueurs d'onde** 1 310 et 1 550 nm. Affaiblissement maximal de G.652 à 1 550 nm (0,30 dB/km de 1 530 à 1 565 nm) ajouté au moteur. Les longueurs d'onde PON (1 270, 1 310, 1 490, 1 577 nm) sont hors de cette plage : bilans inchangés.
+- **Symptômes seulement** : l'OTDR signale une perte au-delà du maximum attendu, une fin de fibre inattendue ou une lecture non représentative, sans nommer la panne, y compris pour le formateur. C'est la même règle qu'en exercice (D-033).
+- **Format v15** : `positionM` facultative sur une coupure ou une courbure, mesurée depuis la première extrémité du lien et ramenée au sens de la trace. Une fibre raccourcie en deçà de la panne est refusée. Migration v14 → v15 : aucune position, et une panne sans position est localisée à la section de fibre près, sans distance inventée (règle de la phase 4).
+- **Une branche** est suivie après un coupleur ; la superposition réelle est documentée, pas simulée.
+- **Onglets** : la barre d'onglets passe à la ligne quand elle est trop longue (panneau Optique à sept onglets), plutôt que de faire défiler la page horizontalement.
+- `ENGINE_VERSION` 0.13.0 ; correcteur inchangé (v11) : aucune note ne dépend de l'OTDR.

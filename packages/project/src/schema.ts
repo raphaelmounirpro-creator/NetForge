@@ -12,19 +12,20 @@ import { VLAN_MAX, VLAN_MIN } from "./vlan.js";
 import { VRID_MAX, VRID_MIN, VRRP_PRIORITY_MAX, VRRP_PRIORITY_MIN } from "./vrrp.js";
 
 /**
- * Format d'échange .nfg.json, version 14 (v2 : routes statiques ; v3 : annotations ;
+ * Format d'échange .nfg.json, version 15 (v2 : routes statiques ; v3 : annotations ;
  * v4 : fibres optiques et pannes ; v5 : VLAN — ports de switch et sous-interfaces —,
  * STP par switch ; v6 : DHCP — plages des routeurs, adressage automatique des postes ;
  * v7 : DNS ; v8 : RIP ; v9 : OSPF en zone unique ; v10 : VRRP ; v11 : zones OSPF ; v12 : BGP ; v13 : catalogue 3 — XGS-PON —, numéros de série
  * des ONT et ONT autorisés par port d'OLT ; v14 : profils de service des OLT et
- * services souscrits par ONT).
+ * services souscrits par ONT ; v15 : position d'une coupure ou d'une courbure le
+ * long de sa fibre).
  *
  * Contient uniquement les données persistantes du projet : métadonnées,
  * topologie, configurations et disposition. Jamais d'état d'exécution
  * (caches ARP/MAC, paquets en transit), de session ni de secret.
  */
 export const NFG_FORMAT = "netforge-project";
-export const CURRENT_SCHEMA_VERSION = 14;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 /** Limites appliquées à tout document externe (import, stockage local). */
 export const LIMITS = {
@@ -244,6 +245,12 @@ const faultSchema = z.strictObject({
   ]),
   /** Perte supplémentaire en dB (courbure, connecteur sale, épissure défectueuse) ; null sinon. */
   extraLoss: z.number().min(LIMITS.minFaultLoss).max(LIMITS.maxFaultLoss).nullable(),
+  /**
+   * Coupure ou courbure (v15) : distance en mètres depuis la première extrémité
+   * du lien, choisie par le formateur ; null si elle n'est pas renseignée
+   * (l'OTDR ne la localise alors qu'à la section de fibre près).
+   */
+  positionM: z.number().min(0).max(LIMITS.maxFiberLength).nullable(),
 });
 
 const coordinateSchema = z.number().min(-LIMITS.maxCoordinate).max(LIMITS.maxCoordinate);

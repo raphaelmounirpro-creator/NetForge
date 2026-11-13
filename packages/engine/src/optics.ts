@@ -84,6 +84,8 @@ export const ODN_CLASS_B_PLUS = ODN_CLASSES.gpon;
 export const OPTICAL_LOSSES = {
   /** Câble de transport ou de distribution : maximum du tableau 2 de G.652 (1 310 à 1 625 nm). */
   fiberDistributionDbPerKm: 0.4,
+  /** Même tableau, maximum de 1 530 à 1 565 nm (fenêtre de mesure de l'OTDR à 1 550 nm). */
+  fiberDistribution1550DbPerKm: 0.3,
   /**
    * Note 2 du tableau 2 de G.652 : la plage s'étend jusqu'à 1 260 nm en
    * ajoutant 0,07 dB/km (diffusion de Rayleigh) à la valeur de 1 310 nm.
@@ -135,6 +137,8 @@ export interface AppliedFault {
   readonly id: string;
   readonly kind: FaultKind;
   readonly extraLoss: number | null;
+  /** Coupure ou courbure : distance depuis la première extrémité du lien (m), ou null. */
+  readonly positionM: number | null;
 }
 
 export interface PathElement {
@@ -271,7 +275,7 @@ function buildGraph(doc: NfgDocument): Graph {
 }
 
 const applied = (faults: readonly Fault[] | undefined, kinds: readonly FaultKind[]): AppliedFault[] =>
-  (faults ?? []).filter((fault) => kinds.includes(fault.kind)).map((fault) => ({ id: fault.id, kind: fault.kind, extraLoss: fault.extraLoss }));
+  (faults ?? []).filter((fault) => kinds.includes(fault.kind)).map((fault) => ({ id: fault.id, kind: fault.kind, extraLoss: fault.extraLoss, positionM: fault.positionM }));
 
 function connection(graph: Graph, device: Device, portId: string): PathElement | null {
   const connector = findPort(device.model, portId)?.connector ?? null;
@@ -364,6 +368,7 @@ function explore(doc: NfgDocument, graph: Graph): Exploration {
 
 /** Affaiblissement maximal d'une fibre (dB/km) à une longueur d'onde nominale. */
 export function fiberDbPerKm(cable: Fiber["cable"], wavelengthNm: number): number {
+  if (cable === "distribution" && wavelengthNm >= 1530 && wavelengthNm <= 1565) return OPTICAL_LOSSES.fiberDistribution1550DbPerKm;
   const base = cable === "short" ? OPTICAL_LOSSES.fiberShortDbPerKm : OPTICAL_LOSSES.fiberDistributionDbPerKm;
   return wavelengthNm < 1310 ? base + OPTICAL_LOSSES.below1310ExtraDbPerKm : base;
 }

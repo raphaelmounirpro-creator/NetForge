@@ -5,12 +5,20 @@ import { TextField } from "../../components/ui/TextField";
 import { fill, messages } from "../../i18n";
 import { newEntityId } from "../lab/actions";
 import { useLabStore } from "../lab/store";
-import { formatDb } from "./format";
+import { deviceName, formatDb, formatLength } from "./format";
 import { faultTargets, repairTargets, targetLabel, type TargetOption } from "./targets";
 
 const t = messages.optics;
 const selectClass = "min-h-9 w-full rounded-sm border border-border-strong bg-canvas px-2 text-sm text-text disabled:opacity-60";
 const LOSS_KINDS: ReadonlySet<FaultKind> = new Set<FaultKind>(["bend", "dirty-connector", "bad-splice"]);
+
+const POSITION_KINDS: ReadonlySet<FaultKind> = new Set<FaultKind>(["cut", "bend"]);
+
+/** Première extrémité d'un lien (origine de la position d'une panne de fibre). */
+function linkOrigin(doc: NfgDocument, linkId: string): string | null {
+  const link = doc.topology.links.find((item) => item.id === linkId);
+  return link ? link.endpoints[0].deviceId : null;
+}
 
 /** Lecture d'une perte saisie à la française (virgule ou point). */
 function parseLoss(value: string): number | null {
@@ -51,9 +59,12 @@ export function OpticsFaults({ projectId, doc, editable }: { projectId: string; 
   const [targetValue, setTargetValue] = useState("");
   const [loss, setLoss] = useState("3");
   const [lossError, setLossError] = useState<string | null>(null);
+  const [position, setPosition] = useState("");
+  const [positionError, setPositionError] = useState<string | null>(null);
   const options = faultTargets(doc, kind);
   const selected = options.find((option) => option.value === targetValue) ?? options[0];
   const needsLoss = LOSS_KINDS.has(kind);
+  const origin = selected?.target.kind === "link" && POSITION_KINDS.has(kind) ? linkOrigin(doc, selected.target.linkId) : null;
 
   const submit = () => {
     if (!selected) return;
@@ -63,7 +74,13 @@ export function OpticsFaults({ projectId, doc, editable }: { projectId: string; 
       return;
     }
     setLossError(null);
-    useLabStore.getState().apply(projectId, (current) => addFault(current, { id: newEntityId(), kind, target: selected.target, extraLoss }));
+    const positionM = origin !== null && position.trim() !== "" ? parseLoss(position) : null;
+    if (origin !== null && position.trim() !== "" && positionM === null) {
+      setPositionError(t.invalidPosition);
+      return;
+    }
+    setPositionError(null);
+    useLabStore.getState().apply(projectId, (current) => addFault(current, { id: newEntityId(), kind, target: selected.target, extraLoss, positionM }));
   };
 
   return (
@@ -80,6 +97,9 @@ export function OpticsFaults({ projectId, doc, editable }: { projectId: string; 
               <li key={fault.id} className="flex items-center justify-between gap-2 rounded-sm border border-border px-2 py-1 text-sm">
                 <span className="text-text">
                   {label}
+                  {fault.positionM !== null && fault.target.kind === "link" && (
+                    <span className="text-text-muted">{fill(t.faultAt, { position: formatLength(fault.positionM), device: deviceName(doc, linkOrigin(doc, fault.target.linkId) ?? "") })}</span>
+                  )}
                   {fault.extraLoss !== null && <span className="ml-1 font-mono text-danger">{fill(t.faultLoss, { loss: formatDb(fault.extraLoss) })}</span>}
                 </span>
                 <Button
@@ -140,6 +160,20 @@ export function OpticsFaults({ projectId, doc, editable }: { projectId: string; 
             disabled={!editable}
             onChange={(event) => {
               setLoss(event.target.value);
+            }}
+          />
+        )}
+        {origin !== null && (
+          <TextField
+            label={fill(t.faultPosition, { device: deviceName(doc, origin) })}
+            hint={t.faultPositionHint}
+            value={position}
+            inputMode="decimal"
+            autoComplete="off"
+            error={positionError}
+            disabled={!editable}
+            onChange={(event) => {
+              setPosition(event.target.value);
             }}
           />
         )}

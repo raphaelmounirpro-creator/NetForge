@@ -23,7 +23,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 9 — FTTH/PON avancé et OTDR
 
-**État : en cours.** Phase 8 validée le 2026-11-13 (« lance 9 »). Tranches 1 (technologies PON et enregistrement des ONT) et 2 (services et partage de bande passante) terminées et vérifiées le 2026-11-13.
+**État : en cours.** Phase 8 validée le 2026-11-13 (« lance 9 »). Tranches 1 (technologies PON et enregistrement des ONT), 2 (services et partage de bande passante) et 3 (OTDR pédagogique) terminées et vérifiées le 2026-11-13.
 
 ### Périmètre retenu
 
@@ -46,9 +46,19 @@ La ligne « phase 9 » de la feuille de route (F-08 à F-12 ; spécification §1
 | PON | Un ONT au chemin optique conforme mais au numéro de série non autorisé n'est pas enregistré ; une fois autorisé, il l'est ; un ONT XGS-PON sur un port GPON ne s'enregistre pas ; console et formulaires équivalents | atteint : `engine/pon.test.ts` (ONT2 conforme mais en O2-3 « non autorisé », O5 avec l'identifiant 1 une fois autorisé ; ONT GPON sur l'OLT XGS-PON en O1 « technologies incompatibles » ; salve montante perdue, coupure, numéro en double, ONT changé, ONT isolé), `project/pon.test.ts` (documents identiques par console et formulaires, configuration rejouable), `pon.spec.ts` (onglet PON, `ont add` puis `show pon`, formulaire de l'OLT, numéro de série de l'ONT) |
 | PON | Bilan d'un chemin XGS-PON avec ses longueurs d'onde et sa classe, retrouvé par un calcul à la main | atteint : `engine/pon.test.ts` (25,204 dB et marge 3,796 dB à 1 577 nm ; 25,36528 dB et marge 3,63472 dB à 1 270 nm ; budget 29 dB, classe N1 ; DD40), `pon.spec.ts` (mêmes valeurs dans le bilan affiché) |
 | Services | Débits partagés expliqués : garanties accordées dans la capacité, reste réparti, dépassement signalé | atteint : `engine/pon.test.ts` (réseau FTTH de référence calculé à la main : 320,4 Mbit/s garantis, 822,64 Mbit/s par accès Internet descendant, 414,59 montant, IPTV multicast comptée une fois ; ONT hors service sans débit ; plafonnement au maximum ; surréservation réduite au prorata), `project/pon.test.ts` (profils, offres, console équivalente et rejouable), `pon.spec.ts` (onglet Débits, `show bandwidth`, offre et profil modifiés par le formulaire) |
-| OTDR | Événements à leur distance avec leurs pertes ; coupure localisée ; trace approximative documentée | à faire |
+| OTDR | Événements à leur distance avec leurs pertes ; coupure localisée ; trace approximative documentée | atteint : `otdr.test.ts` (réseau FTTH calculé à la main : 6 954 m, 23,794 dB à 1 550 nm, 24,474 dB à 1 310 nm ; coupure à 2 345 m d'ODF1 vue à 2 347 m depuis l'OLT et 4 607 m depuis l'ONT1 ; connecteur sale signalé sans être nommé ; section seule sans position), `otdr.spec.ts` (trace, coupure injectée avec sa position, localisation des deux côtés), [otdr.md](protocols/otdr.md) |
 | Vue | Arbre lisible sans couleur, avec alternative textuelle ; implantation affichée | à faire |
 | Exports | Fichiers CSV et PDF ouverts et cohérents avec le bilan affiché | à faire |
+
+### Vérifications de la tranche OTDR (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
+
+- État de départ : tranche services et débits commitée (`6a9b604`).
+- Sources : G.652 (08/2024) tableau 2 (0,30 dB/km de 1 530 à 1 565 nm, note 1) et G.671 (11/2025), déjà téléchargées ; aucune valeur d'instrument retenue.
+- `pnpm check` réussi (lint, typecheck, **598 tests** : format 211, moteur 234, interface 98, contrats 2, API 53 sur PostgreSQL réel ; builds). Bundle principal 1 370 kB (397 kB gzip), Worker 253 kB.
+- `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e` : **43 parcours** réussis, dont `otdr.spec.ts` ; `PLAYWRIGHT_CHANNEL=msedge pnpm test:e2e:accounts` : **5 parcours** réussis ; aucun port de test resté en écoute.
+- Inspection visuelle réelle (Edge, 1 440 px) : onglet OTDR (réglages, courbe, tableau), formulaire des pannes avec position. Défaut trouvé et corrigé : avec sept onglets, la barre d'onglets du panneau Optique faisait défiler toute la page horizontalement ; elle passe désormais à la ligne (composant commun d'onglets).
+- Format **v15**, moteur **0.13.0**, exercices **v3**, correcteur **v11** (inchangé).
+- Limites : trace calculée, une seule branche après un coupleur, ni bruit, ni zone morte, ni réflectance chiffrée, courbure identique aux deux longueurs d'onde ([protocols/otdr.md](protocols/otdr.md), D-063).
 
 ### Vérifications de la tranche services et débits (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
 

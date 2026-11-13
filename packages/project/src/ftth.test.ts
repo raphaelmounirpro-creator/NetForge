@@ -116,6 +116,21 @@ describe("pannes optiques (formateur)", () => {
     expect(errorCodes(addFault(doc, { id: "f1", kind: "dirty-connector", target: port("pto1", "zz9"), extraLoss: 1 }))).toEqual(["fault.unknown-target"]);
   });
 
+  it("place une coupure ou une courbure à une distance de la première extrémité de sa fibre, dans sa longueur (v15)", () => {
+    let doc = expectOk(setFiber(ftthChain(), { linkId: "l2", fiber: { length: 5000, type: "G.652.D", cable: "distribution" } }));
+    doc = expectOk(addFault(doc, { id: "f1", kind: "cut", target: cable("l2"), extraLoss: null, positionM: 2345.5 }));
+    doc = expectOk(addFault(doc, { id: "f2", kind: "bend", target: cable("l1"), extraLoss: 1, positionM: 0 }));
+    expect(doc.faults.map((fault) => fault.positionM)).toEqual([2345.5, 0]);
+    expect(errorCodes(addFault(doc, { id: "f3", kind: "bend", target: cable("l2"), extraLoss: 1, positionM: 5000.5 }))).toEqual(["fault.position-out-of-range"]);
+    expect(errorCodes(addFault(doc, { id: "f3", kind: "dirty-connector", target: port("pto1", "out"), extraLoss: 1, positionM: 1 }))).toEqual(["fault.position-not-supported"]);
+    // Raccourcir la fibre en deçà de la coupure est refusé : la panne sortirait du câble.
+    expect(errorCodes(setFiber(doc, { linkId: "l2", fiber: { length: 2000, type: "G.652.D", cable: "distribution" } }))).toEqual(["fault.position-out-of-range"]);
+    // Ancien fichier v14 : pannes sans position.
+    const old = { ...doc, schemaVersion: 14, faults: doc.faults.map(({ positionM: _position, ...fault }) => fault) };
+    const migrated = parseNfgValue(old);
+    expect(migrated.ok && migrated.document.faults.map((fault) => fault.positionM)).toEqual([null, null]);
+  });
+
   it("refuse une coupure sur un câble cuivre", () => {
     let doc = projectWith(["pc1", "PC"], ["sw1", "S-24"]);
     doc = expectOk(connectDevices(doc, { linkId: "l1", aDeviceId: "pc1", bDeviceId: "sw1" }));

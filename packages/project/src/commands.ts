@@ -596,12 +596,14 @@ export function removeAnnotation(doc: NfgDocument, params: { id: string }): Comm
 // ---------------------------------------------------------------- Pannes optiques
 
 /** Ajoute une panne (formateur). Les cibles et pertes sont vérifiées par la validation. */
-export function addFault(doc: NfgDocument, params: { id: string; kind: FaultKind; target: FaultTarget; extraLoss: number | null }): CommandResult {
+export function addFault(doc: NfgDocument, params: { id: string; kind: FaultKind; target: FaultTarget; extraLoss: number | null; positionM?: number | null }): CommandResult {
   if (doc.faults.length >= LIMITS.maxFaults) return fail(error("fault.too-many", { max: LIMITS.maxFaults }));
   if (params.extraLoss !== null && (!Number.isFinite(params.extraLoss) || params.extraLoss < LIMITS.minFaultLoss || params.extraLoss > LIMITS.maxFaultLoss)) {
     return fail(error("fault.invalid-loss", { min: LIMITS.minFaultLoss, max: LIMITS.maxFaultLoss }));
   }
-  const fault: Fault = { id: params.id, kind: params.kind, target: { ...params.target }, extraLoss: params.extraLoss };
+  const positionM = params.positionM ?? null;
+  if (positionM !== null && (!Number.isFinite(positionM) || positionM < 0)) return fail(error("fault.position-out-of-range", { faultId: params.id, kind: params.kind, position: positionM, length: 0 }));
+  const fault: Fault = { id: params.id, kind: params.kind, target: { ...params.target }, extraLoss: params.extraLoss, positionM };
   return commit(doc, { ...doc, faults: [...doc.faults, fault] });
 }
 

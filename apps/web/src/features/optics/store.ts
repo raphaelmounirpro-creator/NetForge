@@ -1,4 +1,4 @@
-import type { ConnectorInspection, Direction, PowerMeasurement } from "@netforge/engine";
+import type { ConnectorInspection, Direction, OtdrTrace, PowerMeasurement } from "@netforge/engine";
 import { create } from "zustand";
 
 /**
@@ -6,7 +6,7 @@ import { create } from "zustand";
  * du photomètre et journal des mesures (jamais exporté ; il sert aussi aux
  * vérifications d'un exercice).
  */
-export type OpticsTab = "budget" | "pon" | "bandwidth" | "measure" | "interventions" | "faults";
+export type OpticsTab = "budget" | "pon" | "bandwidth" | "measure" | "otdr" | "interventions" | "faults";
 
 export type OpticsLogEntry =
   | { readonly id: number; readonly kind: "power"; readonly measurement: PowerMeasurement }
@@ -18,11 +18,13 @@ export interface OpticsSession {
   readonly direction: Direction;
   readonly ontId: string | null;
   readonly log: readonly OpticsLogEntry[];
+  /** Dernière acquisition OTDR (session seulement). */
+  readonly otdr: OtdrTrace | null;
 }
 
 export const OPTICS_LOG_LIMIT = 50;
 
-const EMPTY: OpticsSession = { selectedPathId: null, tab: "budget", direction: "downstream", ontId: null, log: [] };
+const EMPTY: OpticsSession = { selectedPathId: null, tab: "budget", direction: "downstream", ontId: null, log: [], otdr: null };
 
 type NewEntry = { kind: "power"; measurement: PowerMeasurement } | { kind: "inspection"; inspection: ConnectorInspection };
 

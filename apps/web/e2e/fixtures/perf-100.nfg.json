@@ -1,6 +1,6 @@
 {
   "format": "netforge-project",
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "models": {
     "catalog": 3
   },
