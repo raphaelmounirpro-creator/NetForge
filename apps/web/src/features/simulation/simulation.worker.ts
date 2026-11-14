@@ -1,3 +1,4 @@
+import "../../zodConfig";
 import { createSimulationHost } from "@netforge/engine";
 
 /**
