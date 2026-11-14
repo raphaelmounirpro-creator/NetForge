@@ -23,7 +23,7 @@ Commit `8ecf05e`. Limites reportées : quota et conflits vérifiés par tests un
 
 ## Phase active : 9 — FTTH/PON avancé et OTDR
 
-**État : terminée et vérifiée le 2026-11-13, en attente de la validation du propriétaire.** Phase 8 validée le 2026-11-13 (« lance 9 »). Les cinq tranches sont livrées et vérifiées : technologies PON et enregistrement des ONT, services et partage de bande passante, OTDR pédagogique, vue arborescente et implantation, exports CSV et PDF. Tous les critères d'acceptation du tableau sont atteints.
+**État : terminée et vérifiée le 2026-11-13, en attente de la validation du propriétaire ; poussée sur GitHub et déployée en production le 2026-11-14 à la demande du propriétaire (phases 7 à 9 comprises).** Phase 8 validée le 2026-11-13 (« lance 9 »). Les cinq tranches sont livrées et vérifiées : technologies PON et enregistrement des ONT, services et partage de bande passante, OTDR pédagogique, vue arborescente et implantation, exports CSV et PDF. Tous les critères d'acceptation du tableau sont atteints.
 
 ### Périmètre retenu
 
@@ -49,6 +49,15 @@ La ligne « phase 9 » de la feuille de route (F-08 à F-12 ; spécification §1
 | OTDR | Événements à leur distance avec leurs pertes ; coupure localisée ; trace approximative documentée | atteint : `otdr.test.ts` (réseau FTTH calculé à la main : 6 954 m, 23,794 dB à 1 550 nm, 24,474 dB à 1 310 nm ; coupure à 2 345 m d'ODF1 vue à 2 347 m depuis l'OLT et 4 607 m depuis l'ONT1 ; connecteur sale signalé sans être nommé ; section seule sans position), `otdr.spec.ts` (trace, coupure injectée avec sa position, localisation des deux côtés), [otdr.md](protocols/otdr.md) |
 | Vue | Arbre lisible sans couleur, avec alternative textuelle ; implantation affichée | atteint : `tree.test.ts` (arbre du réseau de référence, regroupement par équipement), `tree.spec.ts` (états par branche en symbole et texte, panne visible dans l'arbre, implantation par rue et immeuble, formulaire), `ftth.test.ts` (implantation : saisie, effacement, refus, migration v15 → v16) |
 | Exports | Fichiers CSV et PDF ouverts et cohérents avec le bilan affiché | atteint : `exportBudget.test.ts` (valeurs du chemin ONT1 calculé à la main, exercice sans panne, chemin bloqué, cumul du rapport), `pdf.test.ts` (encodage, références croisées, pagination), `exports.spec.ts` (fichiers téléchargés et relus), PDF relu par pdftotext (accents et colonnes corrects) |
+
+### Déploiement (2026-11-14, Windows 11, Vercel CLI 65.7.0, Edge 157)
+
+- Demande du propriétaire : « pushh en ligne + github ». Dernier déploiement en production : phase 6 ; les phases 7, 8 et 9 sont publiées ensemble.
+- GitHub : `d14cb63..760066f` poussé, SHA distant vérifié par `git ls-remote`.
+- Prévisualisation puis production sur le projet Vercel existant : build réussi, « No pending migrations to apply » (aucune migration de base depuis la phase 6), `/api/health/ready` → 200 (base « up »), bundle servi identique au build local.
+- Contrôle en production dans Edge (configuration Playwright hors dépôt pointant sur https://netforge-amber.vercel.app ; projets importés dans le stockage local, rien d'écrit côté serveur) : parcours `pon`, `otdr`, `tree`, `exports` et `optics` réussis ; chaque onglet optique et les deux exports (FTTH GPON et XGS-PON) sans erreur de console ni violation de la politique de contenu ; vue Optique à 360 px sans défilement horizontal ; pages publiques sans erreur ; route privée → 401 sans session.
+- **Défaut trouvé par ce contrôle et corrigé** : violation `script-src eval` à chaque chargement, causée par la sonde de compilation de Zod 4 (sans effet fonctionnel, invisible dans la console, présente depuis le premier déploiement). Reproduite sur l'aperçu local (`vite preview`, mêmes en-têtes), corrigée par `z.config({ jitless: true })` en tête de la page et du Worker (`141b8e6`, voir [securite.md](securite.md)) ; `zodConfig.test.ts` échoue sans le réglage et réussit avec. Après correctif : `pnpm check` réussi (**610 tests** : format 213, moteur 236, interface 106, contrats 2, API 53), 45 parcours navigateur réussis, puis nouvelle prévisualisation et nouvelle production : **13 contrôles réussis** en production, aucune violation.
+- Parcours connecté non rejoué en production (pas de compte de test sans boîte de courrier lisible) ; vérifié localement par `pnpm test:e2e:accounts` le 2026-11-13.
 
 ### Vérifications de la tranche exports (2026-11-13, Windows 11, Node 26.13.0, pnpm 12.18.0, Edge 157)
 
